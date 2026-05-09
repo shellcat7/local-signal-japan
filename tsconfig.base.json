@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@local-signal-japan/connectors": ["packages/connectors/src/index.ts"],
+      "@local-signal-japan/core": ["packages/core/src/index.ts"],
+      "@local-signal-japan/reporting": ["packages/reporting/src/index.ts"],
+      "@local-signal-japan/schemas": ["packages/schemas/src/index.ts"],
+      "@local-signal-japan/scoring": ["packages/scoring/src/index.ts"],
+      "@local-signal-japan/ui": ["packages/ui/src/index.tsx"]
+    }
+  }
+}

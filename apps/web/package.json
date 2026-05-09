@@ -1,0 +1,26 @@
+{
+  "name": "@local-signal-japan/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@local-signal-japan/core": "workspace:*",
+    "@local-signal-japan/reporting": "workspace:*",
+    "@local-signal-japan/schemas": "workspace:*",
+    "@local-signal-japan/scoring": "workspace:*",
+    "@local-signal-japan/ui": "workspace:*",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.13.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.5"
+  }
+}

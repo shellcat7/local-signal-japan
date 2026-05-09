@@ -1,0 +1,14 @@
+{
+  "name": "@local-signal-japan/reporting",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@local-signal-japan/core": "workspace:*",
+    "@local-signal-japan/schemas": "workspace:*",
+    "@local-signal-japan/scoring": "workspace:*"
+  }
+}

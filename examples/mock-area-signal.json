@@ -1,0 +1,175 @@
+{
+  "areaCode": "13101",
+  "areaName": "千代田区",
+  "prefectureName": "東京都",
+  "retrievedAt": "2026-05-09",
+  "indicators": {
+    "population": {
+      "label": "人口推移",
+      "value": "居住人口は緩やかな増加傾向",
+      "unit": "mock",
+      "score": 72,
+      "trend": "up",
+      "notes": [
+        "昼間人口を含まない架空の居住人口サンプルです。",
+        "実データ利用時は国勢調査と住民基本台帳の差異を分けて表示します。"
+      ],
+      "sources": [
+        {
+          "sourceName": "Mock e-Stat population",
+          "sourceUrlLabel": "mock://estat/population/13101",
+          "retrievedAt": "2026-05-09",
+          "publishedAt": "demo-only",
+          "licenseNote": "架空デモデータ。実在統計ではありません。",
+          "attribution": "Local Signal Japan demo fixture",
+          "isMock": true
+        }
+      ]
+    },
+    "agingRate": {
+      "label": "高齢化率",
+      "value": "23.4",
+      "unit": "%",
+      "score": 58,
+      "trend": "flat",
+      "notes": [
+        "年齢構成の評価は単独で地域の良し悪しを示すものではありません。",
+        "医療・福祉需要の見込み確認に使う補助指標です。"
+      ],
+      "sources": [
+        {
+          "sourceName": "Mock age structure",
+          "sourceUrlLabel": "mock://estat/age/13101",
+          "retrievedAt": "2026-05-09",
+          "publishedAt": "demo-only",
+          "licenseNote": "架空デモデータ。実在統計ではありません。",
+          "attribution": "Local Signal Japan demo fixture",
+          "isMock": true
+        }
+      ]
+    },
+    "migration": {
+      "label": "転入・転出シグナル",
+      "value": "転入超過のサンプル",
+      "score": 68,
+      "trend": "up",
+      "notes": [
+        "転入・転出は年次変動が大きいため、3年平均で見る設計です。",
+        "検索履歴や入力値は保存しません。"
+      ],
+      "sources": [
+        {
+          "sourceName": "Mock migration ledger",
+          "sourceUrlLabel": "mock://estat/migration/13101",
+          "retrievedAt": "2026-05-09",
+          "publishedAt": "demo-only",
+          "licenseNote": "架空デモデータ。実在統計ではありません。",
+          "attribution": "Local Signal Japan demo fixture",
+          "isMock": true
+        }
+      ]
+    },
+    "landPrice": {
+      "label": "地価推移",
+      "value": "商業地点の上昇シグナル",
+      "score": 79,
+      "trend": "up",
+      "notes": [
+        "地価は地点特性に強く影響されるため、用途地域別に分ける余地があります。",
+        "この値は架空のデモ値です。"
+      ],
+      "sources": [
+        {
+          "sourceName": "Mock real estate library",
+          "sourceUrlLabel": "mock://real-estate/price/13101",
+          "retrievedAt": "2026-05-09",
+          "publishedAt": "demo-only",
+          "licenseNote": "架空デモデータ。実在統計ではありません。",
+          "attribution": "Local Signal Japan demo fixture",
+          "isMock": true
+        }
+      ]
+    },
+    "corporateActivity": {
+      "label": "法人活動シグナル",
+      "value": "新設法人の増加サンプル",
+      "score": 74,
+      "trend": "up",
+      "notes": [
+        "法人活動は本店移転、支店設置、清算を分けて扱う予定です。",
+        "実在する会社情報は保存しない前提です。"
+      ],
+      "sources": [
+        {
+          "sourceName": "Mock gBizINFO",
+          "sourceUrlLabel": "mock://gbizinfo/corporate/13101",
+          "retrievedAt": "2026-05-09",
+          "publishedAt": "demo-only",
+          "licenseNote": "架空デモデータ。実在統計ではありません。",
+          "attribution": "Local Signal Japan demo fixture",
+          "isMock": true
+        }
+      ]
+    },
+    "procurementActivity": {
+      "label": "公共案件シグナル",
+      "value": "公共案件は中程度",
+      "score": 52,
+      "trend": "flat",
+      "notes": [
+        "入札・落札データは公開範囲と取得日時を明示します。",
+        "少額案件や随意契約の扱いはデータソースごとに注意が必要です。"
+      ],
+      "sources": [
+        {
+          "sourceName": "Mock procurement portal",
+          "sourceUrlLabel": "mock://procurement/awards/13101",
+          "retrievedAt": "2026-05-09",
+          "publishedAt": "demo-only",
+          "licenseNote": "架空デモデータ。実在統計ではありません。",
+          "attribution": "Local Signal Japan demo fixture",
+          "isMock": true
+        }
+      ]
+    },
+    "employment": {
+      "label": "雇用関連シグナル",
+      "value": "求人関連は確認継続",
+      "score": 61,
+      "trend": "flat",
+      "notes": [
+        "雇用指標は産業構成と通勤圏を合わせて確認する必要があります。",
+        "MVPでは架空データのみ表示します。"
+      ],
+      "sources": [
+        {
+          "sourceName": "Mock employment fixture",
+          "sourceUrlLabel": "mock://employment/13101",
+          "retrievedAt": "2026-05-09",
+          "publishedAt": "demo-only",
+          "licenseNote": "架空デモデータ。実在統計ではありません。",
+          "attribution": "Local Signal Japan demo fixture",
+          "isMock": true
+        }
+      ]
+    }
+  },
+  "summary": {
+    "growthSignals": [
+      "公開データ上は法人活動と地価に強めのシグナルがあります。",
+      "人口・転入のサンプル指標は緩やかな増加方向を示します。"
+    ],
+    "stagnationSignals": [
+      "公共案件は中程度で、単独では強い方向性を示していません。"
+    ],
+    "cautionSignals": [
+      "昼間人口の影響が大きい地域では居住人口だけで判断しないでください。",
+      "地価指標は地点構成に左右されます。"
+    ],
+    "missingDataNotes": [
+      "実データconnectorは未接続です。",
+      "雇用関連の公開データはMVPでは架空値です。"
+    ],
+    "confidence": "medium"
+  }
+}
