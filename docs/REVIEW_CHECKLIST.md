@@ -26,14 +26,15 @@
 - MVPはモックのみですが、実connector追加時にAPIキーをWorker側へ閉じ込める実装レビューが必要です。
 - WorkerのCORS許可はローカル開発向けです。本番ドメインに合わせて制限してください。
 - CIは初期テンプレートのため、ロックファイル導入後に frozen lockfile を有効化してください。
+- D1 migrationは公開データメタ情報用です。検索履歴テーブルを追加しないでください。
 
 ## 公開前に直すべき優先順位
 
 1. 実データ利用時のsource metadataをカードとレポートに追加する。
 2. Workerの本番CORS設定を公開ドメインへ絞る。
-3. CLI fixtureを複数自治体対応にする。
-4. `/demo` のモバイル表示でレポート欄を整理する。
-5. Cloudflare Previewで視覚確認を行う。
+3. D1のpreview/production databaseを分けて設定する。
+4. CLI fixtureを複数自治体対応にする。
+5. `/demo` のモバイル表示でレポート欄を整理する。
 
 ## OSSとして他人が使いにくい箇所
 

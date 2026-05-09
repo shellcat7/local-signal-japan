@@ -50,7 +50,21 @@ When real connectors are added, configure provider credentials as Cloudflare sec
 
 ## D1
 
-D1 is intentionally not used for search history in the MVP. If D1 is introduced later, it should store only explicitly documented non-personal application data.
+D1 is intentionally not used for search history in the MVP. The provided migrations create a public-data metadata table only.
+
+Create a D1 database when you are ready to connect the Worker API:
+
+```bash
+pnpm --filter @local-signal-japan/worker wrangler d1 create local-signal-japan-public-data
+```
+
+Copy the generated `database_id` into the Worker configuration. See `apps/worker/wrangler.d1.example.jsonc` and [DATABASE.md](DATABASE.md).
+
+Apply migrations:
+
+```bash
+pnpm --filter @local-signal-japan/worker wrangler d1 migrations apply local-signal-japan-public-data
+```
 
 ## GitHub Secrets
 

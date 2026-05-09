@@ -120,6 +120,7 @@ pnpm preflight
 ## Documentation
 
 - [Data sources](docs/DATA_SOURCES.md)
+- [Database](docs/DATABASE.md)
 - [Attribution](docs/ATTRIBUTION.md)
 - [Methodology](docs/METHODOLOGY.md)
 - [Design rationale](docs/DESIGN_RATIONALE.md)
