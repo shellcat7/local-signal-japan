@@ -21,8 +21,16 @@ This project is prepared for Cloudflare Pages plus an optional Hono Worker API.
    - Build command: `pnpm build`
    - Build output directory: `apps/web/dist`
    - Root directory: repository root
+   - Framework preset: `None`
 
-4. Open the Preview Deployment and check `/demo`.
+   Do not choose `VitePress`; this project is a React/Vite app, not a VitePress documentation site.
+
+4. Recommended build environment variables:
+
+   - `NODE_VERSION=24.15.0`
+   - `PNPM_VERSION=9.12.3`
+
+5. Open the Preview Deployment and check `/demo`.
 
 ## Worker API
 

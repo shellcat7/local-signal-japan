@@ -30,6 +30,8 @@ import type { AreaSignal } from "@local-signal-japan/schemas";
 import { buildScoreBreakdown, calculateOverallScore, confidenceLabel } from "@local-signal-japan/scoring";
 import { IndicatorCard, ScorePill } from "@local-signal-japan/ui";
 
+type ActiveSection = "overview" | "indicators" | "comparison" | "report";
+
 const trendSeries = [
   { year: "2022", population: 58, land: 62, activity: 54 },
   { year: "2023", population: 62, land: 69, activity: 59 },
@@ -42,6 +44,13 @@ const policyItems = [
   { icon: ShieldCheck, label: "検索履歴を保存しない", detail: "MVPでは入力値を永続化しません。" },
   { icon: Database, label: "公開データの出典を表示", detail: "取得日・加工有無・mock区分をカード単位で示します。" },
   { icon: AlertTriangle, label: "断定表現を避ける", detail: "地域評価ではなく公開データ上の補助シグナルとして扱います。" }
+];
+
+const sectionTabs: Array<{ id: ActiveSection; label: string; description: string }> = [
+  { id: "overview", label: "概要", description: "主要シグナルとチャート" },
+  { id: "indicators", label: "指標", description: "根拠・出典カード" },
+  { id: "comparison", label: "比較", description: "近隣自治体との比較" },
+  { id: "report", label: "レポート", description: "Markdown出力" }
 ];
 
 function signalGroups(area: AreaSignal) {
@@ -70,6 +79,7 @@ export function App() {
   const [query, setQuery] = useState("13101");
   const [area, setArea] = useState<AreaSignal>(() => getDefaultAreaSignal());
   const [status, setStatus] = useState("架空データのみ表示中");
+  const [activeSection, setActiveSection] = useState<ActiveSection>("overview");
   const options = listAreaOptions();
 
   const indicatorEntries = useMemo(() => getIndicatorEntries(area), [area]);
@@ -201,152 +211,180 @@ export function App() {
         </div>
       </section>
 
-      <section className="dashboard-grid">
-        <section className="analysis-panel signal-panel">
-          <div className="panel-head">
-            <div>
-              <p>signal review</p>
-              <h2>公開データ上のシグナル</h2>
-            </div>
-            <TrendingUp size={18} aria-hidden="true" />
-          </div>
-          <div className="signal-columns">
-            {signalGroups(area).map((group) => (
-              <article className={`signal-box signal-box--${group.tone}`} key={group.label}>
-                <h3>{group.label}</h3>
-                <ul>
-                  {group.items.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="analysis-panel chart-panel">
-          <div className="panel-head">
-            <div>
-              <p>breakdown</p>
-              <h2>スコア内訳</h2>
-            </div>
-            <ScorePill score={overallScore} />
-          </div>
-          <div className="chart-box">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <Radar dataKey="score" stroke="#236c62" fill="#8fd3c1" fillOpacity={0.6} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-        <section className="analysis-panel chart-panel">
-          <div className="panel-head">
-            <div>
-              <p>mock index</p>
-              <h2>時系列サンプル</h2>
-            </div>
-          </div>
-          <div className="chart-box">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendSeries} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#d9e2e7" />
-                <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="population" name="人口" stroke="#2d6cdf" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="land" name="地価" stroke="#bf6a02" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="activity" name="法人" stroke="#236c62" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-      </section>
-
-      <section className="section-head">
-        <div>
-          <p>evidence cards</p>
-          <h2>指標カード</h2>
-        </div>
-      </section>
-      <section className="indicator-grid" aria-label="指標カード">
-        {indicatorEntries.map(([, indicator]) => (
-          <IndicatorCard key={indicator.label} indicator={indicator} />
-        ))}
-      </section>
-
-      <section className="comparison-panel">
-        <div className="panel-head">
-          <div>
-            <p>demo comparison</p>
-            <h2>近隣自治体比較</h2>
-          </div>
-        </div>
-        <div className="comparison-layout">
-          <div className="chart-box chart-box--wide">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={neighborComparisons} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#d9e2e7" />
-                <XAxis dataKey="areaName" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="overallScore" name="総合補助スコア">
-                  {neighborComparisons.map((neighbor) => (
-                    <Cell key={neighbor.areaCode} fill={neighbor.isSelected ? "#236c62" : "#879caf"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>自治体</th>
-                <th>人口</th>
-                <th>地価</th>
-                <th>活動</th>
-                <th>総合</th>
-              </tr>
-            </thead>
-            <tbody>
-              {neighborComparisons.map((neighbor) => (
-                <tr key={neighbor.areaCode} className={neighbor.isSelected ? "is-selected" : ""}>
-                  <td>{neighbor.areaName}</td>
-                  <td>{neighbor.populationScore}</td>
-                  <td>{neighbor.landPriceScore}</td>
-                  <td>{neighbor.activityScore}</td>
-                  <td>{neighbor.overallScore}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="report-panel">
-        <div className="panel-head">
-          <div>
-            <p>export</p>
-            <h2>Markdownレポート</h2>
-          </div>
+      <nav className="view-tabs" aria-label="表示セクション">
+        {sectionTabs.map((tab) => (
           <button
             type="button"
-            onClick={() => downloadText(`local-signal-${area.areaCode}.md`, report)}
-            title="Markdownをダウンロード"
+            key={tab.id}
+            className={activeSection === tab.id ? "view-tab is-active" : "view-tab"}
+            onClick={() => setActiveSection(tab.id)}
+            aria-pressed={activeSection === tab.id}
           >
-            <Download size={18} aria-hidden="true" />
-            <span>MD</span>
+            <span>{tab.label}</span>
+            <small>{tab.description}</small>
           </button>
-        </div>
-        <div className="report-body">
-          <FileText size={18} aria-hidden="true" />
-          <pre>{report}</pre>
-        </div>
-      </section>
+        ))}
+      </nav>
+
+      {activeSection === "overview" && (
+        <section className="dashboard-grid">
+          <section className="analysis-panel signal-panel">
+            <div className="panel-head">
+              <div>
+                <p>signal review</p>
+                <h2>公開データ上のシグナル</h2>
+              </div>
+              <TrendingUp size={18} aria-hidden="true" />
+            </div>
+            <div className="signal-columns">
+              {signalGroups(area).map((group) => (
+                <article className={`signal-box signal-box--${group.tone}`} key={group.label}>
+                  <h3>{group.label}</h3>
+                  <ul>
+                    {group.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="analysis-panel chart-panel">
+            <div className="panel-head">
+              <div>
+                <p>breakdown</p>
+                <h2>スコア内訳</h2>
+              </div>
+              <ScorePill score={overallScore} />
+            </div>
+            <div className="chart-box">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <Radar dataKey="score" stroke="#236c62" fill="#8fd3c1" fillOpacity={0.6} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          <section className="analysis-panel chart-panel">
+            <div className="panel-head">
+              <div>
+                <p>mock index</p>
+                <h2>時系列サンプル</h2>
+              </div>
+            </div>
+            <div className="chart-box">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendSeries} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#d9e2e7" />
+                  <XAxis dataKey="year" tick={{ fontSize: 11 }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="population" name="人口" stroke="#2d6cdf" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="land" name="地価" stroke="#bf6a02" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="activity" name="法人" stroke="#236c62" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        </section>
+      )}
+
+      {activeSection === "indicators" && (
+        <>
+          <section className="section-head">
+            <div>
+              <p>evidence cards</p>
+              <h2>指標カード</h2>
+            </div>
+          </section>
+          <section className="indicator-grid" aria-label="指標カード">
+            {indicatorEntries.map(([, indicator]) => (
+              <IndicatorCard key={indicator.label} indicator={indicator} />
+            ))}
+          </section>
+        </>
+      )}
+
+      {activeSection === "comparison" && (
+        <section className="comparison-panel">
+          <div className="panel-head">
+            <div>
+              <p>demo comparison</p>
+              <h2>近隣自治体比較</h2>
+            </div>
+          </div>
+          <div className="comparison-layout">
+            <div className="chart-box chart-box--wide">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={neighborComparisons} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#d9e2e7" />
+                  <XAxis dataKey="areaName" tick={{ fontSize: 11 }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Bar dataKey="overallScore" name="総合補助スコア">
+                    {neighborComparisons.map((neighbor) => (
+                      <Cell key={neighbor.areaCode} fill={neighbor.isSelected ? "#236c62" : "#879caf"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>自治体</th>
+                  <th>人口</th>
+                  <th>地価</th>
+                  <th>活動</th>
+                  <th>総合</th>
+                </tr>
+              </thead>
+              <tbody>
+                {neighborComparisons.map((neighbor) => (
+                  <tr key={neighbor.areaCode} className={neighbor.isSelected ? "is-selected" : ""}>
+                    <td>{neighbor.areaName}</td>
+                    <td>{neighbor.populationScore}</td>
+                    <td>{neighbor.landPriceScore}</td>
+                    <td>{neighbor.activityScore}</td>
+                    <td>{neighbor.overallScore}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {activeSection === "report" && (
+        <section className="report-panel">
+          <div className="panel-head">
+            <div>
+              <p>export</p>
+              <h2>Markdownレポート</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => downloadText(`local-signal-${area.areaCode}.md`, report)}
+              title="Markdownをダウンロード"
+            >
+              <Download size={18} aria-hidden="true" />
+              <span>MD</span>
+            </button>
+          </div>
+          <div className="report-summary">
+            <FileText size={18} aria-hidden="true" />
+            <p>レポートは選択中の自治体、補助スコア、シグナル、欠損メモ、指標別の出典情報を含みます。</p>
+          </div>
+          <div className="report-body">
+            <pre>{report}</pre>
+          </div>
+        </section>
+      )}
     </main>
   );
 }
