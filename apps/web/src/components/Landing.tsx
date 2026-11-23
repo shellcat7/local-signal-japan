@@ -31,10 +31,19 @@ type LandingProps = {
   onOpenArea: (areaCode: string) => void;
   onOpenRanking: (route: RankingRoute) => void;
   onOpenTopics: () => void;
+  onDrawKuji: () => void;
 };
 
 /** トップページの、検索欄より下の部分。 */
-export function Landing({ manifest, index, national, onOpenArea, onOpenRanking, onOpenTopics }: LandingProps) {
+export function Landing({
+  manifest,
+  index,
+  national,
+  onOpenArea,
+  onOpenRanking,
+  onOpenTopics,
+  onDrawKuji
+}: LandingProps) {
   const prefNames = new Map(index.prefectures.map((pref) => [pref.code, pref.name]));
 
   return (
@@ -55,6 +64,19 @@ export function Landing({ manifest, index, national, onOpenArea, onOpenRanking, 
         {/* 広い画面では地図の形、狭い画面では地方ごとの一覧で示す。 */}
         <JapanMap index={index} onOpenRanking={onOpenRanking} />
         <PrefectureIndex index={index} onOpenRanking={onOpenRanking} />
+      </section>
+
+      <section className="kuji-entry" aria-labelledby="kuji-entry-title">
+        <div>
+          <h2 id="kuji-entry-title">まちくじ</h2>
+          <p>
+            全国{formatNumber(manifest.counts.referenceAreas)}
+            市区町村から1つを引いて、そのまちが全国や都道府県の中で目立つところを読む。
+          </p>
+        </div>
+        <button type="button" className="button button--primary kuji__draw" onClick={onDrawKuji}>
+          くじを引く
+        </button>
       </section>
 
       {national.status === "ready" && (

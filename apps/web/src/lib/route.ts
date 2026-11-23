@@ -33,7 +33,11 @@ export type RankingRoute = {
   /** 結果を表で見るか、地図で見るか。 */
   display: "table" | "map";
 };
-export type Route = HomeRoute | TopicsRoute | AreaRoute | RankingRoute;
+/** まちくじ。引いた市区町村と、引く範囲（都道府県）を持つ。 */
+export type KujiRoute = { view: "kuji"; areaCode: string | null; prefCode: string | null };
+export type Route = HomeRoute | TopicsRoute | AreaRoute | RankingRoute | KujiRoute;
+
+export const KUJI_HOME: KujiRoute = { view: "kuji", areaCode: null, prefCode: null };
 
 export const DEFAULT_RANKING: RankingRoute = {
   view: "ranking",
@@ -83,12 +87,19 @@ function parseRange(text: string | null): { min?: number; max?: number } | null 
  *   #view=ranking&metric=income&pref=13&aging=..30&income=350..&show=map
  *   #view=ranking&topic=bicycle&metric=commuteBike
  *   #view=topics
+ *   #view=kuji&area=10524&pref=10
  * ハッシュはサーバーに送られないため、どの市区町村を見たかが配信元のログに残らない。
  */
 export function parseHash(hash: string): Route {
   const params = new URLSearchParams(hash.replace(/^#/, ""));
 
   if (params.get("view") === "topics") return { view: "topics" };
+
+  if (params.get("view") === "kuji") {
+    const area = params.get("area");
+    const pref = params.get("pref");
+    return { view: "kuji", areaCode: isAreaCode(area) ? area : null, prefCode: isPrefCode(pref) ? pref : null };
+  }
 
   if (params.get("view") === "ranking") {
     const metric = params.get("metric");
@@ -126,6 +137,12 @@ export function parseHash(hash: string): Route {
 export function formatHash(route: Route): string {
   if (route.view === "home") return "";
   if (route.view === "topics") return "#view=topics";
+  if (route.view === "kuji") {
+    const params = new URLSearchParams({ view: "kuji" });
+    if (route.areaCode !== null) params.set("area", route.areaCode);
+    if (route.prefCode !== null) params.set("pref", route.prefCode);
+    return `#${params.toString()}`;
+  }
 
   const params = new URLSearchParams();
   if (route.view === "ranking") {

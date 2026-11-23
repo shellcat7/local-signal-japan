@@ -41,6 +41,8 @@ export type RankingCard = {
 
 export type HighlightsCard = {
   kind: "highlights";
+  /** 右上に添える札の文字（「まちくじ No.10524」など）。 */
+  tag?: string;
   name: string;
   sub: string;
   items: Array<{ phrase: string; label: string; value: string; period: string; top: boolean }>;
@@ -172,6 +174,13 @@ function drawRanking(context: CanvasRenderingContext2D, card: RankingCard) {
 
 function drawHighlights(context: CanvasRenderingContext2D, card: HighlightsCard) {
   drawWordmark(context, PADDING, 58);
+  if (card.tag) {
+    context.textAlign = "right";
+    context.font = font(500, 16);
+    context.fillStyle = INK_2;
+    context.fillText(card.tag, CARD_WIDTH - PADDING, 58);
+    context.textAlign = "left";
+  }
   context.fillStyle = INK;
   context.font = font(700, 44);
   context.fillText(card.name, PADDING, 128);

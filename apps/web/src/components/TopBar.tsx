@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactNode } from "react";
-import { hrefOf, DEFAULT_RANKING, type Route } from "../lib/route";
+import { hrefOf, DEFAULT_RANKING, KUJI_HOME, type Route } from "../lib/route";
 import { SITE_NAME } from "../lib/site";
 
 type TopBarProps = {
@@ -43,6 +43,9 @@ export function TopBar({ route, onNavigate, search }: TopBarProps) {
             aria-current={route.view === "topics" || (route.view === "ranking" && route.topic) ? "page" : undefined}
           >
             特集
+          </a>
+          <a {...link(KUJI_HOME)} aria-current={route.view === "kuji" ? "page" : undefined}>
+            まちくじ
           </a>
         </nav>
       </div>

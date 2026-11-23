@@ -33,6 +33,7 @@ import {
   screenHeaderLines,
   type ScreenArgs
 } from "./screen";
+import { renderKujiJson, renderKujiText, runKuji } from "./kuji";
 import { buildHighlights, buildShownFacts, factLines, highlightLines } from "./show";
 import {
   renderTopicCsv,
@@ -84,6 +85,9 @@ const USAGE = `まちのものさし（Local Signal Japan）CLI
       一覧の計算は screen と同じで、--limit の既定は ${DEFAULT_SCREEN_LIMIT} です。
       特集: ${TOPICS.map((topic) => topic.id).join(", ")}
       例: pnpm localsignal topics half-by-2050 --limit 5
+  pnpm localsignal kuji [--pref <都道府県>] [--json]
+      まちくじ。政令指定都市の区を除く市区町村から1つを引き、全国や都道府県の中で目立つところを3つまで表示します。
+      --pref を付けると、その都道府県の中から引きます。
 
 <市区町村> には5桁の市区町村コード(例: 13101)か名前(例: 千代田区、横浜市青葉区)を指定します。
 データはリポジトリ同梱のデータセットを読みます。更新は pnpm data:refresh です。
@@ -266,6 +270,12 @@ async function topics(id: string | undefined, args: TopicArgs, format: OutputFor
   if (format === "csv") console.error(topicNoteLines(result).join("\n"));
 }
 
+async function kuji(pref: string | undefined, asJson: boolean): Promise<void> {
+  const [manifest, index, national] = await Promise.all([readManifest(), readAreaIndex(), readNational()]);
+  const result = runKuji(national.areas, index, manifest, { pref });
+  process.stdout.write(asJson ? renderKujiJson(result) : renderKujiText(result, manifest.counts.referenceAreas));
+}
+
 /** 特集では、並べ方と条件を変えるオプションを受け付けない。 */
 const SCREEN_ONLY_OPTIONS = ["where", "sort", "order", "size"] as const;
 
@@ -322,6 +332,11 @@ async function main(): Promise<void> {
       }
       return topics(query, { pref: values.pref, limit: values.limit }, format, values.out);
     }
+    case "kuji":
+      if (query !== undefined)
+        throw new CliError(`kuji に渡せない引数です（都道府県は --pref で指定します）: ${query}`);
+      if (values.csv || values.out) throw new CliError("kuji では --csv と --out を使えません。");
+      return kuji(values.pref, values.json);
     default:
       throw new CliError(`不明なコマンドです: ${command}\n\n${USAGE}`);
   }

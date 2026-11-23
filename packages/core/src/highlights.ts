@@ -22,7 +22,7 @@ const INDICATOR_WORDS: Record<(typeof INDICATOR_KEYS)[number], { high: string; l
 };
 
 /** 抜き出しの対象にしない指標（意味の取りにくい言い方になるもの）。 */
-const EXCLUDED: ReadonlySet<MetricKey> = new Set(["furusatoNet"]);
+export const HIGHLIGHT_EXCLUDED: ReadonlySet<MetricKey> = new Set(["furusatoNet"]);
 
 export type Highlight = {
   key: MetricKey;
@@ -40,7 +40,8 @@ export type Highlight = {
   phrase: string;
 };
 
-function describe(key: MetricKey, value: number, manifest: Manifest) {
+/** 指標の名前、大きい側・小さい側の言葉、値の表示、基準時点。人口の少ない市区町村を除いて比べるかどうか。 */
+export function describeMetric(key: MetricKey, value: number, manifest: Manifest) {
   if (isFactKey(key)) {
     const definition = FACTS[key];
     return {
@@ -77,11 +78,11 @@ export function findHighlights(
   const found: Highlight[] = [];
 
   for (const key of [...INDICATOR_KEYS, ...FACT_KEYS] as MetricKey[]) {
-    if (EXCLUDED.has(key)) continue;
+    if (HIGHLIGHT_EXCLUDED.has(key)) continue;
     const value = rowMetricValue(target, key);
     if (value === null) continue;
 
-    const { label, words, valueText, period, limited } = describe(key, value, manifest);
+    const { label, words, valueText, period, limited } = describeMetric(key, value, manifest);
     if (limited && (target.population === null || target.population < HIGHLIGHT_MIN_POPULATION)) continue;
 
     const values = reference

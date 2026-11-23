@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import {
   areaFullName,
+  drawArea,
   findAreaEntry,
   findTopic,
   formatNumber,
@@ -11,13 +12,22 @@ import {
 } from "@local-signal-japan/core";
 import { AreaDashboard } from "./components/AreaDashboard";
 import { Footer } from "./components/Footer";
+import { KujiView } from "./components/KujiView";
 import { Landing } from "./components/Landing";
 import { ScreenerView } from "./components/ScreenerView";
 import { TopicsView } from "./components/TopicsView";
 import { SearchBox } from "./components/SearchBox";
 import { TopBar } from "./components/TopBar";
 import { loadAreaIndex, loadManifest, loadNational, loadPrefecture } from "./lib/data";
-import { hrefOf, useRoute, type AreaRoute, type RankingRoute, type Route, type TabId } from "./lib/route";
+import {
+  hrefOf,
+  useRoute,
+  type AreaRoute,
+  type KujiRoute,
+  type RankingRoute,
+  type Route,
+  type TabId
+} from "./lib/route";
 import { SITE_NAME } from "./lib/site";
 import { useAsync } from "./lib/useAsync";
 
@@ -228,15 +238,55 @@ function TopicsSection({ manifest, index, onOpenArea, onOpenRanking }: TopicsSec
   );
 }
 
+type KujiSectionProps = {
+  route: KujiRoute;
+  manifest: Manifest;
+  index: AreaIndex;
+  drawn: readonly string[];
+  pendingReveal: string | null;
+  onRevealed: () => void;
+  onDraw: (prefCode: string | null) => void;
+  onChangePref: (prefCode: string | null) => void;
+  onNavigate: (route: Route) => void;
+};
+
+function KujiSection({ manifest, ...props }: KujiSectionProps) {
+  const load = useCallback(() => loadNational(manifest), [manifest]);
+  const [national] = useAsync(load);
+  const entry = props.route.areaCode ? findAreaEntry(props.index, props.route.areaCode) : undefined;
+  const revealed = entry && props.pendingReveal !== entry.code;
+  const name = revealed ? `${entry.prefName} ${entry.parentName ?? ""}${entry.name}` : null;
+
+  useEffect(() => {
+    document.title = name ? `まちくじ：${name} | ${SITE_NAME}` : `まちくじ | ${SITE_NAME}`;
+    return () => {
+      document.title = SITE_NAME;
+    };
+  }, [name]);
+
+  return (
+    <>
+      <header className="container page-head">
+        <h2>まちくじ</h2>
+        <p>どこかのまちを1つ引いて、そのまちが全国や都道府県の中で目立つところを読みます。</p>
+      </header>
+      <div className="container">
+        <KujiView manifest={manifest} national={national} {...props} />
+      </div>
+    </>
+  );
+}
+
 type HomeSectionProps = {
   manifest: Manifest;
   index: AreaIndex;
   onOpenArea: (areaCode: string) => void;
   onOpenRanking: (route: RankingRoute) => void;
   onOpenTopics: () => void;
+  onDrawKuji: () => void;
 };
 
-function HomeSection({ manifest, index, onOpenArea, onOpenRanking, onOpenTopics }: HomeSectionProps) {
+function HomeSection({ manifest, index, onOpenArea, onOpenRanking, onOpenTopics, onDrawKuji }: HomeSectionProps) {
   const load = useCallback(() => loadNational(manifest), [manifest]);
   const [national] = useAsync(load);
 
@@ -249,6 +299,7 @@ function HomeSection({ manifest, index, onOpenArea, onOpenRanking, onOpenTopics 
         onOpenArea={onOpenArea}
         onOpenRanking={onOpenRanking}
         onOpenTopics={onOpenTopics}
+        onDrawKuji={onDrawKuji}
       />
     </div>
   );
@@ -261,6 +312,10 @@ export function App() {
   const mainRef = useRef<HTMLElement>(null);
 
   const ready = dataset.status === "ready" ? dataset.value : null;
+  // まちくじで引いた市区町村（新しい順）。このページを開いている間だけ持ち、ブラウザには保存しない。
+  const [drawn, setDrawn] = useState<string[]>([]);
+  const [pendingReveal, setPendingReveal] = useState<string | null>(null);
+  const clearReveal = useCallback(() => setPendingReveal(null), []);
 
   // 検索・例のボタン・比較表・ランキングのどこから選んでも、切り替え後は見出しへフォーカスを移す。
   const selectArea = (areaCode: string) => {
@@ -289,6 +344,24 @@ export function App() {
   const goTo = (target: Route) => {
     navigate(target);
     window.scrollTo({ top: 0 });
+  };
+
+  const drawKuji = (prefCode: string | null) => {
+    if (!ready) return;
+    const picked = drawArea(ready.index.areas, {
+      prefCode,
+      exclude: route.view === "kuji" ? route.areaCode : null
+    });
+    if (!picked) return;
+    setDrawn((previous) => [picked.code, ...previous.filter((code) => code !== picked.code)]);
+    setPendingReveal(picked.code);
+    if (route.view === "kuji") {
+      navigate({ view: "kuji", areaCode: picked.code, prefCode });
+      return;
+    }
+    // ほかの画面から引いたときは、ページの先頭から見せる。
+    goTo({ view: "kuji", areaCode: picked.code, prefCode });
+    mainRef.current?.focus({ preventScroll: true });
   };
 
   return (
@@ -333,6 +406,20 @@ export function App() {
             onOpenArea={selectArea}
             onOpenRanking={openRanking}
             onOpenTopics={() => goTo({ view: "topics" })}
+            onDrawKuji={() => drawKuji(null)}
+          />
+        )}
+        {ready && route.view === "kuji" && (
+          <KujiSection
+            route={route}
+            manifest={ready.manifest}
+            index={ready.index}
+            drawn={drawn}
+            pendingReveal={pendingReveal}
+            onRevealed={clearReveal}
+            onDraw={drawKuji}
+            onChangePref={(prefCode) => navigate({ ...route, prefCode }, { replace: true })}
+            onNavigate={goTo}
           />
         )}
         {ready && route.view === "topics" && (

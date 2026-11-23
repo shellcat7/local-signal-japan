@@ -166,3 +166,16 @@ describe("特集と地図", () => {
     expect(parseHash("#area=16210&tab=life")).toMatchObject({ tab: "life" });
   });
 });
+
+describe("まちくじ", () => {
+  it("引いた市区町村と、引く範囲の都道府県を読み書きする", () => {
+    const route: Route = { view: "kuji", areaCode: "10524", prefCode: "10" };
+    expect(parseHash("#view=kuji&area=10524&pref=10")).toEqual(route);
+    expect(formatHash(route)).toBe("#view=kuji&area=10524&pref=10");
+    expect(formatHash({ view: "kuji", areaCode: null, prefCode: null })).toBe("#view=kuji");
+  });
+
+  it("読めない指定は外す", () => {
+    expect(parseHash("#view=kuji&area=abc&pref=48")).toEqual({ view: "kuji", areaCode: null, prefCode: null });
+  });
+});

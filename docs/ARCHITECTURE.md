@@ -76,17 +76,19 @@
 
 ### 書体を同梱する
 
-数字と欧文には IBM Plex Sans、市区町村コードと系列コードには IBM Plex Mono を使います（どちらも SIL Open Font License）。等幅はコードにだけ使い、時点や順位は本文と同じ書体で数字の幅だけをそろえます。ビルド時に欧文の範囲だけを同梱し、外部のフォント配信は使いません（Content-Security-Policy で外部への通信を禁止しているため）。和文は端末の標準書体で表示します。ロゴだけは、名前の仮名6種類を収めた丸ゴシック（Zen Maru Gothic、SIL Open Font License、約1.5KB）を同梱しています。
+数字と欧文には IBM Plex Sans、市区町村コードと系列コードには IBM Plex Mono を使います（どちらも SIL Open Font License）。等幅はコードにだけ使い、時点や順位は本文と同じ書体で数字の幅だけをそろえます。ビルド時に欧文の範囲だけを同梱し、外部のフォント配信は使いません（Content-Security-Policy で外部への通信を禁止しているため）。和文は端末の標準書体で表示します。ロゴだけは、「まちのものさし」「まちくじ」の仮名8種類を収めた丸ゴシック（Zen Maru Gothic、SIL Open Font License、約1.7KB）を同梱しています。
 
 ### 表示状態を URL のハッシュに持つ
 
 開いている画面を、次の形で URL のハッシュに持ちます。リンクとして共有でき、ハッシュはサーバーに送られないので配信元のログに残りません。ルーティングのライブラリは使っていません。
 
-| 画面         | 例                                                            |
-| ------------ | ------------------------------------------------------------- |
-| 市区町村     | `#area=13101&tab=indicators`                                  |
-| 並べて比べる | `#area=16210&tab=comparison&with=13101,14100`                 |
-| 条件でさがす | `#view=ranking&metric=income&pref=13&aging=..30&income=350..` |
+| 画面         | 例                                                               |
+| ------------ | ---------------------------------------------------------------- |
+| 市区町村     | `#area=13101&tab=indicators`                                     |
+| 並べて比べる | `#area=16210&tab=comparison&with=13101,14100`                    |
+| 条件でさがす | `#view=ranking&metric=income&pref=13&aging=..30&income=350..`    |
+| 特集         | `#view=topics`、`#view=ranking&topic=bicycle&metric=commuteBike` |
+| まちくじ     | `#view=kuji&area=10524&pref=10`                                  |
 
 指標値の条件は `指標=下限..上限` の形です（片側だけでもよい）。
 

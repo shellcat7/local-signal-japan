@@ -53,7 +53,8 @@ test.describe("ダークモード", () => {
     "#area=16210&tab=comparison",
     "#view=ranking",
     "#view=topics",
-    "#view=ranking&topic=bicycle&metric=commuteBike&show=map"
+    "#view=ranking&topic=bicycle&metric=commuteBike&show=map",
+    "#view=kuji&area=01668"
   ]) {
     test(`文字のコントラストなどの基準を満たす: ${hash || "トップページ"}`, async ({ page }) => {
       await page.goto(`./${hash}`);
@@ -704,5 +705,80 @@ test.describe("市区町村の画面", () => {
     await expect(page.locator("main")).toBeFocused();
     await expect(page.getByRole("heading", { level: 2, name: "千代田区" })).toBeVisible();
     await expect(page).toHaveURL(/#area=13101&tab=indicators$/);
+  });
+});
+
+test.describe("まちくじ", () => {
+  test("投稿されたリンクから、同じ札（目立つところ・画像・投稿の文）を開ける", async ({ page }) => {
+    const { errors, externalRequests } = watch(page);
+    await page.goto("./#view=kuji&area=10524");
+
+    const ticket = page.getByRole("article", { name: "大泉町" });
+    await expect(ticket).toContainText("群馬県");
+    await expect(ticket).toContainText("No. 10524");
+    await expect(ticket).toContainText(/人口 [\d,]+人/);
+    const foreign = ticket.getByRole("listitem").filter({ hasText: "外国人住民の割合" });
+    await expect(foreign).toContainText(/全国で\d+番目に高い|全国で最も高い/);
+    await expect(ticket.getByRole("listitem")).toHaveCount(3);
+    await expect(page).toHaveTitle(/^まちくじ：群馬県 大泉町/);
+
+    const downloadPromise = page.waitForEvent("download");
+    await ticket.getByRole("button", { name: "画像で保存" }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("machikuji-10524.png");
+    expect((await readFile(await download.path())).subarray(1, 4).toString()).toBe("PNG");
+
+    const post = ticket.getByRole("link", { name: "Xに投稿" });
+    const href = new URL((await post.getAttribute("href")) ?? "");
+    expect(href.searchParams.get("text")).toMatch(/^まちくじで「群馬県 大泉町」を引きました。外国人住民の割合が/);
+    expect(href.searchParams.get("text")).toContain("#まちくじ");
+    expect(href.searchParams.get("url")).toMatch(/#view=kuji&area=10524$/);
+
+    await ticket.getByRole("link", { name: "このまちをくわしく見る" }).click();
+    await expect(page).toHaveURL(/#area=10524$/);
+    await expect(page.getByRole("heading", { level: 2, name: "大泉町" })).toBeVisible();
+
+    expect(errors).toEqual([]);
+    expect(externalRequests).toEqual([]);
+  });
+
+  test("トップページから引き、もう一回引ける。引いたまちはこのページの中だけに残る", async ({ page }) => {
+    const { errors, externalRequests } = watch(page);
+    await page.goto("./");
+    await page.getByRole("region", { name: "まちくじ" }).getByRole("button", { name: "くじを引く" }).click();
+
+    await expect(page).toHaveURL(/#view=kuji&area=\d{5}$/);
+    await expect(page.getByRole("status").filter({ hasText: "を引きました" })).toHaveCount(1);
+    await expect(page.getByRole("heading", { name: /^このページで引いたまち/ })).toContainText("1");
+    const first = new URL(page.url()).hash;
+
+    await page.getByRole("button", { name: "もう一回引く" }).click();
+    await expect(page).not.toHaveURL(new RegExp(`${first}$`));
+    await expect(page.getByRole("button", { name: "もう一回引く" })).toBeEnabled();
+    await expect(page.getByRole("heading", { name: /^このページで引いたまち/ })).toContainText("2");
+    await expect(page.locator(".kuji__log li")).toHaveCount(2);
+
+    // 端末には何も保存しない。
+    expect(await page.evaluate(() => localStorage.length + sessionStorage.length)).toBe(0);
+    await expectNoHorizontalOverflow(page);
+    await expectAccessible(page);
+    expect(errors).toEqual([]);
+    expect(externalRequests).toEqual([]);
+  });
+
+  test("引く範囲を都道府県で絞れ、動きを減らす設定では名前を切り替えずに結果を出す", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("./#view=kuji");
+    await expect(page.getByRole("heading", { name: "どこのまちが出るか" })).toBeVisible();
+
+    await page.getByLabel("引く範囲").selectOption({ label: "沖縄県" });
+    await expect(page).toHaveURL(/#view=kuji&pref=47$/);
+    await expect(page.getByText("沖縄県の41市区町村から1つ")).toBeVisible();
+
+    await page.getByRole("button", { name: "くじを引く" }).click();
+    await expect(page).toHaveURL(/#view=kuji&area=47\d{3}&pref=47$/);
+    await expect(page.locator(".kuji__name--rolling")).toHaveCount(0);
+    await expect(page.locator(".kuji__pref")).toHaveText("沖縄県");
+    await expect(page.getByRole("button", { name: "もう一回引く" })).toBeEnabled();
   });
 });
