@@ -9,20 +9,21 @@ export const CARD_HEIGHT = 675;
 const SCALE = 2;
 const PADDING = 56;
 
-const INK = "#1f2328";
-const INK_2 = "#434a52";
-const INK_3 = "#5f666e";
-const RULE = "#e2e5e9";
-const MARK = "#ffd95a";
-const MARK_WASH = "#ffe9a3";
-/** 白い紙と、入口ごとの和色（styles.css と同じ）。fill は塗り、edge は下の縁、on は上の文字、tint は淡い色。 */
-const PAPER = "#ffffff";
-const LINE = "#d0d5db";
-type Accent = { fill: string; edge: string; on: string; tint: string };
+const INK = "#2e3033";
+const INK_2 = "#4b4e52";
+const INK_3 = "#5f6368";
+const RULE = "#dfddd6";
+const MARK = "#f4d77f";
+const MARK_WASH = "#f8ecc4";
+/** 和紙の色の地と、入口ごとのくすんだ和色（styles.css と同じ）。tint は地、edge は縁、deep は強調、on は上の文字。 */
+const PAPER = "#f4f3ef";
+const CARD_FILL = "#fcfcfa";
+const LINE = "#d6d4cc";
+type Accent = { tint: string; edge: string; deep: string; on: string };
 const ACCENT = {
-  kuji: { fill: "#c8401e", edge: "#8f2a10", on: "#ffffff", tint: "#fde9e2" },
-  quiz: { fill: "#23794a", edge: "#15532f", on: "#ffffff", tint: "#e2f2e8" },
-  zukan: { fill: "#f2b705", edge: "#a87e00", on: "#1f2328", tint: "#ffe9a3" }
+  kuji: { tint: "#f5dbe1", edge: "#e0a3b2", deep: "#9a4a5e", on: "#2e3033" },
+  quiz: { tint: "#e3ebcd", edge: "#b0c486", deep: "#55702b", on: "#2e3033" },
+  zukan: { tint: "#d3ebe8", edge: "#86c2bd", deep: "#2b6c68", on: "#2e3033" }
 } satisfies Record<string, Accent>;
 
 const SANS =
@@ -288,7 +289,7 @@ function drawHighlights(context: CanvasRenderingContext2D, card: HighlightsCard)
 /* ---------- あそぶ（まちくじ・まちクイズ・まち図鑑）のポップな札 ---------- */
 
 const POP = '"Zen Maru Gothic", ' + SANS;
-const SHU = "#c8401e";
+const SHU = "#c0442b";
 /** 出典の線より上で、札を描ける下端。 */
 const popBottom = (sources: CardSources) => CARD_HEIGHT - 28 - sources.lines.length * 19 - 14 - 22;
 
@@ -306,7 +307,7 @@ function roundedRect(
 
 /** 白い札（薄い灰の枠）。 */
 function popPanel(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius = 22) {
-  context.fillStyle = "#ffffff";
+  context.fillStyle = CARD_FILL;
   roundedRect(context, x, y, width, height, radius);
   context.fill();
   context.lineWidth = 3;
@@ -314,25 +315,33 @@ function popPanel(context: CanvasRenderingContext2D, x: number, y: number, width
   context.stroke();
 }
 
-/** 白い地に、上の帯（入口の色と、ものさしの目盛り）、ロゴ、右上の札（「まちくじ No.10524」など）。 */
+/** 和紙の色の地に、上の帯（入口の色と、ものさしの目盛り）、ロゴ、右上の札（「まちくじ No.10524」など）。 */
 function popBackground(context: CanvasRenderingContext2D, tag: string, accent: Accent) {
   context.fillStyle = PAPER;
   context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
-  context.fillStyle = accent.fill;
-  context.fillRect(0, 0, CARD_WIDTH, 10);
-  drawWordmark(context, PADDING, 56);
+  context.fillStyle = accent.tint;
+  context.fillRect(0, 0, CARD_WIDTH, 12);
+  context.fillStyle = accent.deep;
+  for (let x = 0; x <= CARD_WIDTH; x += 8) {
+    const height = x % 40 === 0 ? 10 : 5;
+    context.fillRect(x, 0, 1, height);
+  }
+  drawWordmark(context, PADDING, 58);
   context.font = font(700, 24, POP);
   const width = context.measureText(tag).width + 40;
   const x = CARD_WIDTH - PADDING - width;
   context.fillStyle = accent.edge;
-  roundedRect(context, x, 28, width, 46, 12);
+  roundedRect(context, x, 30, width, 46, 12);
   context.fill();
-  context.fillStyle = accent.fill;
-  roundedRect(context, x, 24, width, 46, 12);
+  context.fillStyle = accent.tint;
+  roundedRect(context, x, 26, width, 46, 12);
   context.fill();
+  context.lineWidth = 2;
+  context.strokeStyle = accent.edge;
+  context.stroke();
   context.fillStyle = accent.on;
   context.textBaseline = "middle";
-  context.fillText(tag, x + 20, 48);
+  context.fillText(tag, x + 20, 50);
   context.textBaseline = "alphabetic";
 }
 
@@ -411,10 +420,10 @@ function drawKuji(context: CanvasRenderingContext2D, card: KujiCard) {
     context.font = font(700, 22, POP);
     const pillWidth = Math.min(330, context.measureText(trait.phrase).width + 30);
     const first = index === 0 && card.stamp;
-    context.fillStyle = first ? ACCENT.kuji.fill : ACCENT.zukan.tint;
+    context.fillStyle = first ? SHU : ACCENT.kuji.tint;
     roundedRect(context, inner, middle - 22, pillWidth, 44, 10);
     context.fill();
-    context.fillStyle = first ? ACCENT.kuji.on : INK;
+    context.fillStyle = first ? "#ffffff" : INK;
     context.textBaseline = "middle";
     context.fillText(fit(context, trait.phrase, pillWidth - 30), inner + 15, middle + 1);
 
@@ -458,7 +467,7 @@ function drawQuiz(context: CanvasRenderingContext2D, card: QuizCard) {
   card.choices.forEach((choice, index) => {
     const x = left + 40 + (index % 2) * (boxWidth + gap);
     const y = gridTop + Math.floor(index / 2) * (boxHeight + gap);
-    context.fillStyle = "#ffffff";
+    context.fillStyle = CARD_FILL;
     roundedRect(context, x, y, boxWidth, boxHeight, 14);
     context.fill();
     context.lineWidth = 3;
@@ -466,10 +475,13 @@ function drawQuiz(context: CanvasRenderingContext2D, card: QuizCard) {
     context.stroke();
     const cx = x + 40;
     const cy = y + boxHeight / 2;
-    context.fillStyle = ACCENT.quiz.fill;
+    context.fillStyle = ACCENT.quiz.tint;
     context.beginPath();
     context.arc(cx, cy, 22, 0, Math.PI * 2);
     context.fill();
+    context.lineWidth = 2;
+    context.strokeStyle = ACCENT.quiz.edge;
+    context.stroke();
     context.fillStyle = ACCENT.quiz.on;
     context.textAlign = "center";
     context.textBaseline = "middle";
@@ -514,11 +526,11 @@ function drawQuizResult(context: CanvasRenderingContext2D, card: QuizResultCard)
   card.marks.forEach((correct, index) => {
     const x = left + 40 + index * (size + 14);
     const y = bottom - size - 32;
-    context.fillStyle = correct ? ACCENT.quiz.tint : "#ffffff";
+    context.fillStyle = correct ? ACCENT.quiz.tint : CARD_FILL;
     roundedRect(context, x, y, size, size, 12);
     context.fill();
     context.lineWidth = 3;
-    context.strokeStyle = correct ? ACCENT.quiz.fill : LINE;
+    context.strokeStyle = correct ? ACCENT.quiz.deep : LINE;
     context.stroke();
     context.fillStyle = correct ? SHU : INK_3;
     context.font = font(700, 32, POP);
@@ -564,9 +576,9 @@ async function drawZukan(context: CanvasRenderingContext2D, card: ZukanCard) {
   context.font = font(700, 20, POP);
   const keyY = bottom - 40;
   [
-    [ACCENT.kuji.fill, "集めたまち"],
+    [ACCENT.zukan.deep, "集めたまち"],
     [ACCENT.zukan.tint, "訪れた都道府県"],
-    [ACCENT.quiz.fill, "制覇"]
+    [ACCENT.quiz.edge, "制覇"]
   ].forEach(([color, label], index) => {
     const x = inner + [0, 170, 360][index]!;
     context.fillStyle = color as string;

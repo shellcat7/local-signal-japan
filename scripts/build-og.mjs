@@ -15,24 +15,24 @@ const map = JSON.parse(await readFile(path.join(web, "public/data/map.json"), "u
 
 // 塗る都道府県（図鑑で集めたような見た目にする。値の意味はない）。
 const colors = {
-  "01": "#ffe9a3",
-  "04": "#c8401e",
-  13: "#23794a",
-  15: "#e6edf8",
-  20: "#c8401e",
-  23: "#ffe9a3",
-  26: "#e6edf8",
-  27: "#c8401e",
-  34: "#23794a",
-  40: "#ffe9a3",
-  46: "#e6edf8",
-  47: "#c8401e"
+  "01": "#d3ebe8",
+  "04": "#f5dbe1",
+  13: "#e3ebcd",
+  15: "#e2ddf2",
+  20: "#f5dbe1",
+  23: "#d3ebe8",
+  26: "#e2ddf2",
+  27: "#f5dbe1",
+  34: "#e3ebcd",
+  40: "#d3ebe8",
+  46: "#e2ddf2",
+  47: "#f5dbe1"
 };
 const [vx, vy, vw, vh] = map.viewBox;
 const prefectures = map.prefectures
-  .map((pref) => `<path d="${pref.d}" fill="${colors[pref.code] ?? "#ffffff"}"/>`)
+  .map((pref) => `<path d="${pref.d}" fill="${colors[pref.code] ?? "#fcfcfa"}"/>`)
   .join("");
-const japan = `<svg viewBox="${vx} ${vy} ${vw} ${vh}" xmlns="http://www.w3.org/2000/svg"><g stroke="#1f2328" stroke-width="2" stroke-linejoin="round">${prefectures}</g></svg>`;
+const japan = `<svg viewBox="${vx} ${vy} ${vw} ${vh}" xmlns="http://www.w3.org/2000/svg"><g stroke="#2e3033" stroke-width="2" stroke-linejoin="round">${prefectures}</g></svg>`;
 
 const ticks = Array.from({ length: 84 }, (_, index) => {
   const height = index % 5 === 0 ? 16 : 9;
@@ -42,23 +42,23 @@ const ticks = Array.from({ length: 84 }, (_, index) => {
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face { font-family: "Pop"; src: url("file://${font}") format("woff2"); font-weight: 700; }
 * { margin: 0; box-sizing: border-box; }
-body { width: 1200px; height: 630px; overflow: hidden; background: #ffffff; font-family: "Pop", sans-serif; color: #1f2328; }
-.wrap { position: relative; width: 100%; height: 100%; padding: 70px 72px; border-top: 14px solid #c8401e; }
+body { width: 1200px; height: 630px; overflow: hidden; background: #f4f3ef; font-family: "Pop", sans-serif; color: #2e3033; }
+.wrap { position: relative; width: 100%; height: 100%; padding: 70px 72px;  }
 h1 { font-size: 92px; letter-spacing: 0.06em; line-height: 1.1; }
-.rule { position: relative; width: 666px; height: 18px; margin-top: 10px; border-bottom: 3px solid #1f2328; }
-.rule span { position: absolute; bottom: 0; width: 2.5px; background: #1f2328; }
+.rule { position: relative; width: 666px; height: 18px; margin-top: 10px; border-bottom: 3px solid #2e3033; }
+.rule span { position: absolute; bottom: 0; width: 2.5px; background: #2e3033; }
 p { margin-top: 34px; font-size: 38px; line-height: 1.4; }
 .pills { display: flex; flex-wrap: wrap; gap: 16px; width: 640px; margin-top: 36px; }
-.pill { padding: 12px 28px; font-size: 32px; color: #ffffff; border-radius: 14px; }
+.pill { padding: 12px 28px; font-size: 32px; color: #2e3033; border: 3px solid; border-radius: 14px; }
 .map { position: absolute; right: 40px; top: 30px; width: 480px; }
 </style></head><body><div class="wrap">
 <h1>まちのものさし</h1><div class="rule">${ticks}</div>
 <p>全国1,741のまちを、公的統計で<br>くらべて、あそぶ。</p>
 <div class="pills">
-<span class="pill" style="background:#c8401e;box-shadow:0 6px 0 #8f2a10">まちくじ</span>
-<span class="pill" style="background:#23794a;box-shadow:0 6px 0 #15532f">まちクイズ</span>
-<span class="pill" style="background:#f2b705;box-shadow:0 6px 0 #a87e00;color:#1f2328">まち図鑑</span>
-<span class="pill" style="background:#2f5597;box-shadow:0 6px 0 #1d3866">条件でさがす</span>
+<span class="pill" style="background:#f5dbe1;border-color:#e0a3b2;box-shadow:0 6px 0 #e0a3b2">まちくじ</span>
+<span class="pill" style="background:#e3ebcd;border-color:#b0c486;box-shadow:0 6px 0 #b0c486">まちクイズ</span>
+<span class="pill" style="background:#d3ebe8;border-color:#86c2bd;box-shadow:0 6px 0 #86c2bd">まち図鑑</span>
+<span class="pill" style="background:#e2ddf2;border-color:#b3a8d9;box-shadow:0 6px 0 #b3a8d9">条件でさがす</span>
 </div>
 <div class="map">${japan}</div>
 </div></body></html>`;

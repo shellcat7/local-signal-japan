@@ -1,9 +1,9 @@
 /*
  * まちのものさし（Local Signal Japan）のデザイン
  *
- * 考え方: 白い紙と、和色と、ものさし。だれが見ても読みやすく、手に取りたくなる見た目にする。
- * - 面は白、文字は墨。区切りは薄い灰の線と、角の丸い札で付ける。
- * - 色は和色の4色（朱・若竹・山吹・藍）を入口ごとに使い分ける。値の良し悪しには色を当てない。
+ * 考え方: 和紙の色と、くすんだ和色と、ものさし。だれが見ても読みやすく、まぶしくない見た目にする。
+ * - 面は少し灰みのある和紙の色、文字はやわらかい墨。区切りは薄い線と、角の丸い札で付ける。
+ * - 色はくすんだ和色の4色（撫子・抹茶・浅葱・藤）を入口ごとに使い分ける。値の良し悪しには色を当てない。
  * - 見出しとボタンは丸ゴシック（Zen Maru Gothic）。数字と欧文の本文は IBM Plex Sans、コードは IBM Plex Mono。
  * - 注記は、統計表と同じように表の下へまとめる。明るい表示だけを用意する。
  */
@@ -44,56 +44,60 @@
 
 /*
  * 色と形の考え方
- * - 面は白い紙、文字は墨。区切りは薄い灰の線と、角の丸い札。
- * - アクセントは和色の4色（朱・若竹・山吹・藍）。入口ごとに決める:
- *   まちくじ = 朱、まちクイズ = 若竹、まち図鑑 = 山吹、条件でさがす = 藍。
- * - 値の良し悪しには色を当てない。地図の濃淡は藍の1色だけで、値の大小を表す。
- * - ボタンは角の丸い四角。下の縁を同じ色の濃い色にして、押せることを示す。名前のとおり、ものさしの目盛りを飾りに使う。
- * - 明るい表示だけを用意する（暗い配色の設定でも、この明るい表示で見せる）。
+ * - 面は少し灰みのある和紙の色、文字はやわらかい墨。真っ白・真っ黒は使わず、まぶしさを抑える。
+ * - アクセントは、くすんだ和色の4色。入口ごとに決める:
+ *   まちくじ = 撫子、まちクイズ = 抹茶、まち図鑑 = 浅葱、条件でさがす = 藤。
+ *   それぞれ pale（ごく淡い）・tint（ボタンの地）・中間（縁）・deep（強調と細い線）の4段を持つ。上に載せる文字は墨。
+ * - 朱はハンコと正解の印だけに使う。値の良し悪しには色を当てない。地図の濃淡は藍の1色だけ。
+ * - ボタンは角の丸い四角。淡い地に同じ色の縁を付け、上の辺に、ものさしの目盛りを入れる。
+ * - 明るい表示だけを用意する（暗い配色の設定でも、この表示で見せる）。
  */
 :root {
   color-scheme: light;
 
-  --paper: #ffffff;
-  --card: #ffffff;
-  --wash: #f4f6f8;
-  --ink: #1f2328;
-  --ink-2: #434a52;
-  --ink-3: #5f666e;
-  --rule: #e2e5e9;
-  --rule-strong: #1f2328;
+  --paper: #f4f3ef;
+  --card: #fcfcfa;
+  --wash: #ebeae4;
+  --ink: #2e3033;
+  --ink-2: #4b4e52;
+  --ink-3: #5f6368;
+  --rule: #dfddd6;
+  --rule-strong: #2e3033;
   /* 入力欄や白いボタンの枠。 */
-  --line: #b9c0c8;
-  --shadow: #b9c0c8;
+  --line: #c4c2ba;
+  --shadow: #c4c2ba;
 
-  /* 表示中・並べ替え中の印（山吹の淡い色）。上に載せる文字は常に墨。 */
-  --mark: #ffd95a;
-  --mark-wash: #ffe9a3;
-  --on-mark: #1f2328;
+  /* 表示中・並べ替え中の印。上に載せる文字は常に墨。 */
+  --mark: #f4d77f;
+  --mark-wash: #f8ecc4;
+  --on-mark: #2e3033;
 
-  /* 和色。--x は塗り、--x-edge は下の縁、--on-x は上に載せる文字。 */
-  --shu: #c8401e;
-  --shu-edge: #8f2a10;
-  --shu-tint: #fde9e2;
+  /* くすんだ和色。 */
+  --nadeshiko-pale: #fbeef1;
+  --nadeshiko-tint: #f5dbe1;
+  --nadeshiko: #e0a3b2;
+  --nadeshiko-deep: #9a4a5e;
+  --matcha-pale: #f1f5e6;
+  --matcha-tint: #e3ebcd;
+  --matcha: #b0c486;
+  --matcha-deep: #55702b;
+  --asagi-pale: #ebf6f5;
+  --asagi-tint: #d3ebe8;
+  --asagi: #86c2bd;
+  --asagi-deep: #2b6c68;
+  --fuji-pale: #f1eef9;
+  --fuji-tint: #e2ddf2;
+  --fuji: #b3a8d9;
+  --fuji-deep: #574a90;
+  /* ハンコと正解の印。 */
+  --shu: #c0442b;
   --on-shu: #ffffff;
-  --wakatake: #23794a;
-  --wakatake-edge: #15532f;
-  --wakatake-tint: #e2f2e8;
-  --on-wakatake: #ffffff;
-  --yamabuki: #f2b705;
-  --yamabuki-edge: #a87e00;
-  --yamabuki-tint: #ffe9a3;
-  --on-yamabuki: #1f2328;
-  --ai: #2f5597;
-  --ai-edge: #1d3866;
-  --ai-tint: #e6edf8;
-  --on-ai: #ffffff;
 
   /* 図の印。表示中の市区町村は墨、それ以外は灰。 */
-  --data: #1f2328;
-  --context: #8f969e;
-  --track: #e6e9ed;
-  --map-out-line: #c9ced4;
+  --data: #2e3033;
+  --context: #8f9296;
+  --track: #e4e2dc;
+  --map-out-line: #c9c7c0;
   /* 地図の濃淡（値の小さい側 → 大きい側）。src/lib/mapScale.ts の MAP_RAMP と同じ並び。 */
   --map-0: #eef2f9;
   --map-1: #d3dff0;
@@ -108,11 +112,8 @@
   --pop-card: var(--card);
   --pop-line: var(--rule);
   --pop-shadow: var(--shadow);
-  --pop-yellow: var(--yamabuki);
-  --pop-on-yellow: var(--on-yamabuki);
   --pop-shu: var(--shu);
   --pop-on-shu: var(--on-shu);
-  --pop-shu-on-yellow: #8f2a10;
   --pop-soft: var(--wash);
   --font-pop: "Zen Maru Gothic", var(--font-sans);
 
@@ -212,9 +213,9 @@ mark {
 }
 
 :focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 3px solid var(--fuji-deep);
   outline-offset: 2px;
-  box-shadow: 0 0 0 5px var(--mark);
+  box-shadow: none;
 }
 
 [tabindex="-1"]:focus {
@@ -635,9 +636,9 @@ select {
 }
 
 .topbar__nav a[aria-current="page"] {
-  font-weight: 700;
   color: var(--ink);
-  border-bottom-color: var(--ink);
+  background: var(--fuji-pale);
+  border-color: var(--fuji-deep);
 }
 
 /* ---------- 検索欄 ---------- */
@@ -822,9 +823,9 @@ select {
 }
 
 .japan-map a:hover {
-  color: var(--on-mark);
-  background: var(--mark);
-  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--fuji-pale);
+  border-color: var(--fuji-deep);
 }
 
 .japan-map a:hover small {
@@ -1323,9 +1324,10 @@ th[aria-sort] .sort-button {
 }
 
 .tab.is-active {
-  font-weight: 700;
   color: var(--ink);
-  border-bottom-color: var(--ink);
+  background: var(--fuji-tint);
+  border-color: var(--fuji-deep);
+  box-shadow: 0 3px 0 var(--fuji);
 }
 
 .tab-panel {
@@ -2258,33 +2260,37 @@ th[aria-sort] .sort-button {
  */
 
 .play {
-  --accent: var(--yamabuki);
-  --accent-edge: var(--yamabuki-edge);
-  --accent-tint: var(--yamabuki-tint);
-  --on-accent: var(--on-yamabuki);
+  --accent: var(--asagi-tint);
+  --accent-edge: var(--asagi);
+  --accent-tint: var(--asagi-pale);
+  --accent-deep: var(--asagi-deep);
+  --on-accent: var(--ink);
   padding-bottom: 72px;
   background: var(--pop-bg);
 }
 
 .play[data-play="kuji"] {
-  --accent: var(--shu);
-  --accent-edge: var(--shu-edge);
-  --accent-tint: var(--shu-tint);
-  --on-accent: var(--on-shu);
+  --accent: var(--nadeshiko-tint);
+  --accent-edge: var(--nadeshiko);
+  --accent-tint: var(--nadeshiko-pale);
+  --accent-deep: var(--nadeshiko-deep);
+  --on-accent: var(--ink);
 }
 
 .play[data-play="quiz"] {
-  --accent: var(--wakatake);
-  --accent-edge: var(--wakatake-edge);
-  --accent-tint: var(--wakatake-tint);
-  --on-accent: var(--on-wakatake);
+  --accent: var(--matcha-tint);
+  --accent-edge: var(--matcha);
+  --accent-tint: var(--matcha-pale);
+  --accent-deep: var(--matcha-deep);
+  --on-accent: var(--ink);
 }
 
 .play[data-play="zukan"] {
-  --accent: var(--yamabuki);
-  --accent-edge: var(--yamabuki-edge);
-  --accent-tint: var(--yamabuki-tint);
-  --on-accent: var(--on-yamabuki);
+  --accent: var(--asagi-tint);
+  --accent-edge: var(--asagi);
+  --accent-tint: var(--asagi-pale);
+  --accent-deep: var(--asagi-deep);
+  --on-accent: var(--ink);
 }
 
 .play-head {
@@ -2327,7 +2333,7 @@ th[aria-sort] .sort-button {
 .play-tabs a[aria-current="page"] {
   color: var(--on-accent);
   background: var(--accent);
-  border-color: var(--accent-edge);
+  border-color: var(--accent-deep);
   box-shadow: 0 3px 0 var(--accent-edge);
 }
 
@@ -2354,7 +2360,7 @@ th[aria-sort] .sort-button {
   white-space: nowrap;
   cursor: pointer;
   background: var(--accent);
-  border: 0;
+  border: 2px solid var(--accent-edge);
   border-radius: 12px;
   box-shadow: 0 4px 0 var(--accent-edge);
 }
@@ -2390,7 +2396,8 @@ th[aria-sort] .sort-button {
 .pop-button--ink {
   color: #ffffff;
   background: var(--ink);
-  box-shadow: 0 3px 0 #000000;
+  border-color: var(--ink);
+  box-shadow: 0 3px 0 #111315;
 }
 
 .share--pop {
@@ -2495,8 +2502,8 @@ th[aria-sort] .sort-button {
   letter-spacing: 0.08em;
   background-color: var(--accent);
   background-image:
-    repeating-linear-gradient(90deg, var(--on-accent) 0 1.5px, transparent 1.5px 40px),
-    repeating-linear-gradient(90deg, var(--on-accent) 0 1px, transparent 1px 8px);
+    repeating-linear-gradient(90deg, var(--accent-deep) 0 1.5px, transparent 1.5px 40px),
+    repeating-linear-gradient(90deg, var(--accent-deep) 0 1px, transparent 1px 8px);
   background-repeat: no-repeat;
   background-position:
     left bottom,
@@ -2504,6 +2511,7 @@ th[aria-sort] .sort-button {
   background-size:
     100% 10px,
     100% 5px;
+  border-bottom: 2px solid var(--accent-edge);
 }
 
 .ticket__no {
@@ -2600,16 +2608,16 @@ th[aria-sort] .sort-button {
 }
 
 .area-map__areas path[data-state="got"] {
-  fill: var(--shu);
+  fill: var(--asagi-deep);
 }
 
 .area-map__areas path[data-state="done"] {
-  fill: var(--wakatake);
+  fill: var(--matcha);
 }
 
 /* まだ集めていないが、同じ都道府県のまちを集めている（訪れた都道府県）。 */
 .area-map__areas path[data-state="pref"] {
-  fill: var(--yamabuki-tint);
+  fill: var(--asagi-tint);
 }
 
 .area-map__prefectures path {
@@ -2626,7 +2634,7 @@ th[aria-sort] .sort-button {
 }
 
 .area-map--locator .area-map__prefectures path[data-current="true"] {
-  fill: var(--shu-tint);
+  fill: var(--nadeshiko-tint);
   stroke: var(--ink);
 }
 
@@ -2638,7 +2646,7 @@ th[aria-sort] .sort-button {
 }
 
 .area-map__target {
-  fill: var(--shu);
+  fill: var(--nadeshiko-deep);
   stroke: var(--ink);
   stroke-width: 1;
 }
@@ -2672,7 +2680,7 @@ th[aria-sort] .sort-button {
   font-weight: 700;
   color: var(--ink);
   white-space: nowrap;
-  background: var(--yamabuki-tint);
+  background: var(--accent);
   border-radius: 8px;
 }
 
@@ -2774,8 +2782,8 @@ th[aria-sort] .sort-button {
 
 .kuji__log a[aria-current="true"] {
   color: var(--ink);
-  background: var(--accent-tint);
-  border-color: var(--accent);
+  background: var(--accent);
+  border-color: var(--accent-deep);
 }
 
 .kuji__log a small {
@@ -2819,7 +2827,7 @@ th[aria-sort] .sort-button {
 .quiz__progress li[data-state="current"] {
   color: var(--on-accent);
   background: var(--accent);
-  border-color: var(--accent-edge);
+  border-color: var(--accent-deep);
 }
 
 .quiz__progress li[data-state="right"] {
@@ -2923,6 +2931,7 @@ th[aria-sort] .sort-button {
   height: 38px;
   color: var(--on-accent);
   background: var(--accent);
+  border: 2px solid var(--accent-edge);
   border-radius: 50%;
 }
 
@@ -2950,8 +2959,8 @@ th[aria-sort] .sort-button {
 
 .quiz-choice[data-state="answer"] {
   color: var(--ink);
-  background: var(--accent-tint);
-  border-color: var(--accent);
+  background: var(--accent);
+  border-color: var(--accent-deep);
 }
 
 .quiz-choice[data-state="answer"] small {
@@ -3182,7 +3191,7 @@ th[aria-sort] .sort-button {
   display: block;
   min-width: 6px;
   height: 100%;
-  background: var(--accent);
+  background: var(--accent-edge);
 }
 
 .zukan-japan {
@@ -3216,15 +3225,15 @@ th[aria-sort] .sort-button {
 }
 
 .zukan-japan__key[data-state="got"] {
-  background: var(--shu);
+  background: var(--asagi-deep);
 }
 
 .zukan-japan__key[data-state="done"] {
-  background: var(--wakatake);
+  background: var(--matcha);
 }
 
 .zukan-japan__key[data-state="pref"] {
-  background: var(--yamabuki-tint);
+  background: var(--asagi-tint);
 }
 
 .zukan-map {
@@ -3260,14 +3269,14 @@ th[aria-sort] .sort-button {
 
 .zukan-map li[data-state="some"] {
   color: var(--ink);
-  background: var(--yamabuki-tint);
-  border-color: var(--yamabuki);
+  background: var(--asagi-tint);
+  border-color: var(--asagi);
 }
 
 .zukan-map li[data-state="done"] {
-  color: var(--on-wakatake);
-  background: var(--wakatake);
-  border-color: var(--wakatake-edge);
+  color: var(--ink);
+  background: var(--matcha);
+  border-color: var(--matcha-deep);
 }
 
 .zukan__actions {
@@ -3755,8 +3764,9 @@ th[aria-sort] .sort-button {
 }
 
 .view-switch button[aria-pressed="true"] {
-  color: var(--on-ai);
-  background: var(--ai);
+  color: var(--ink);
+  background: var(--fuji-tint);
+  box-shadow: inset 0 0 0 2px var(--fuji-deep);
 }
 
 .conditions__add select {
@@ -3913,7 +3923,7 @@ h4 {
 }
 
 :focus-visible {
-  outline: 3px solid var(--ai);
+  outline: 3px solid var(--fuji-deep);
   outline-offset: 2px;
   box-shadow: none;
 }
@@ -3942,10 +3952,10 @@ h4 {
 
 .button--primary,
 .button--primary:hover:not(:disabled) {
-  color: var(--on-ai);
-  background: var(--ai);
-  border-color: var(--ai-edge);
-  box-shadow: 0 3px 0 var(--ai-edge);
+  color: var(--ink);
+  background: var(--fuji-tint);
+  border-color: var(--fuji-deep);
+  box-shadow: 0 3px 0 var(--fuji);
 }
 
 .add-button {
@@ -4016,16 +4026,16 @@ select,
 
 .topbar__nav a[aria-current="page"] {
   color: var(--ink);
-  background: var(--ai-tint);
-  border-color: var(--ai);
+  background: var(--fuji-pale);
+  border-color: var(--fuji-deep);
 }
 
 .topbar__nav .topbar__play,
 .topbar__nav .topbar__play[aria-current="page"] {
-  color: var(--on-shu);
-  background: var(--shu);
-  border-color: var(--shu-edge);
-  box-shadow: 0 2px 0 var(--shu-edge);
+  color: var(--ink);
+  background: var(--nadeshiko-tint);
+  border-color: var(--nadeshiko);
+  box-shadow: 0 2px 0 var(--nadeshiko);
 }
 
 .search__input {
@@ -4076,10 +4086,10 @@ select,
 }
 
 .tab.is-active {
-  color: var(--on-ai);
-  background: var(--ai);
-  border-color: var(--ai-edge);
-  box-shadow: 0 3px 0 var(--ai-edge);
+  color: var(--ink);
+  background: var(--fuji-tint);
+  border-color: var(--fuji-deep);
+  box-shadow: 0 3px 0 var(--fuji);
 }
 
 /* 概要は札の中に表を収めるため、列のあいだを詰め、表の列を広く取る。 */
@@ -4118,8 +4128,8 @@ select,
 
 .japan-map a:hover {
   color: var(--ink);
-  background: var(--ai-tint);
-  border-color: var(--ai);
+  background: var(--fuji-pale);
+  border-color: var(--fuji-deep);
 }
 
 .japan-map a:hover small {
@@ -4179,7 +4189,7 @@ select,
   background-size:
     calc(100% - 40px) 12px,
     calc(100% - 40px) 7px;
-  border: 0;
+  border: 2px solid var(--accent-edge);
   border-radius: 16px;
   box-shadow: 0 5px 0 var(--accent-edge);
 }
@@ -4197,31 +4207,39 @@ select,
 }
 
 .home-button--kuji {
-  --accent: var(--shu);
-  --accent-edge: var(--shu-edge);
-  --on-accent: var(--on-shu);
-  --tick: rgb(255 255 255 / 0.55);
+  --accent: var(--nadeshiko-tint);
+  --accent-edge: var(--nadeshiko);
+  --accent-tint: var(--nadeshiko-pale);
+  --accent-deep: var(--nadeshiko-deep);
+  --on-accent: var(--ink);
+  --tick: var(--nadeshiko-deep);
 }
 
 .home-button--quiz {
-  --accent: var(--wakatake);
-  --accent-edge: var(--wakatake-edge);
-  --on-accent: var(--on-wakatake);
-  --tick: rgb(255 255 255 / 0.55);
+  --accent: var(--matcha-tint);
+  --accent-edge: var(--matcha);
+  --accent-tint: var(--matcha-pale);
+  --accent-deep: var(--matcha-deep);
+  --on-accent: var(--ink);
+  --tick: var(--matcha-deep);
 }
 
 .home-button--zukan {
-  --accent: var(--yamabuki);
-  --accent-edge: var(--yamabuki-edge);
-  --on-accent: var(--on-yamabuki);
-  --tick: rgb(31 35 40 / 0.4);
+  --accent: var(--asagi-tint);
+  --accent-edge: var(--asagi);
+  --accent-tint: var(--asagi-pale);
+  --accent-deep: var(--asagi-deep);
+  --on-accent: var(--ink);
+  --tick: var(--asagi-deep);
 }
 
 .home-button--screen {
-  --accent: var(--ai);
-  --accent-edge: var(--ai-edge);
-  --on-accent: var(--on-ai);
-  --tick: rgb(255 255 255 / 0.55);
+  --accent: var(--fuji-tint);
+  --accent-edge: var(--fuji);
+  --accent-tint: var(--fuji-pale);
+  --accent-deep: var(--fuji-deep);
+  --on-accent: var(--ink);
+  --tick: var(--fuji-deep);
 }
 
 @media (prefers-reduced-motion: no-preference) {

@@ -55,7 +55,7 @@ test.describe("暗い配色の設定", () => {
     test(`明るい表示のまま、文字のコントラストなどの基準を満たす: ${hash || "トップページ"}`, async ({ page }) => {
       await page.goto(`./${hash}`);
       await expect(page.getByText(CREDIT)).toBeVisible();
-      expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(255, 255, 255)");
+      expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(244, 243, 239)");
       await expectAccessible(page);
     });
   }
