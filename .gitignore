@@ -5,15 +5,16 @@ dist/
 .cache/
 .DS_Store
 
+# 秘密情報を含みうるローカル設定(このプロジェクトは実行に秘密情報を必要としない)
 .env
 .env.*
-!.env.example
 .dev.vars
 .dev.vars.*
 *.local
 
-reports/private/
-data/private/
 tmp/
 coverage/
-apps/web/dist/
+
+# Playwright
+playwright-report/
+test-results/

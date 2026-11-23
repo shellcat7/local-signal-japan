@@ -1,0 +1,11 @@
+{
+  // Cloudflare Workers の静的アセットとして配信する設定。サーバー側のコードは持たない。
+  // 公開: リポジトリのルートで `pnpm run deploy`(初回は `pnpm --filter @local-signal-japan/web exec wrangler login`)
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "local-signal-japan",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}

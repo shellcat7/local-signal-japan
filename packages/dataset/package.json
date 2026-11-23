@@ -1,0 +1,13 @@
+{
+  "name": "@local-signal-japan/dataset",
+  "version": "1.0.0",
+  "private": true,
+  "description": "統計ダッシュボードAPIからデータセットを生成・検証・読み込みするNode.js用パッケージ",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@local-signal-japan/core": "workspace:*"
+  }
+}

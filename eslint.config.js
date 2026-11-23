@@ -2,76 +2,43 @@ import js from "@eslint/js";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
-const sharedGlobals = {
-  console: "readonly"
-};
-
-const browserGlobals = {
-  Blob: "readonly",
-  URL: "readonly",
-  document: "readonly",
-  HTMLElement: "readonly",
-  window: "readonly"
-};
-
-const nodeGlobals = {
-  process: "readonly"
-};
-
-export default [
+export default tseslint.config(
   {
     ignores: [
-      "node_modules/",
-      "dist/",
-      ".wrangler/",
-      "reports/",
-      "coverage/",
-      "apps/web/dist/"
+      "**/node_modules/",
+      "**/dist/",
+      "**/.wrangler/",
+      "apps/web/public/",
+      "playwright-report/",
+      "test-results/"
     ]
   },
   js.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
   {
-    files: ["**/*.{js,mjs,ts,tsx}"],
-    languageOptions: {
-      globals: sharedGlobals
-    }
-  },
-  ...tseslint.configs.recommended,
-  {
-    files: ["**/*.{ts,tsx}"],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ["eslint.config.js", "scripts/*.mjs"]
+        },
         tsconfigRootDir: import.meta.dirname
       }
     },
     rules: {
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        {
-          "argsIgnorePattern": "^_",
-          "varsIgnorePattern": "^_"
-        }
-      ]
+      "@typescript-eslint/consistent-type-imports": ["error", { fixStyle: "inline-type-imports" }],
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }]
     }
   },
   {
-    files: ["apps/web/**/*.{ts,tsx}", "packages/ui/**/*.{tsx}"],
+    files: ["**/*.{js,mjs}"],
+    ...tseslint.configs.disableTypeChecked,
     languageOptions: {
-      globals: browserGlobals
+      globals: { console: "readonly", process: "readonly" }
     }
   },
   {
-    files: ["cli/**/*.mjs", "scripts/**/*.mjs", "eslint.config.js", "vitest.config.ts"],
-    languageOptions: {
-      globals: nodeGlobals
-    }
-  },
-  {
-    files: ["**/*.tsx"],
-    plugins: {
-      "react-hooks": reactHooks
-    },
+    files: ["apps/web/src/**/*.{ts,tsx}"],
+    plugins: { "react-hooks": reactHooks },
     rules: reactHooks.configs.recommended.rules
   }
-];
+);

@@ -1,0 +1,21 @@
+# Cloudflare(Workers の静的アセット / Pages)で配信するときのレスポンスヘッダー。
+# Content-Security-Policy は index.html の meta 要素で指定している(vite.config.ts)。
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), geolocation=(), microphone=(), browsing-topics=()
+  Cross-Origin-Opener-Policy: same-origin
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# データは取得日時をクエリに付けて読み込むので、長めにキャッシュしてよい。
+/data/*
+  Cache-Control: public, max-age=86400
+
+# マニフェストだけは毎回最新を確認する(上の /data/* の指定を外してから付け直す)。
+/data/manifest.json
+  ! Cache-Control
+  Cache-Control: no-cache

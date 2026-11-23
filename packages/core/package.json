@@ -1,12 +1,14 @@
 {
   "name": "@local-signal-japan/core",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "description": "指標定義・スコア算出・シグナル生成・レポート生成(入出力を持たない純粋ロジック)",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@local-signal-japan/schemas": "workspace:*"
+    "zod": "^4.6.7"
   }
 }
