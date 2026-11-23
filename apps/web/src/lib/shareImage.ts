@@ -81,6 +81,11 @@ export type KujiCard = {
   traits: Array<{ phrase: string; label: string; value: string; period: string }>;
   /** 全国1位の項目があれば、朱のハンコを押す。 */
   stamp: boolean;
+  /** 位置の地図（県を大きく描いたものと、日本全体）。大きさを受け取って SVG の文字列を返す。 */
+  locator?: {
+    region: (width: number, height: number) => string | null;
+    japan: (width: number, height: number) => string;
+  };
   sources: CardSources;
 };
 
@@ -390,7 +395,7 @@ function wrap(context: CanvasRenderingContext2D, text: string, width: number, ma
   return lines;
 }
 
-function drawKuji(context: CanvasRenderingContext2D, card: KujiCard) {
+async function drawKuji(context: CanvasRenderingContext2D, card: KujiCard) {
   popBackground(context, `まちくじ  No.${card.code}`, ACCENT.kuji);
   const top = 86;
   const bottom = popBottom(card.sources);
@@ -404,10 +409,31 @@ function drawKuji(context: CanvasRenderingContext2D, card: KujiCard) {
   context.fillText(card.prefName, inner, top + 52);
   context.fillStyle = INK;
   context.font = font(700, 66, POP);
-  context.fillText(fit(context, card.name, width - 300), inner, top + 124);
+  context.fillText(fit(context, card.name, card.locator ? 500 : width - 300), inner, top + 124);
   context.font = font(400, 18);
   context.fillStyle = INK_2;
   context.fillText(card.profile, inner, top + 160);
+  if (card.locator) {
+    // 名前の右に、県を大きく描いた地図と、日本全体の地図を並べる。
+    const mapTop = top + 20;
+    const mapHeight = 150;
+    const right = left + width - (card.stamp ? 190 : 34);
+    const japanWidth = 128;
+    const regionLeft = left + 580;
+    const regionWidth = right - japanWidth - 10 - regionLeft;
+    const slots = [
+      { x: regionLeft, width: regionWidth, svg: card.locator.region(regionWidth, mapHeight) },
+      { x: right - japanWidth, width: japanWidth, svg: card.locator.japan(japanWidth, mapHeight) }
+    ];
+    for (const slot of slots) {
+      if (!slot.svg) continue;
+      context.fillStyle = PAPER;
+      roundedRect(context, slot.x - 4, mapTop - 4, slot.width + 8, mapHeight + 8, 12);
+      context.fill();
+      const image = await loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(slot.svg)}`);
+      context.drawImage(image, slot.x, mapTop, slot.width, mapHeight);
+    }
+  }
   if (card.stamp) drawStamp(context, left + width - 110, top + 96, 64, ["全国", "1位"]);
 
   const rowsTop = top + 184;
@@ -686,7 +712,7 @@ export async function renderCard(card: Card): Promise<Blob> {
   context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
 
   let onYellow = true;
-  if (card.kind === "kuji") drawKuji(context, card);
+  if (card.kind === "kuji") await drawKuji(context, card);
   else if (card.kind === "quiz") drawQuiz(context, card);
   else if (card.kind === "quizResult") drawQuizResult(context, card);
   else if (card.kind === "zukan") await drawZukan(context, card);

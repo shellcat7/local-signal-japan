@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Resvg } from "@resvg/resvg-js";
 import satori from "satori";
+import { japanSvg, regionSvg, type LocatorMap } from "../apps/web/src/lib/locator";
 import {
   AREA_KIND_LABELS,
   areaIndexSchema,
@@ -32,7 +33,7 @@ const fonts = path.join(web, "node_modules/@fontsource/zen-maru-gothic/files");
 
 const WIDTH = 1200;
 const HEIGHT = 630;
-const SAMPLE_CODES = ["10524", "01668", "20321", "03507"];
+const SAMPLE_CODES = ["10524", "01668", "20321", "03507", "13421", "47382", "01100"];
 
 /** 本番（main）のビルドでは本番のアドレス、それ以外はそのデプロイのアドレスを使う。 */
 export function siteUrl(env: NodeJS.ProcessEnv = process.env): string {
@@ -83,6 +84,8 @@ function ruler(width: number, color: string, tall = 10, short = 5): Node {
 }
 
 type Card = {
+  /** 位置の地図を差し込むか。 */
+  hasMap: boolean;
   code: string;
   prefName: string;
   name: string;
@@ -91,8 +94,32 @@ type Card = {
   sources: string[];
 };
 
+/** 位置の地図を置く場所（札の右上、名前の右）。satori の出力に、あとから SVG を差し込む。 */
+export function mapSlots(stamp: boolean) {
+  const top = 116;
+  const height = 144;
+  const right = stamp ? 960 : 1096;
+  const japanWidth = 124;
+  const left = 640;
+  return {
+    region: { x: left, y: top, width: right - left - japanWidth - 10, height },
+    japan: { x: right - japanWidth, y: top, width: japanWidth, height }
+  };
+}
+
 function cardTree(card: Card): Node {
   const stamp = card.traits.some((trait) => trait.scope === "national" && trait.rank === 1);
+  const slots = mapSlots(stamp);
+  const frame = (slot: { x: number; y: number; width: number; height: number }) =>
+    h("div", {
+      position: "absolute",
+      left: slot.x - 4,
+      top: slot.y - 4,
+      width: slot.width + 8,
+      height: slot.height + 8,
+      backgroundColor: "#f4f3ef",
+      borderRadius: 12
+    });
   const rows = card.traits.map((trait, index) => {
     const first = index === 0 && stamp;
     return h(
@@ -172,7 +199,8 @@ function cardTree(card: Card): Node {
       },
       h("div", { fontSize: 22, color: COLORS.ink2 }, card.prefName),
       h("div", { fontSize: 64, lineHeight: 1.15 }, card.name),
-      h("div", { fontSize: 18, color: COLORS.ink2, marginBottom: 12, fontFamily: "Zen Maru Gothic" }, card.profile),
+      // 右に位置の地図があるので、長いときは折り返す。
+      h("div", { fontSize: 18, color: COLORS.ink2, marginBottom: 12, maxWidth: card.hasMap ? 530 : 900 }, card.profile),
       ...rows,
       stamp
         ? h(
@@ -196,6 +224,8 @@ function cardTree(card: Card): Node {
           )
         : null
     ),
+    card.hasMap ? frame(slots.region) : null,
+    card.hasMap ? frame(slots.japan) : null,
     h(
       "div",
       {
@@ -248,16 +278,16 @@ function pageHtml(card: Card, url: string): string {
 
 async function main() {
   const data = path.join(web, "public/data");
-  const [manifest, national, index] = await Promise.all([
+  const [manifest, national, index, map] = await Promise.all([
     readFile(path.join(data, "manifest.json"), "utf8").then((text) => manifestSchema.parse(JSON.parse(text))),
     readFile(path.join(data, "national.json"), "utf8").then((text) => nationalFileSchema.parse(JSON.parse(text))),
-    readFile(path.join(data, "areas.json"), "utf8").then((text) => areaIndexSchema.parse(JSON.parse(text)))
+    readFile(path.join(data, "areas.json"), "utf8").then((text) => areaIndexSchema.parse(JSON.parse(text))),
+    readFile(path.join(data, "map.json"), "utf8").then((text) => JSON.parse(text) as LocatorMap)
   ]);
   const prefNames = new Map(index.prefectures.map((pref) => [pref.code, pref.name]));
   const all = process.env.CF_PAGES === "1" || process.env.SHARE_PAGES === "all";
   const reference = national.areas.filter((row) => row.kind !== "ward");
   const targets = all ? reference : reference.filter((row) => SAMPLE_CODES.includes(row.code));
-  const total = reference.length;
   const url = siteUrl();
 
   // 和文の書体を先に渡す（satori は先に渡した書体から字を探す。和文の書体は数字と欧文も持っている）。
@@ -286,12 +316,13 @@ async function main() {
         ? null
         : 1 + reference.filter((other) => other.population !== null && other.population > (row.population ?? 0)).length;
     const card: Card = {
+      hasMap: map.areas.some((area) => area.code === row.code),
       code: row.code,
       prefName,
       name: areaLocalName(row),
       profile: `${AREA_KIND_LABELS[row.kind]}${
         row.population === null ? "" : `・人口 ${formatNumber(row.population)}人`
-      }${populationRank === null ? "" : `（全国${formatNumber(total)}のうち多いほうから${formatNumber(populationRank)}番目）`}`,
+      }${populationRank === null ? "" : `（人口は全国${formatNumber(populationRank)}位）`}`,
       traits,
       sources: [
         `出典：${manifest.source.attribution}`,
@@ -306,7 +337,18 @@ async function main() {
       height: HEIGHT,
       fonts: fontList
     });
-    const png = new Resvg(svg, { fitTo: { mode: "width", value: WIDTH } }).render().asPng();
+    // 位置の地図（県を大きく描いたものと、日本全体）を、satori の出力に入れ子の SVG として差し込む。
+    let composed = svg;
+    if (card.hasMap) {
+      const slots = mapSlots(traits.some((trait) => trait.scope === "national" && trait.rank === 1));
+      const place = (inner: string | null, slot: { x: number; y: number; width: number; height: number }) =>
+        inner ? inner.replace("<svg ", `<svg x="${slot.x}" y="${slot.y}" `) : "";
+      const maps =
+        place(regionSvg(map, row.code, slots.region.width, slots.region.height), slots.region) +
+        place(japanSvg(map, row.code, slots.japan.width, slots.japan.height), slots.japan);
+      composed = svg.replace(/<\/svg>\s*$/, `${maps}</svg>`);
+    }
+    const png = new Resvg(composed, { fitTo: { mode: "width", value: WIDTH } }).render().asPng();
     await mkdir(path.join(dist, "m", row.code), { recursive: true });
     await Promise.all([
       writeFile(path.join(dist, "m", `${row.code}.png`), png),

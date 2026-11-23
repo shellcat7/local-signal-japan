@@ -11,6 +11,7 @@ import {
   type NationalFile
 } from "@local-signal-japan/core";
 import type { MapData } from "../lib/data";
+import { japanSvg, regionSvg } from "../lib/locator";
 import { hrefOf, ZUKAN_HOME, type KujiRoute, type Route } from "../lib/route";
 import type { AsyncState } from "../lib/useAsync";
 import type { Zukan } from "../lib/zukan";
@@ -270,6 +271,15 @@ export function KujiView({
                         period: trait.period
                       })),
                       stamp: nationalFirst,
+                      ...(map.status === "ready"
+                        ? {
+                            locator: {
+                              region: (width: number, height: number) =>
+                                regionSvg(map.value, entry.code, width, height),
+                              japan: (width: number, height: number) => japanSvg(map.value, entry.code, width, height)
+                            }
+                          }
+                        : {}),
                       sources: cardSources(manifest, {
                         furusato: traits.some((trait) => trait.key.startsWith("furusato"))
                       })
