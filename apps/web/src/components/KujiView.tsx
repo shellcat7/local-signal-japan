@@ -98,7 +98,8 @@ export function KujiView({
   const target = rows && route.areaCode ? rows.find((row) => row.code === route.areaCode) : undefined;
   const prefName = entry ? (prefNames.get(entry.prefCode) ?? "") : "";
   const traits = useMemo(
-    () => (target && rows ? findTraits(target, rows, manifest, prefName) : []),
+    // 投稿して広まることを考えて、悪く言うことになりやすい向きは選ばない。
+    () => (target && rows ? findTraits(target, rows, manifest, prefName, 3, { friendly: true }) : []),
     [target, rows, manifest, prefName]
   );
   const populationRank = useMemo(() => {
@@ -254,6 +255,8 @@ export function KujiView({
                     pop
                     filename={`machikuji-${entry.code}.png`}
                     text={shareText}
+                    // リンクカードにこのまちの札が出るよう、まちごとのページ（/m/<コード>/）を投稿する。
+                    url={new URL(`m/${entry.code}/`, window.location.href.split("#")[0]).href}
                     card={() => ({
                       kind: "kuji",
                       code: entry.code,
@@ -332,7 +335,7 @@ export function KujiView({
           目立つところは、決まった規則で選びます。全国で上位・下位10位以内、都道府県の中で最も大きい・小さい、全国で上位・下位5%以内、都道府県の中で3位以内の順に、同じ値の市区町村も数えて選びます。良し悪しを表すものではありません。
         </li>
         <li>
-          人口の少ない市区町村で大きく動く項目（婚姻率など）は、人口1万人以上の市区町村の中で比べています。ふるさと納税の受入額のような総額の項目は、多い側だけを示します。
+          人口の少ない市区町村で大きく動く項目（婚姻率など）は、人口1万人以上の市区町村の中で比べています。ふるさと納税の受入額のような総額の項目は、多い側だけを示します。医師が少ない・寿命が短いのように、そのまちを悪く言うことになりやすい向きは示しません。
         </li>
       </ul>
     </div>

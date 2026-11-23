@@ -58,7 +58,7 @@ export function runKuji(
           : 1 + reference.filter((row) => row.population !== null && row.population > population).length
     },
     scope: { name: pref?.name ?? "全国", count: pool.length },
-    traits: findTraits(picked, rows, manifest, prefName),
+    traits: findTraits(picked, rows, manifest, prefName, 3, { friendly: true }),
     manifest
   };
 }

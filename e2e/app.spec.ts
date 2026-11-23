@@ -729,7 +729,8 @@ test.describe("まちくじ", () => {
     const href = new URL((await post.getAttribute("href")) ?? "");
     expect(href.searchParams.get("text")).toMatch(/^まちくじで「群馬県 大泉町」を引きました。外国人住民の割合が/);
     expect(href.searchParams.get("text")).toContain("#まちくじ");
-    expect(href.searchParams.get("url")).toMatch(/#view=kuji&area=10524$/);
+    // リンクカードにこのまちの札が出るよう、まちごとのページを投稿する。
+    expect(href.searchParams.get("url")).toMatch(/\/m\/10524\/$/);
 
     await ticket.getByRole("link", { name: "このまちをくわしく見る" }).click();
     await expect(page).toHaveURL(/#area=10524$/);
@@ -777,6 +778,24 @@ test.describe("まちくじ", () => {
     await expect(page.locator(".ticket__name--rolling")).toHaveCount(0);
     await expect(page.locator(".ticket__pref")).toHaveText("沖縄県");
     await expect(page.getByRole("button", { name: "もう一回引く" })).toBeEnabled();
+  });
+});
+
+test.describe("まちごとの共有ページ", () => {
+  test("リンクカード用の情報と札の画像を持ち、開くとまちくじの札へ移る", async ({ page, request }) => {
+    const html = await (await request.get("./m/10524/")).text();
+    expect(html).toContain('<meta property="og:title" content="まちくじ：群馬県 大泉町">');
+    expect(html).toMatch(/<meta property="og:image" content="https:\/\/[^"]+\/m\/10524\.png">/);
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
+    expect(html).toContain("外国人住民の割合が全国で3番目に高い");
+
+    const image = await request.get("./m/10524.png");
+    expect(image.status()).toBe(200);
+    expect((await image.body()).subarray(1, 4).toString()).toBe("PNG");
+
+    await page.goto("./m/10524/");
+    await expect(page).toHaveURL(/#view=kuji&area=10524$/);
+    await expect(page.getByRole("article", { name: "大泉町" })).toBeVisible();
   });
 });
 

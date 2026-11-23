@@ -33,10 +33,28 @@ function contentSecurityPolicy(): Plugin {
   };
 }
 
+/**
+ * リンクカード（og:url・og:image）に使うサイトのアドレス。scripts/build-share-pages.ts と同じ決め方。
+ * 本番（main）のビルドでは本番のアドレス、Cloudflare Pages のプレビューではそのデプロイのアドレスにする。
+ */
+function siteUrl(): string {
+  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, "");
+  if (process.env.CF_PAGES_BRANCH === "main" || !process.env.CF_PAGES_URL)
+    return "https://local-signal-japan.pages.dev";
+  return process.env.CF_PAGES_URL.replace(/\/$/, "");
+}
+
+function siteUrlPlaceholder(): Plugin {
+  return {
+    name: "site-url",
+    transformIndexHtml: (html) => html.replaceAll("%SITE_URL%", siteUrl())
+  };
+}
+
 export default defineConfig({
   // 相対パスで出力するので、ドメイン直下でもサブディレクトリでもそのまま配信できる。
   base: "./",
-  plugins: [react(), contentSecurityPolicy()],
+  plugins: [react(), contentSecurityPolicy(), siteUrlPlaceholder()],
   build: {
     // 小さなファイルも data: に埋め込まず、ファイルとして配信する（data: の書体や画像は CSP で許可していない）。
     assetsInlineLimit: 0

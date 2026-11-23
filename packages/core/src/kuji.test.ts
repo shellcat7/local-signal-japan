@@ -106,6 +106,15 @@ describe("findTraits", () => {
     });
   });
 
+  it("friendly では、悪く言うことになりやすい向き（医師が少ない、など）を選ばない", () => {
+    const doctors = rows.map((item, index) => row(item.code, { doctors: index, floorArea: 200 - (index % 50) }));
+    const lowest = doctors[0] as NationalRow;
+    expect(findTraits(lowest, doctors, manifest, "見本県").map((trait) => trait.key)).toContain("doctors");
+    const friendly = findTraits(lowest, doctors, manifest, "見本県", 3, { friendly: true });
+    expect(friendly.map((trait) => [trait.key, trait.side])).not.toContainEqual(["doctors", "low"]);
+    expect(friendly.length).toBeGreaterThan(0);
+  });
+
   it("政令指定都市の区には特徴を出さず、区は比べる相手にも入れない", () => {
     const ward = row("14101", { commuteBike: 10_000 }, { kind: "ward" });
     expect(findTraits(ward, [...rows, ward], manifest, "見本県")).toEqual([]);
