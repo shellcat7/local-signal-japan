@@ -4,14 +4,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [
-      "**/node_modules/",
-      "**/dist/",
-      "**/.wrangler/",
-      "apps/web/public/",
-      "playwright-report/",
-      "test-results/"
-    ]
+    ignores: ["**/node_modules/", "**/dist/", "apps/web/public/", "playwright-report/", "test-results/"]
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

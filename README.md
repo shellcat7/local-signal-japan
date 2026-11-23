@@ -90,7 +90,7 @@ pnpm data:refresh
 pnpm build
 ```
 
-`apps/web/dist/` を静的ファイルとして配信するだけです。Cloudflare と GitHub Pages への公開手順は [docs/DEPLOY.md](docs/DEPLOY.md) にあります。
+`apps/web/dist/` を静的ファイルとして配信するだけです。このリポジトリは Cloudflare Pages の Git 連携で公開しており、main へのマージで本番が更新されます。設定と、GitHub Pages を使う場合の手順は [docs/DEPLOY.md](docs/DEPLOY.md) にあります。
 
 ## 開発
 

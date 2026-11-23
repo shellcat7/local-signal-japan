@@ -8,64 +8,63 @@ pnpm build      # apps/web/dist/ に出力
 pnpm preview    # http://127.0.0.1:4173/ で成果物を確認
 ```
 
-配信先は次のどちらかを想定しています。
+## Cloudflare Pages（このリポジトリの構成）
 
-| 配信先       | 向いている場合                                           |
+このリポジトリは Cloudflare Pages の Git 連携で公開しています。GitHub 側にシークレットを置く必要はありません。
+
+- **main へのマージ**で本番（`https://<プロジェクト名>.pages.dev`）が更新されます。
+- **プルリクエストやブランチへの push** ごとに、プレビュー用のURLが作られます（プルリクエストにコメントで通知されます）。
+
+### ビルド設定
+
+Cloudflare のダッシュボードで、Pages プロジェクトの Settings > Build を次のようにします。
+
+| 設定                   | 値                     |
+| ---------------------- | ---------------------- |
+| Framework preset       | None                   |
+| Build command          | `pnpm build`           |
+| Build output directory | `apps/web/dist`        |
+| Root directory         | （リポジトリのルート） |
+
+Node.js は 22.12 以上が必要です。環境変数 `PNPM_VERSION` を設定している場合は、`package.json` の `packageManager` と同じ版にそろえるか、削除してください。
+
+### 配信時に効くファイル
+
+`apps/web/public/` にある次のファイルは、ビルド成果物にそのまま入り、Cloudflare Pages が解釈します。
+
+| ファイル     | 役割                                                     |
 | ------------ | -------------------------------------------------------- |
-| Cloudflare   | セキュリティ関連のレスポンスヘッダーまで付けたい（推奨） |
-| GitHub Pages | いちばん手数を少なく公開したい                           |
+| `_headers`   | セキュリティ関連のレスポンスヘッダーと、キャッシュの指定 |
+| `_redirects` | 旧URL `/demo` からトップページへの転送                   |
+| `404.html`   | 存在しないパスへの応答                                   |
 
-## Cloudflare（Workers の静的アセット）
+### 手元からアップロードする
 
-設定は [`apps/web/wrangler.jsonc`](../apps/web/wrangler.jsonc) にあります。Worker のコードは持たず、静的アセットだけを配信します。`apps/web/public/` にある次のファイルが有効になります。
-
-- `_headers`: セキュリティ関連のヘッダーとキャッシュの指定
-- `_redirects`: 旧URL `/demo` からトップページへの転送
-- `404.html`: 存在しないパスへの応答
-
-### 手元から公開する
-
-```bash
-pnpm --filter @local-signal-japan/web exec wrangler login   # 初回だけ
-pnpm run deploy                                             # ビルドして公開
-```
-
-`https://local-signal-japan.<アカウントのサブドメイン>.workers.dev` で公開されます。Worker の名前は `wrangler.jsonc` の `name` で変えられます。
-
-### Git 連携で自動公開する（Workers Builds）
-
-Cloudflare のダッシュボードでリポジトリを接続すると、push のたびにビルドと公開が行われます。GitHub 側にシークレットを置く必要はありません。
-
-1. ダッシュボードの Workers & Pages で、このリポジトリを取り込んで Worker を作ります。Worker の名前は `wrangler.jsonc` の `name`（`local-signal-japan`）と同じにします。
-2. Settings > Build で次のように設定します。
-
-   | 設定           | 値                          |
-   | -------------- | --------------------------- |
-   | Root directory | `/apps/web`                 |
-   | Build command  | `pnpm build`                |
-   | Deploy command | `pnpm exec wrangler deploy` |
-
-依存パッケージは自動でインストールされます。pnpm の版は、リポジトリ直下の `package.json` の `packageManager` から決まります。Node.js は 22.12 以上が必要です（Workers Builds の既定の版で足ります）。
-
-### 公開前の確認
-
-設定の検査と、実際の配信に近い形での確認が手元でできます。
+Git 連携を使わない場合は、ビルド成果物を直接アップロードできます。
 
 ```bash
 pnpm build
-cd apps/web
-pnpm exec wrangler deploy --dry-run   # 設定とアセットの検査だけ行う
-pnpm exec wrangler dev                # ヘッダーや転送も含めてローカルで配信
+pnpm dlx wrangler pages deploy apps/web/dist --project-name <プロジェクト名>
 ```
 
 ## GitHub Pages
 
+Cloudflare を使わずに公開する場合の手順です。
+
 1. リポジトリの Settings > Pages > Build and deployment > Source を **GitHub Actions** にします。
 2. Actions タブで「GitHub Pages へ公開」ワークフローを手動実行します（[`deploy-pages.yml`](../.github/workflows/deploy-pages.yml)）。
 
-`https://<ユーザー名>.github.io/local-signal-japan/` で公開されます。main への push のたびに公開したい場合は、ワークフローの `on:` に `push` を追加してください。
+`https://<ユーザー名>.github.io/<リポジトリ名>/` で公開されます。main への push のたびに公開したい場合は、ワークフローの `on:` に `push` を追加してください。
 
 GitHub Pages では `_headers` と `_redirects` は効きません。Content-Security-Policy は `index.html` に埋め込んであるので、そのまま有効です。
+
+## 公開したサイトの確認
+
+ブラウザでの自動テストを、公開済みのURLに対して実行できます（URLの末尾は `/`）。プレビュー用のURLで実行すれば、マージ前に実際の配信で確認できます。
+
+```bash
+E2E_BASE_URL=https://<公開先のURL>/ pnpm test:e2e
+```
 
 ## 公開前のチェックリスト
 
@@ -77,6 +76,6 @@ GitHub Pages では `_headers` と `_redirects` は効きません。Content-Sec
 
 ## データの定期更新
 
-「データ更新」ワークフロー（[`refresh-data.yml`](../.github/workflows/refresh-data.yml)）が毎月1回、統計ダッシュボード API から最新の統計を取得し、統計値に変更があればプルリクエストを作ります。マージすると、Git 連携を設定していれば自動で公開されます。
+「データ更新」ワークフロー（[`refresh-data.yml`](../.github/workflows/refresh-data.yml)）が毎月1回、統計ダッシュボード API から最新の統計を取得し、統計値に変更があればプルリクエストを作ります。マージすると本番に反映されます。
 
 プルリクエストを自動作成させるには、Settings > Actions > General > Workflow permissions で **Allow GitHub Actions to create and approve pull requests** を有効にしてください。無効の場合は、ブランチの push までが行われます。

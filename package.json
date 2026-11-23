@@ -22,8 +22,7 @@
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "preflight": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm scan:secrets && pnpm build",
     "data:refresh": "tsx packages/dataset/src/refresh.ts",
-    "localsignal": "tsx apps/cli/src/index.ts",
-    "deploy": "pnpm build && pnpm --filter @local-signal-japan/web exec wrangler deploy"
+    "localsignal": "tsx apps/cli/src/index.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

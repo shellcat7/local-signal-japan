@@ -5,4 +5,3 @@ packages:
 # 依存パッケージのインストールスクリプトは明示的に許可したものだけ実行する。
 onlyBuiltDependencies:
   - esbuild
-  - workerd

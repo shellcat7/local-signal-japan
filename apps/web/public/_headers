@@ -1,4 +1,4 @@
-# Cloudflare(Workers の静的アセット / Pages)で配信するときのレスポンスヘッダー。
+# Cloudflare Pages で配信するときのレスポンスヘッダー。
 # Content-Security-Policy は index.html の meta 要素で指定している(vite.config.ts)。
 
 /*

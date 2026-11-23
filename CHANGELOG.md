@@ -19,7 +19,7 @@
 - CLI: `search`、`show`、`report`
 - ブラウザでの自動テスト（操作、アクセシビリティ、外部通信をしないことの確認）
 - Content-Security-Policy とセキュリティ関連のレスポンスヘッダー
-- Cloudflare と GitHub Pages への公開手順
+- Cloudflare Pages 用のヘッダー・転送・404ページと、GitHub Pages へ公開するワークフロー
 
 ### 変更
 
@@ -32,5 +32,5 @@
 ### 削除
 
 - 架空のデモデータと `/demo` ルート（`/demo` はトップページへ転送）
-- Hono の Worker API と D1 のマイグレーション。閲覧時にサーバー側の処理を必要としない構成にしたため
+- Hono の Worker API、D1 のマイグレーション、Wrangler。閲覧時にサーバー側の処理を必要としない構成にしたため
 - 地価・公共調達の指標。市区町村単位の新しい実データを APIキーなしで取得できないため（[ロードマップ](docs/ROADMAP.md)に記載）
