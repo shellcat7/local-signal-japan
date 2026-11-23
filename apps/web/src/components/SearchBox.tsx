@@ -6,7 +6,8 @@ type SearchBoxProps = {
   index: AreaIndex;
   onSelect: (areaCode: string) => void;
   /** hero = トップページの大きな検索欄、bar = 上部バーの検索欄、inline = 比較に追加する欄。 */
-  variant?: "hero" | "bar" | "inline";
+  /** bar = 上部の検索欄、inline = 比較に追加する欄。 */
+  variant?: "bar" | "inline";
   label?: string;
   placeholder?: string;
   /** 選んだあと入力欄を空に戻す（続けて追加する欄で使う）。 */
@@ -16,6 +17,8 @@ type SearchBoxProps = {
   /** 候補から除く市区町村コード。 */
   exclude?: readonly string[];
   disabled?: boolean;
+  /** 表示した直後に入力できるようにする（マウスやトラックパッドのある端末だけ。画面キーボードは開かせない）。 */
+  focusOnMount?: boolean;
 };
 
 const MAX_RESULTS = 8;
@@ -41,13 +44,14 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 export function SearchBox({
   index,
   onSelect,
-  variant = "hero",
+  variant = "bar",
   label = "市区町村をさがす",
-  placeholder = "市区町村名・よみがな・5桁のコード（例: 千代田区、なんと、14117）",
+  placeholder = "まちの名前・よみがな・5桁のコード",
   clearOnSelect = false,
   shortcut = false,
   exclude,
-  disabled = false
+  disabled = false,
+  focusOnMount = false
 }: SearchBoxProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -64,6 +68,14 @@ export function SearchBox({
   // 候補が減っても、選択位置が範囲の外を指さないようにする。
   const activePosition = Math.min(activeIndex, Math.max(results.length - 1, 0));
   const optionId = (position: number) => `${listId}-option-${position}`;
+
+  useEffect(() => {
+    if (focusOnMount && window.matchMedia("(pointer: fine)").matches) {
+      inputRef.current?.focus({ preventScroll: true });
+    }
+    // 表示した直後の1回だけ。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!shortcut) return;
@@ -122,7 +134,7 @@ export function SearchBox({
         {label}
       </label>
       <div className="search__field">
-        <Search className="search__icon" size={variant === "hero" ? 20 : 16} strokeWidth={1.75} aria-hidden="true" />
+        <Search className="search__icon" size={variant === "bar" ? 18 : 16} strokeWidth={1.75} aria-hidden="true" />
         <input
           ref={inputRef}
           id={inputId}

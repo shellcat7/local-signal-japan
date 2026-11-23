@@ -2,9 +2,7 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 import {
   areaFullName,
   findAreaEntry,
-  formatDateLong,
   formatNumber,
-  INDICATOR_KEYS,
   type AreaIndex,
   type AreaRecord,
   type Manifest,
@@ -145,8 +143,8 @@ function RankingSection({ route, manifest, index, onChange, onOpenArea }: Rankin
       <header className="container page-head">
         <h2>条件でさがす</h2>
         <p>
-          政令指定都市の区を除く{formatNumber(manifest.counts.referenceAreas)}
-          市区町村から、条件に合うものをすべて並べます。
+          全国{formatNumber(manifest.counts.referenceAreas)}
+          市区町村から、条件に合うものをすべて並べます（政令指定都市の区は、市全体と重なるため除いています）。
         </p>
       </header>
       {national.status === "error" && <Status message={national.message} onRetry={retry} />}
@@ -178,17 +176,6 @@ function HomeSection({ manifest, index, onOpenArea, onOpenRanking }: HomeSection
 
   return (
     <div className="container home">
-      <section className="home__search" aria-labelledby="home-title">
-        <h2 id="home-title">市区町村をさがす</h2>
-        <SearchBox index={index} onSelect={onOpenArea} variant="hero" shortcut />
-        <p className="home__facts">
-          <span>
-            全国{formatNumber(manifest.counts.areas)}市区町村・{INDICATOR_KEYS.length}指標
-          </span>
-          <span>出典 {manifest.source.name}</span>
-          <span>{formatDateLong(manifest.generatedAt)}取得</span>
-        </p>
-      </section>
       <Landing
         manifest={manifest}
         index={index}
@@ -255,14 +242,14 @@ export function App() {
         route={route}
         onNavigate={goTo}
         search={
-          ready && route.view !== "home" ? (
+          ready ? (
             <SearchBox
               index={ready.index}
               onSelect={selectArea}
               variant="bar"
-              placeholder="市区町村名・よみがな・コード"
               clearOnSelect
               shortcut
+              focusOnMount={route.view === "home"}
             />
           ) : null
         }

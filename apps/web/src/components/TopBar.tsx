@@ -1,10 +1,11 @@
 import type { MouseEvent, ReactNode } from "react";
 import { hrefOf, DEFAULT_RANKING, type Route } from "../lib/route";
+import { SITE_NAME } from "../lib/site";
 
 type TopBarProps = {
   route: Route;
   onNavigate: (route: Route) => void;
-  /** 上部に置く検索欄（トップページでは本文に検索欄があるので置かない）。 */
+  /** 検索欄。どの画面でも同じ位置に置く。 */
   search: ReactNode;
 };
 
@@ -27,19 +28,17 @@ export function TopBar({ route, onNavigate, search }: TopBarProps) {
     <header className="topbar">
       <div className="container topbar__inner">
         <h1 className="topbar__brand">
-          <a {...link({ view: "home" })}>
-            Local <span>Signal</span> Japan
-          </a>
+          <a {...link({ view: "home" })}>{SITE_NAME}</a>
         </h1>
+        <div className="topbar__search">{search}</div>
         <nav className="topbar__nav" aria-label="メインメニュー">
           <a {...link({ view: "home" })} aria-current={route.view === "home" ? "page" : undefined}>
-            名前でさがす
+            都道府県から
           </a>
           <a {...link(DEFAULT_RANKING)} aria-current={route.view === "ranking" ? "page" : undefined}>
             条件でさがす
           </a>
         </nav>
-        <div className="topbar__search">{search}</div>
       </div>
     </header>
   );

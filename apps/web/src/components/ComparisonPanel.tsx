@@ -211,9 +211,7 @@ export function ComparisonPanel({
             variant="inline"
             label="比べる市区町村を追加"
             placeholder={
-              full
-                ? `${MAX_COMPARE}つまで。どれかを外すと追加できます`
-                : "全国の市区町村から追加（名前・よみがな・コード）"
+              full ? `${MAX_COMPARE}つまで。どれかを外すと追加できます` : "くらべるまちを追加（名前・よみがな・コード）"
             }
             disabled={full}
             clearOnSelect

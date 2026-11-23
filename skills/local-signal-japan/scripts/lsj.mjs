@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Local Signal Japan のデータセット（全国の市区町村の公的統計）を読む、依存なしの単体スクリプト。
+ * まちのものさし（Local Signal Japan）のデータセット（全国の市区町村の公的統計）を読む、依存なしの単体スクリプト。
  * Node.js 18 以上で動く。このフォルダだけを持ち出しても使えるよう、ほかのファイルは import しない。
  *
  *   node lsj.mjs --help
@@ -217,7 +217,7 @@ const READING_NOTES = [
   "値が null の指標は欠損です。低い値や0として扱わないでください。政令指定都市の区には順位がありません。"
 ];
 
-const USAGE = `Local Signal Japan データ参照スクリプト（全国の市区町村の公的統計）
+const USAGE = `まちのものさし（Local Signal Japan）データ参照スクリプト（全国の市区町村の公的統計）
 
 使い方:
   node lsj.mjs indicators

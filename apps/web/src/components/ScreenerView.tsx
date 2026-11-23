@@ -172,7 +172,7 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
       ["データ取得日", formatDate(manifest.generatedAt)]
     ];
     downloadText(
-      `local-signal-${formatDate(manifest.generatedAt)}.csv`,
+      `machinomonosashi-${formatDate(manifest.generatedAt)}.csv`,
       toCsv([header, ...lines, ...notes]),
       "text/csv"
     );
@@ -375,17 +375,11 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
         )}
 
         <ul className="notes">
+          <li>順位は、条件で絞り込んだ中で付けています（同じ値は同順位）。</li>
           <li>
-            順位は、条件で絞り込んだ中で付けています。同じ値は同順位です。値の大小の順であり、良し悪しの順ではありません。
+            「…」は値がそろわない指標（欠損）です。条件を付けた指標が欠損の市区町村は条件に合わないものとして扱い、並べる値が欠損の市区町村は順位を付けずに末尾に並べます。
           </li>
-          <li>
-            「…」は値がそろわない指標（欠損）です。条件を付けた指標が欠損の市区町村は、条件に合わないものとして扱います。並べる値が欠損の市区町村は、順位を付けずに末尾に並べます。
-          </li>
-          <li>政令指定都市の区は、市全体と重複するため対象に含めていません。</li>
-          <li>
-            人口の少ない市区町村では、率や1人当たりの値が少数の増減で大きく動きます。人口規模とあわせて見てください。
-          </li>
-          <li>総合は、利用できる指標の補助スコア（全国の中での位置、0〜100）の平均です。</li>
+          <li>人口の少ない市区町村では、率や1人当たりの値が少数の増減で大きく動きます。</li>
         </ul>
       </section>
     </div>

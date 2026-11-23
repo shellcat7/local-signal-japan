@@ -1,6 +1,5 @@
 import {
   CONFIDENCE_LABELS,
-  DISCLAIMER,
   formatNumber,
   SCORE_BAND_LABELS,
   valuePosition,
@@ -105,12 +104,12 @@ export function OverviewPanel({ view, summary, manifest, onOpenIndicators }: Ove
     <div className="overview">
       <section className="block overview__summary" aria-labelledby="summary-title">
         <header className="block__head">
-          <h3 id="summary-title">指標サマリー</h3>
+          <h3 id="summary-title">7つの指標</h3>
           <button type="button" className="text-link" onClick={onOpenIndicators}>
             指標ごとの詳細を見る
           </button>
         </header>
-        <ScrollRegion label="指標サマリーの表">
+        <ScrollRegion label="7つの指標の表">
           <table className="summary">
             <thead>
               <tr>
@@ -136,14 +135,13 @@ export function OverviewPanel({ view, summary, manifest, onOpenIndicators }: Ove
         </ScrollRegion>
         <ul className="notes">
           <li>
-            全国順位は、政令指定都市の区を除く市区町村のうち値があるものの中で、指標値が大きい順に数えています（同じ値は同順位）。値の大小の順で、良し悪しの順ではありません。
+            全国順位は、政令指定都市の区を除く市区町村のうち値があるものの中で、指標値が大きい順に数えています（同じ値は同順位）。
             {isWard && "政令指定都市の区は市全体と重複するため、順位を付けていません。"}
           </li>
           <li>「全国での位置」は、左端が全国で最も値が小さい側、右端が最も大きい側です。</li>
           <li>
             信頼度メモ「{CONFIDENCE_LABELS[view.confidence.level]}」：{view.confidence.reason}
           </li>
-          <li>この画面は{DISCLAIMER}</li>
         </ul>
       </section>
 

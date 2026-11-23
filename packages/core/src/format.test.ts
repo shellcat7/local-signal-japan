@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { areaFullName, areaLocalName, formatDate, formatNumber, formatYear, roundTo, yearOf } from "./format";
+import {
+  areaFullName,
+  areaLocalName,
+  formatDate,
+  formatDateWithEra,
+  formatNumber,
+  formatYear,
+  roundTo,
+  yearOf
+} from "./format";
 
 describe("formatNumber", () => {
   it("桁区切りと小数桁をそろえる", () => {
@@ -47,5 +56,13 @@ describe("市区町村の表示名", () => {
     expect(areaLocalName({ name: "青葉区", parentName: "横浜市" })).toBe("横浜市青葉区");
     expect(areaFullName({ name: "青葉区", parentName: "横浜市", prefName: "神奈川県" })).toBe("神奈川県 横浜市青葉区");
     expect(areaFullName({ name: "南砺市", prefName: "富山県" })).toBe("富山県 南砺市");
+  });
+});
+
+describe("formatDateWithEra", () => {
+  it("和暦を先に、西暦を括弧で添える（日本時間）", () => {
+    expect(formatDateWithEra("2026-11-23T09:38:39.686Z")).toBe("令和8年（2026年）11月23日");
+    // UTC では前日でも、日本時間では年が明けている。
+    expect(formatDateWithEra("2026-12-31T15:30:00.000Z")).toBe("令和9年（2027年）1月1日");
   });
 });

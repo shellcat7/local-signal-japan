@@ -47,6 +47,20 @@ export function formatDateLong(iso: string): string {
   return `${year}年${month}月${day}日`;
 }
 
+const eraFormatter = new Intl.DateTimeFormat("ja-JP-u-ca-japanese", {
+  era: "long",
+  year: "numeric",
+  timeZone: "Asia/Tokyo"
+});
+
+/** 和暦を先に、西暦を括弧で添えた日付（日本時間）。例: 令和8年（2026年）11月23日 */
+export function formatDateWithEra(iso: string): string {
+  const [year, month, day] = formatDate(iso).split("-").map(Number);
+  // 「令和8年」の形。元年は「令和元年」になる。
+  const era = eraFormatter.format(new Date(iso));
+  return `${era}（${year}年）${month}月${day}日`;
+}
+
 /** 日本時間での年。 */
 export function yearOf(isoDateTime: string): number {
   return Number(formatDate(isoDateTime).slice(0, 4));

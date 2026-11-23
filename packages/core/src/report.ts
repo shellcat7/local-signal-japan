@@ -64,7 +64,7 @@ export function renderMarkdownReport(view: AreaView, manifest: Manifest): string
       : `（${view.coverage.total}指標中${view.coverage.available}指標の平均）`;
 
   return [
-    `# Local Signal Japan レポート: ${view.fullName}`,
+    `# まちのものさし レポート: ${view.fullName}`,
     "",
     `- 市区町村コード: ${area.code}`,
     `- 区分: ${AREA_KIND_LABELS[area.kind]}`,

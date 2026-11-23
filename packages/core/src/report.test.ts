@@ -8,7 +8,7 @@ describe("generateMarkdownReport", () => {
   const report = generateMarkdownReport(makeArea(), manifest);
 
   it("見出しと基本情報を含む", () => {
-    expect(report).toContain("# Local Signal Japan レポート: 東京都 見本市");
+    expect(report).toContain("# まちのものさし レポート: 東京都 見本市");
     expect(report).toContain("- 市区町村コード: 99201");
     expect(report).toContain("- 人口: 105,000人（住民基本台帳）");
     expect(report).toContain("- 総合補助スコア: 61/100（7指標中7指標の平均）");

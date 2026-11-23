@@ -1,5 +1,5 @@
-import { formatDateLong, type Manifest } from "@local-signal-japan/core";
-import { APP_VERSION, DOCS_URL, REPOSITORY_URL, SITE_NAME } from "../lib/site";
+import { DISCLAIMER, formatDateWithEra, type Manifest } from "@local-signal-japan/core";
+import { APP_VERSION, DOCS_URL, PROJECT_NAME, REPOSITORY_URL, SITE_NAME } from "../lib/site";
 
 export function Footer({ manifest }: { manifest: Manifest | null }) {
   return (
@@ -11,13 +11,16 @@ export function Footer({ manifest }: { manifest: Manifest | null }) {
             <a href={manifest.source.url} target="_blank" rel="noreferrer">
               {manifest.source.name}
             </a>
-            のデータを加工して作成（{formatDateLong(manifest.generatedAt)}取得）。利用規約：
+            のデータを加工して作成（{formatDateWithEra(manifest.generatedAt)}取得）。利用規約：
             <a href={manifest.source.licenseUrl} target="_blank" rel="noreferrer">
               {manifest.source.license}
             </a>
           </p>
           {/* 統計ダッシュボードAPIの利用条件として求められているクレジット表示。文言は変更しない。 */}
           <p>{manifest.source.credit}</p>
+          <p>
+            {SITE_NAME}は、{DISCLAIMER}
+          </p>
         </div>
       )}
       <nav className="site-footer__links" aria-label="関連情報">
@@ -35,7 +38,7 @@ export function Footer({ manifest }: { manifest: Manifest | null }) {
         </a>
       </nav>
       <p className="site-footer__meta">
-        {SITE_NAME} v{APP_VERSION}・MIT License
+        {SITE_NAME}（{PROJECT_NAME}）v{APP_VERSION}・MIT License
       </p>
     </footer>
   );

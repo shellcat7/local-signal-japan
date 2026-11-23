@@ -4,7 +4,7 @@ description: 日本の全市区町村の公的統計を、出典と基準時点�
 compatibility: Node.js 18 以上が必要。既定ではデータセットを https://local-signal-japan.pages.dev/data/ から取得するため、ネットワーク接続が要る（環境変数 LSJ_DATA か --data で、手元のフォルダや別のURLに変えられる）。
 ---
 
-# Local Signal Japan
+# まちのものさし（Local Signal Japan）
 
 全国の市区町村について、公的統計（統計ダッシュボード）から作った検証済みのデータセットを読む。同梱の `scripts/lsj.mjs` で、7指標の値・基準時点・補助スコア・全国順位を取得する。
 

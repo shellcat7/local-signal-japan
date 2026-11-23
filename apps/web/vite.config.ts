@@ -37,6 +37,10 @@ export default defineConfig({
   // 相対パスで出力するので、ドメイン直下でもサブディレクトリでもそのまま配信できる。
   base: "./",
   plugins: [react(), contentSecurityPolicy()],
+  build: {
+    // 小さなファイルも data: に埋め込まず、ファイルとして配信する（data: の書体や画像は CSP で許可していない）。
+    assetsInlineLimit: 0
+  },
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? "0.0.0")
   },

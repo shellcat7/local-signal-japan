@@ -59,7 +59,7 @@ test.describe("トップページ", () => {
     const { errors, externalRequests } = watch(page);
     await page.goto("./");
 
-    await expect(page.getByRole("heading", { level: 1, name: "Local Signal Japan" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "まちのものさし" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "収録している指標" })).toBeVisible();
     await expect(page.getByRole("table").getByRole("row")).toHaveCount(8);
     await expect(page.getByText(CREDIT)).toBeVisible();
@@ -130,7 +130,7 @@ test.describe("検索", () => {
     await input.press("Enter");
     await expect(page.getByRole("heading", { level: 2, name: "南砺市" })).toBeFocused();
     await expect(page).toHaveURL(/#area=16210$/);
-    await expect(page).toHaveTitle("富山県 南砺市 | Local Signal Japan");
+    await expect(page).toHaveTitle("富山県 南砺市 | まちのものさし");
 
     expect(errors).toEqual([]);
     expect(externalRequests, "検索語を外部へ送らないこと").toEqual([]);
@@ -193,7 +193,7 @@ test.describe("条件でさがす", () => {
 
     await expect(page.getByRole("heading", { level: 2, name: "条件でさがす" })).toBeVisible();
     await expect(page).toHaveURL(/#view=ranking$/);
-    await expect(page).toHaveTitle("条件でさがす | Local Signal Japan");
+    await expect(page).toHaveTitle("条件でさがす | まちのものさし");
 
     // 条件がなければ、対象の全市区町村が人口の多い順に並ぶ。
     const table = page.getByRole("table");
@@ -283,7 +283,7 @@ test.describe("条件でさがす", () => {
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "CSVで保存" }).click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/^local-signal-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(download.suggestedFilename()).toMatch(/^machinomonosashi-\d{4}-\d{2}-\d{2}\.csv$/);
 
     const csv = await readFile(await download.path(), "utf8");
     // Excel で文字化けしないよう、先頭に BOM がある。
@@ -509,10 +509,10 @@ test.describe("市区町村の画面", () => {
       page.waitForEvent("download"),
       page.getByRole("button", { name: "ダウンロード" }).click()
     ]);
-    expect(download.suggestedFilename()).toBe("local-signal-14117.md");
+    expect(download.suggestedFilename()).toBe("machinomonosashi-14117.md");
 
     const markdown = await readFile(await download.path(), "utf8");
-    expect(markdown).toContain("# Local Signal Japan レポート: 神奈川県 横浜市青葉区");
+    expect(markdown).toContain("# まちのものさし レポート: 神奈川県 横浜市青葉区");
     expect(markdown).toContain("出典: 統計ダッシュボード（https://dashboard.e-stat.go.jp/）のデータを加工して作成");
     expect(markdown).toContain(CREDIT);
     // 政令指定都市の区は所得・財政が収録されていない。

@@ -5,7 +5,6 @@ import {
   buildSummary,
   formatNumber,
   renderMarkdownReport,
-  SCORE_BAND_LABELS,
   type AreaRecord,
   type AreaIndex,
   type Manifest,
@@ -124,6 +123,10 @@ export function AreaDashboard({
                 市区町村コード <code>{area.code}</code>
               </span>
               <span>{AREA_KIND_LABELS[area.kind]}</span>
+              <span>
+                {view.coverage.total}指標のうち{view.coverage.available}指標を収録
+                {missingLabels.length > 0 && `（欠損: ${missingLabels.join("、")}）`}
+              </span>
             </p>
           </div>
 
@@ -131,37 +134,17 @@ export function AreaDashboard({
             <div className="figure">
               <dt>
                 人口
-                {population?.headline && <span>{population.headline.period}</span>}
+                {population?.headline && <span>{population.headline.period}現在</span>}
               </dt>
               <dd className="figure__value">
                 {area.population === null ? "欠損" : formatNumber(area.population)}
                 {area.population !== null && <small>人</small>}
               </dd>
-              <dd className="figure__note">
-                {population?.change ? `${population.change.label} ${population.change.text}` : "住民基本台帳"}
-              </dd>
-            </div>
-            <div className="figure">
-              <dt>総合補助スコア</dt>
-              <dd className="figure__value">
-                {view.overallScore ?? "—"}
-                {view.overallScore !== null && <small>/100</small>}
-              </dd>
-              <dd className="figure__note">
-                {view.overallScore === null
-                  ? "利用できる指標が少ないため算出していません"
-                  : `全国の${SCORE_BAND_LABELS[view.overallBand]}・${view.coverage.available}指標の平均`}
-              </dd>
-            </div>
-            <div className="figure">
-              <dt>収録している指標</dt>
-              <dd className="figure__value">
-                {view.coverage.available}
-                <small>/{view.coverage.total}</small>
-              </dd>
-              <dd className="figure__note">
-                {missingLabels.length === 0 ? "欠損なし" : `欠損: ${missingLabels.join("、")}`}
-              </dd>
+              {population?.change && (
+                <dd className="figure__note">
+                  {population.change.label} {population.change.text}
+                </dd>
+              )}
             </div>
           </dl>
         </div>

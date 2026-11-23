@@ -1,16 +1,19 @@
-# Local Signal Japan
+# まちのものさし
+
+（リポジトリ名・英語名: Local Signal Japan）
 
 [![CI](https://github.com/shellcat7/local-signal-japan/actions/workflows/ci.yml/badge.svg)](https://github.com/shellcat7/local-signal-japan/actions/workflows/ci.yml)
 
-全国の市区町村について、人口・高齢化・転入転出・事業所・雇用・所得・財政の公開統計を、出典・基準時点・欠損の注記ごと確認できるダッシュボードです。
+全国の市区町村を、同じ目盛りで調べて比べる道具です。人口・高齢化・転入転出・事業所・雇用・所得・財政の公開統計を、出典・基準時点・欠損の注記ごと確認できます。
 
 _A dashboard for Japanese municipalities that shows official public statistics together with their sources, reference periods, and missing-data notes. All data comes from the Statistics Dashboard API of the Statistics Bureau of Japan (no API key required) and ships as a static dataset, so the site runs without any backend. The UI and documentation are in Japanese._
 
-![千代田区の概要画面。市区町村名と人口の下に、指標ごとの指標値・全国順位・全国での位置・推移・5年前比をまとめた表と、補助スコアの内訳、読み取り時の注意が並ぶ](docs/images/overview.png)
+![千代田区の概要画面。上部に「まちのものさし」の名前と検索欄があり、市区町村名と人口の下に、指標ごとの指標値・全国順位・全国での位置・推移・5年前比をまとめた表と、補助スコアの内訳が並ぶ](docs/images/overview.png)
 
 ## できること
 
-- **さがす**: 市区町村名・よみがな・5桁の市区町村コードで検索（全国約1,900団体。政令指定都市の区を含む）
+- **名前でさがす**: 市区町村名・よみがな・5桁の市区町村コードで検索（全国約1,900市区町村。政令指定都市の区を含む）。検索欄は、どの画面でも上部の同じ位置にあります
+- **都道府県からさがす**: 日本地図の形に並べた都道府県のます目から、その都道府県の市区町村の一覧へ
 - **条件でさがす**: 「高齢化率30%以下で、課税対象所得350万円以上」のような条件に合う市区町村を、全1,741市区町村からすべて表示。列見出しで並べ替え、結果は CSV で保存
 - **概要**: 7つの指標の指標値・全国順位・全国での位置・推移・5年前比を1つの表で確認。補助スコアの内訳と、読み取り時の注意・欠損
 - **指標**: 指標ごとの値、基準時点、時系列グラフ、全国の分布の中での位置、算出方法、出典の系列と取得日
@@ -184,4 +187,4 @@ pnpm test:e2e
 
 ## ライセンス
 
-ソースコードは [MIT License](LICENSE) です。同梱している統計データには、上記の利用規約が適用されます。画面に同梱している書体（IBM Plex Sans、IBM Plex Mono）は [SIL Open Font License 1.1](https://openfontlicense.org/) です。
+ソースコードは [MIT License](LICENSE) です。同梱している統計データには、上記の利用規約が適用されます。画面に同梱している書体（IBM Plex Sans、IBM Plex Mono、ロゴ用に名前の文字だけを収めた Zen Maru Gothic）は [SIL Open Font License 1.1](https://openfontlicense.org/) です。

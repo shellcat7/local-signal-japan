@@ -33,7 +33,7 @@ export function ReportPanel({ areaCode, markdown }: ReportPanelProps) {
           <button
             type="button"
             className="button button--primary"
-            onClick={() => downloadText(`local-signal-${areaCode}.md`, markdown, "text/markdown")}
+            onClick={() => downloadText(`machinomonosashi-${areaCode}.md`, markdown, "text/markdown")}
           >
             ダウンロード
           </button>

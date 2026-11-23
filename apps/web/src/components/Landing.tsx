@@ -1,4 +1,5 @@
 import {
+  formatDateWithEra,
   formatNumber,
   INDICATOR_KEYS,
   INDICATORS,
@@ -10,6 +11,7 @@ import {
 import type { AsyncState } from "../lib/useAsync";
 import type { RankingRoute } from "../lib/route";
 import { HowToRead } from "./HowToRead";
+import { JapanMap } from "./JapanMap";
 import { Leaderboard } from "./Leaderboard";
 import { PrefectureIndex } from "./PrefectureIndex";
 import { ScrollRegion } from "./ScrollRegion";
@@ -28,11 +30,21 @@ export function Landing({ manifest, index, national, onOpenArea, onOpenRanking }
 
   return (
     <div className="landing">
-      <section className="block" aria-labelledby="pref-index-title">
-        <header className="block__head">
+      <section className="pref-finder" aria-labelledby="pref-index-title">
+        <header className="pref-finder__head">
           <h2 id="pref-index-title">都道府県からさがす</h2>
-          <p>数字は市区町村の数</p>
+          <p>
+            ます目の数字は、収録している市区町村の数です。全国{formatNumber(manifest.counts.areas)}市区町村・
+            {INDICATOR_KEYS.length}指標。
+          </p>
+          <p>
+            出典 {manifest.source.name}
+            <br />
+            {formatDateWithEra(manifest.generatedAt)}取得
+          </p>
         </header>
+        {/* 広い画面では地図の形、狭い画面では地方ごとの一覧で示す。 */}
+        <JapanMap index={index} onOpenRanking={onOpenRanking} />
         <PrefectureIndex index={index} onOpenRanking={onOpenRanking} />
       </section>
 
@@ -123,7 +135,6 @@ export function Landing({ manifest, index, national, onOpenArea, onOpenRanking }
             全国の中央値は、政令指定都市の区を除く{formatNumber(manifest.counts.referenceAreas)}
             市区町村のうち、値がある市区町村のものです。
           </li>
-          <li>値がそろわない指標は「欠損」と表示し、低い評価としては扱いません。</li>
           <li>検索や絞り込みはブラウザの中だけで行います。入力した内容は送信も保存もしません。</li>
         </ul>
       </section>

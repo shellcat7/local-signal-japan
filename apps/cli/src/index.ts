@@ -31,7 +31,7 @@ import {
   type ScreenArgs
 } from "./screen";
 
-const USAGE = `Local Signal Japan CLI
+const USAGE = `まちのものさし（Local Signal Japan）CLI
 
 使い方:
   pnpm localsignal search <検索語>
