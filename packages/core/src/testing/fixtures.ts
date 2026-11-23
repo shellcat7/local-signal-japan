@@ -1,5 +1,6 @@
-import { INDICATOR_KEYS, type IndicatorKey } from "../model";
-import type { AreaIndex, AreaRecord, Manifest } from "../schema";
+import { FACTS } from "../facts";
+import { FACT_KEYS, INDICATOR_KEYS, type FactKey, type IndicatorKey } from "../model";
+import type { AreaFact, AreaIndex, AreaRecord, Manifest, ManifestFact } from "../schema";
 
 /** テスト用の架空データ。実在の統計値ではない。 */
 export const fixtureYears: Record<IndicatorKey, number> = {
@@ -16,7 +17,7 @@ export function makeManifest(overrides: Partial<Manifest> = {}): Manifest {
   const distribution = { count: 1741, min: 0, p10: 10, p25: 25, p50: 50, p75: 75, p90: 90, max: 100 };
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     generatedAt: "2026-11-23T00:00:00.000Z",
     source: {
       name: "統計ダッシュボード（総務省統計局）",
@@ -29,6 +30,16 @@ export function makeManifest(overrides: Partial<Manifest> = {}): Manifest {
         "このサービスは、統計ダッシュボードのAPI機能を使用していますが、サービスの内容は国によって保証されたものではありません。"
     },
     counts: { areas: 1912, referenceAreas: 1741 },
+    additionalSources: [
+      {
+        id: "furusato",
+        name: "ふるさと納税に関する現況調査結果（総務省）",
+        url: "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/furusato/archive/",
+        license: "公共データ利用規約（第1.0版）",
+        licenseUrl: "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html",
+        attribution: "総務省「ふるさと納税に関する現況調査結果」を加工して作成"
+      }
+    ],
     context: {
       daytimeRatio: {
         id: "daytimeRatio",
@@ -61,8 +72,60 @@ export function makeManifest(overrides: Partial<Manifest> = {}): Manifest {
         }
       ])
     ) as Manifest["indicators"],
+    facts: Object.fromEntries(
+      FACT_KEYS.map((key): [FactKey, ManifestFact] => [
+        key,
+        {
+          year: fixtureFactYears[key],
+          period: FACTS[key].period(fixtureFactYears[key]),
+          distribution,
+          sources: [],
+          documents: []
+        }
+      ])
+    ) as Manifest["facts"],
     ...overrides
   };
+}
+
+export const fixtureFactYears: Record<FactKey, number> = Object.fromEntries(
+  FACT_KEYS.map((key) => [key, FACTS[key].provider === "furusato" ? 2025 : 2020])
+) as Record<FactKey, number>;
+
+/** くらしの指標の架空の値（もとの数だけを与え、値は定義の計算式で求める）。 */
+export const fixtureFactBasis: Record<FactKey, Record<string, number>> = {
+  lifeFemale: { lifeFemale: 87.5 },
+  lifeMale: { lifeMale: 81.2 },
+  projection2050: { projection2025: 105000, projection2050: 92000 },
+  foreignShare: { foreignResidents: 2100, residents: 105000 },
+  marriageRate: { marriages: 420, residents: 105000 },
+  birthRate: { births: 700, residents: 105000 },
+  elderlyAlone: { elderlyAlone: 12.3 },
+  commuteRail: { commuteRail: 12000, commuteTotal: 50000 },
+  commuteCar: { commuteCar: 25000, commuteTotal: 50000 },
+  commuteBike: { commuteBike: 4000, commuteTotal: 50000 },
+  commuteWalk: { commuteWalk: 3000, commuteTotal: 50000 },
+  vacancy: { vacancy: 13.5 },
+  floorArea: { floorArea: 98.7 },
+  doctors: { doctors: 210, residents: 105000 },
+  libraries: { libraries: 3, residents: 105000 },
+  garbage: { garbage: 850 },
+  recycling: { recycling: 19.5 },
+  furusatoReceipts: { receipts: 1_250_000_000 },
+  furusatoPerCapita: { receipts: 1_250_000_000, residents: 105000 },
+  furusatoCostShare: { receipts: 1_250_000_000, costs: 560_000_000 },
+  furusatoOutflow: { deduction: 320_000_000 },
+  furusatoNet: { receipts: 1_250_000_000, deduction: 320_000_000 }
+};
+
+export function fixtureFacts(): Record<FactKey, AreaFact> {
+  return Object.fromEntries(
+    FACT_KEYS.map((key, index) => {
+      const basis = fixtureFactBasis[key];
+      const value = FACTS[key].compute(basis);
+      return [key, { value, rank: value === null ? null : 100 + index, basis }];
+    })
+  ) as Record<FactKey, AreaFact>;
 }
 
 /** 全指標がそろった架空の市。 */
@@ -170,6 +233,7 @@ export function makeArea(overrides: Partial<AreaRecord> = {}): AreaRecord {
         }
       }
     },
+    facts: fixtureFacts(),
     ...overrides
   };
 }

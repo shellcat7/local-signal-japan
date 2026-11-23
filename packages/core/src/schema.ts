@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { AREA_KINDS, DATASET_SCHEMA_VERSION, INDICATOR_KEYS, MISSING_REASONS, type IndicatorKey } from "./model";
+import {
+  AREA_KINDS,
+  DATASET_SCHEMA_VERSION,
+  FACT_KEYS,
+  INDICATOR_KEYS,
+  MISSING_REASONS,
+  type FactKey,
+  type IndicatorKey
+} from "./model";
 
 const yearSchema = z.number().int().min(1900).max(2100);
 const areaCodeSchema = z.string().regex(/^\d{5}$/);
@@ -40,6 +48,24 @@ function indicatorShape<T extends z.ZodType>(schema: T): Record<IndicatorKey, T>
   return Object.fromEntries(INDICATOR_KEYS.map((key) => [key, schema])) as Record<IndicatorKey, T>;
 }
 
+function factShape<T extends z.ZodType>(schema: T): Record<FactKey, T> {
+  return Object.fromEntries(FACT_KEYS.map((key) => [key, schema])) as Record<FactKey, T>;
+}
+
+/** くらしの指標の値。補助スコアは持たない。 */
+export const areaFactSchema = z
+  .object({
+    value: z.number().nullable(),
+    /** 基準集団の中で、値が大きい順に数えた順位（同じ値は同順位）。区と欠損は null。 */
+    rank: z.number().int().positive().nullable(),
+    /** 値を求めたもとの数（検算と表示に使う）。キーは指標定義の basis に対応する。 */
+    basis: z.record(z.string(), z.number())
+  })
+  .refine((fact) => fact.value !== null || fact.rank === null, {
+    message: "value が null のときは rank も null でなければなりません"
+  });
+export type AreaFact = z.infer<typeof areaFactSchema>;
+
 export const areaRecordSchema = z.object({
   code: areaCodeSchema,
   name: z.string().min(1),
@@ -53,7 +79,8 @@ export const areaRecordSchema = z.object({
   population: z.number().int().nonnegative().nullable(),
   /** 文脈情報: 昼夜間人口比率（%）。 */
   daytimeRatio: z.number().positive().nullable(),
-  indicators: z.object(indicatorShape(areaIndicatorSchema))
+  indicators: z.object(indicatorShape(areaIndicatorSchema)),
+  facts: z.object(factShape(areaFactSchema))
 });
 export type AreaRecord = z.infer<typeof areaRecordSchema>;
 
@@ -126,6 +153,39 @@ export const manifestIndicatorSchema = z.object({
 });
 export type ManifestIndicator = z.infer<typeof manifestIndicatorSchema>;
 
+/** 統計ダッシュボード以外の出典の資料（ダウンロードしたファイル）。 */
+export const sourceDocumentSchema = z.object({
+  title: z.string().min(1),
+  publisher: z.string().min(1),
+  url: z.url()
+});
+export type SourceDocument = z.infer<typeof sourceDocumentSchema>;
+
+export const manifestFactSchema = z.object({
+  /** 基準年（年度の指標は年度）。 */
+  year: yearSchema,
+  /** 画面に出す基準時点の書き方。 */
+  period: z.string().min(1),
+  /** 基準集団（政令指定都市の区を除く）における値の分布。 */
+  distribution: distributionSchema,
+  /** 統計ダッシュボードの系列。 */
+  sources: z.array(sourceSeriesSchema),
+  /** それ以外の出典の資料。 */
+  documents: z.array(sourceDocumentSchema)
+});
+export type ManifestFact = z.infer<typeof manifestFactSchema>;
+
+/** 統計ダッシュボード以外の出典（出典の表示に使う）。 */
+export const additionalSourceSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  url: z.url(),
+  license: z.string().min(1),
+  licenseUrl: z.url(),
+  attribution: z.string().min(1)
+});
+export type AdditionalSource = z.infer<typeof additionalSourceSchema>;
+
 export const manifestSchema = z.object({
   schemaVersion: z.literal(DATASET_SCHEMA_VERSION),
   /** 上流APIからの取得日時（UTC, ISO 8601）。 */
@@ -143,10 +203,13 @@ export const manifestSchema = z.object({
     areas: z.number().int().positive(),
     referenceAreas: z.number().int().positive()
   }),
+  /** 統計ダッシュボード以外の出典。 */
+  additionalSources: z.array(additionalSourceSchema),
   context: z.object({
     daytimeRatio: sourceSeriesSchema
   }),
-  indicators: z.object(indicatorShape(manifestIndicatorSchema))
+  indicators: z.object(indicatorShape(manifestIndicatorSchema)),
+  facts: z.object(factShape(manifestFactSchema))
 });
 export type Manifest = z.infer<typeof manifestSchema>;
 
@@ -162,7 +225,9 @@ export const nationalRowSchema = z.object({
   kind: z.enum(AREA_KINDS),
   population: z.number().int().nonnegative().nullable(),
   values: z.array(z.number().nullable()).length(INDICATOR_KEYS.length),
-  scores: z.array(z.number().int().min(0).max(100).nullable()).length(INDICATOR_KEYS.length)
+  scores: z.array(z.number().int().min(0).max(100).nullable()).length(INDICATOR_KEYS.length),
+  /** くらしの指標の値（factKeys と同じ順）。 */
+  facts: z.array(z.number().nullable()).length(FACT_KEYS.length)
 });
 export type NationalRow = z.infer<typeof nationalRowSchema>;
 
@@ -175,6 +240,11 @@ export const nationalFileSchema = z.object({
         message: "indicatorKeys は指標定義と同じ並びでなければなりません"
       }
     ),
+  factKeys: z
+    .array(z.enum(FACT_KEYS))
+    .refine((keys) => keys.length === FACT_KEYS.length && keys.every((key, index) => key === FACT_KEYS[index]), {
+      message: "factKeys は指標定義と同じ並びでなければなりません"
+    }),
   areas: z.array(nationalRowSchema).min(1)
 });
 export type NationalFile = z.infer<typeof nationalFileSchema>;

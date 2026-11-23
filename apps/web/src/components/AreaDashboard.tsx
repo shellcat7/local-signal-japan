@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type KeyboardEvent, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent, type RefObject } from "react";
 import {
   AREA_KIND_LABELS,
   buildAreaView,
@@ -11,14 +11,18 @@ import {
   type PrefectureFile
 } from "@local-signal-japan/core";
 import { DEFAULT_RANKING, hrefOf, TABS, type RankingRoute, type TabId } from "../lib/route";
+import { loadNational } from "../lib/data";
+import { useAsync } from "../lib/useAsync";
 import { ComparisonPanel } from "./ComparisonPanel";
 import { IndicatorsPanel } from "./IndicatorsPanel";
+import { LifePanel } from "./LifePanel";
 import { OverviewPanel } from "./OverviewPanel";
 import { ReportPanel } from "./ReportPanel";
 
 const TAB_LABELS: Record<TabId, string> = {
   overview: "概要",
-  indicators: "指標",
+  life: "くらし",
+  indicators: "7つの指標",
   comparison: "比較",
   report: "レポート"
 };
@@ -57,6 +61,9 @@ export function AreaDashboard({
   const view = useMemo(() => buildAreaView(area, manifest), [area, manifest]);
   const summary = useMemo(() => buildSummary(view, manifest), [view, manifest]);
   const markdown = useMemo(() => renderMarkdownReport(view, manifest), [view, manifest]);
+  // 全国の一覧は、全国で目立つところの抜き出しと比較に使う（1度読めば、ほかの市区町村でも使い回す）。
+  const loadRows = useCallback(() => loadNational(manifest), [manifest]);
+  const [national] = useAsync(loadRows);
   const tabRefs = useRef(new Map<TabId, HTMLButtonElement>());
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -179,9 +186,11 @@ export function AreaDashboard({
               view={view}
               summary={summary}
               manifest={manifest}
+              national={national}
               onOpenIndicators={() => onTabChange("indicators")}
             />
           )}
+          {tab === "life" && <LifePanel area={area} manifest={manifest} />}
           {tab === "indicators" && <IndicatorsPanel view={view} manifest={manifest} />}
           {tab === "comparison" && (
             <ComparisonPanel

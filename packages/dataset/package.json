@@ -8,6 +8,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@local-signal-japan/core": "workspace:*"
+    "@local-signal-japan/core": "workspace:*",
+    "exceljs": "^4.4.0"
   }
 }

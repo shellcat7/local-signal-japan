@@ -1,5 +1,12 @@
-import { CONTEXT_UPSTREAM, INDICATOR_KEYS, INDICATORS, type UpstreamSeries } from "@local-signal-japan/core";
+import {
+  CONTEXT_UPSTREAM,
+  factUpstreamSeries,
+  INDICATOR_KEYS,
+  INDICATORS,
+  type UpstreamSeries
+} from "@local-signal-japan/core";
 import type { UpstreamSnapshot } from "./build";
+import { fetchFurusato, type FetchBinary } from "./furusato";
 import {
   parseAreas,
   parsePrefectures,
@@ -9,14 +16,20 @@ import {
   type FetchJson
 } from "./upstream";
 
-/** 取得対象の上流系列（指標用 + 文脈情報用）。 */
+/** 取得対象の上流系列（指標用 + 文脈情報用 + くらしの指標用）。 */
 export function listUpstreamSeries(): UpstreamSeries[] {
-  return [...INDICATOR_KEYS.flatMap((key) => INDICATORS[key].upstream), ...Object.values(CONTEXT_UPSTREAM)];
+  return [
+    ...INDICATOR_KEYS.flatMap((key) => INDICATORS[key].upstream),
+    ...Object.values(CONTEXT_UPSTREAM),
+    ...factUpstreamSeries()
+  ];
 }
 
 /** 地域マスタと全系列を統計ダッシュボードAPIから取得する。 */
 export async function fetchSnapshot(
   fetchJson: FetchJson,
+  fetchText: (url: string) => Promise<string>,
+  fetchBinary: FetchBinary,
   log: (message: string) => void = () => {}
 ): Promise<UpstreamSnapshot> {
   log("地域マスタを取得中");
@@ -32,5 +45,7 @@ export async function fetchSnapshot(
     series[upstream.id] = data;
   }
 
-  return { prefectures, areas, series };
+  const furusato = await fetchFurusato(fetchText, fetchBinary, log);
+
+  return { prefectures, areas, series, furusato };
 }

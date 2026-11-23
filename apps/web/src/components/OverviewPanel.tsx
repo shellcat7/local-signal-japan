@@ -6,8 +6,11 @@ import {
   type AreaSummary,
   type AreaView,
   type IndicatorView,
-  type Manifest
+  type Manifest,
+  type NationalFile
 } from "@local-signal-japan/core";
+import type { AsyncState } from "../lib/useAsync";
+import { Highlights } from "./Highlights";
 import { HowToRead } from "./HowToRead";
 import { LineChart, SeriesTable } from "./LineChart";
 import { RangeBar } from "./RangeBar";
@@ -18,6 +21,7 @@ type OverviewPanelProps = {
   view: AreaView;
   summary: AreaSummary;
   manifest: Manifest;
+  national: AsyncState<NationalFile>;
   onOpenIndicators: () => void;
 };
 
@@ -95,13 +99,15 @@ function SummaryRow({ indicator }: { indicator: IndicatorView }) {
   );
 }
 
-export function OverviewPanel({ view, summary, manifest, onOpenIndicators }: OverviewPanelProps) {
+export function OverviewPanel({ view, summary, manifest, national, onOpenIndicators }: OverviewPanelProps) {
   const population = view.indicators.find((indicator) => indicator.key === "population");
   const isWard = view.area.kind === "ward";
   const cautions = [...summary.cautionSignals, ...summary.missingDataNotes];
 
   return (
     <div className="overview">
+      <Highlights area={view.area} manifest={manifest} national={national} />
+
       <section className="block overview__summary" aria-labelledby="summary-title">
         <header className="block__head">
           <h3 id="summary-title">7つの指標</h3>

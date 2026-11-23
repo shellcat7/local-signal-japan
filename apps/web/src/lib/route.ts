@@ -1,21 +1,24 @@
 import { useCallback, useSyncExternalStore } from "react";
 import {
   activeFilters,
-  INDICATOR_KEYS,
+  findTopic,
+  isMetricKey,
+  METRIC_KEYS,
   POPULATION_BANDS,
   type IndicatorFilters,
-  type IndicatorKey,
   type PopulationBandId,
-  type RankingMetric
+  type RankingMetric,
+  type Topic
 } from "@local-signal-japan/core";
 
-export const TABS = ["overview", "indicators", "comparison", "report"] as const;
+export const TABS = ["overview", "life", "indicators", "comparison", "report"] as const;
 export type TabId = (typeof TABS)[number];
 
 /** 比較に並べられる市区町村の数（表示中の市区町村を除く）。 */
 export const MAX_COMPARE = 4;
 
 export type HomeRoute = { view: "home" };
+export type TopicsRoute = { view: "topics" };
 export type AreaRoute = { view: "area"; areaCode: string; tab: TabId; compare: string[] };
 export type RankingRoute = {
   view: "ranking";
@@ -25,8 +28,12 @@ export type RankingRoute = {
   size: PopulationBandId;
   /** 指標値の条件（範囲）。 */
   filters: IndicatorFilters;
+  /** 特集から開いたときの特集の id。条件を変えると外れる。 */
+  topic: string | null;
+  /** 結果を表で見るか、地図で見るか。 */
+  display: "table" | "map";
 };
-export type Route = HomeRoute | AreaRoute | RankingRoute;
+export type Route = HomeRoute | TopicsRoute | AreaRoute | RankingRoute;
 
 export const DEFAULT_RANKING: RankingRoute = {
   view: "ranking",
@@ -34,13 +41,27 @@ export const DEFAULT_RANKING: RankingRoute = {
   order: "desc",
   prefCode: null,
   size: "all",
-  filters: {}
+  filters: {},
+  topic: null,
+  display: "table"
 };
+
+/** 特集の条件で開く一覧。 */
+export function topicRoute(topic: Topic): RankingRoute {
+  return {
+    ...DEFAULT_RANKING,
+    metric: topic.metric,
+    order: topic.order,
+    size: topic.size,
+    filters: topic.filters,
+    topic: topic.id
+  };
+}
 
 const isAreaCode = (value: string | null): value is string => value !== null && /^\d{5}$/.test(value);
 const isTab = (value: string | null): value is TabId => TABS.includes(value as TabId);
 const isMetric = (value: string | null): value is RankingMetric =>
-  value === "residents" || value === "overall" || INDICATOR_KEYS.includes(value as IndicatorKey);
+  value === "residents" || value === "overall" || (value !== null && isMetricKey(value));
 const isBand = (value: string | null): value is PopulationBandId => POPULATION_BANDS.some((band) => band.id === value);
 const isPrefCode = (value: string | null): value is string =>
   value !== null && /^\d{2}$/.test(value) && Number(value) >= 1 && Number(value) <= 47;
@@ -59,18 +80,22 @@ function parseRange(text: string | null): { min?: number; max?: number } | null 
 /**
  * 表示状態はURLのハッシュに持たせる。
  *   #area=13101&tab=indicators&with=14117,16210
- *   #view=ranking&metric=income&pref=13&aging=..30&income=350..
+ *   #view=ranking&metric=income&pref=13&aging=..30&income=350..&show=map
+ *   #view=ranking&topic=bicycle&metric=commuteBike
+ *   #view=topics
  * ハッシュはサーバーに送られないため、どの市区町村を見たかが配信元のログに残らない。
  */
 export function parseHash(hash: string): Route {
   const params = new URLSearchParams(hash.replace(/^#/, ""));
+
+  if (params.get("view") === "topics") return { view: "topics" };
 
   if (params.get("view") === "ranking") {
     const metric = params.get("metric");
     const size = params.get("size");
     const pref = params.get("pref");
     const filters: IndicatorFilters = {};
-    for (const key of INDICATOR_KEYS) {
+    for (const key of METRIC_KEYS) {
       const range = parseRange(params.get(key));
       if (range) filters[key] = range;
     }
@@ -80,7 +105,9 @@ export function parseHash(hash: string): Route {
       order: params.get("order") === "asc" ? "asc" : "desc",
       prefCode: isPrefCode(pref) ? pref : null,
       size: isBand(size) ? size : "all",
-      filters
+      filters,
+      topic: findTopic(params.get("topic"))?.id ?? null,
+      display: params.get("show") === "map" ? "map" : "table"
     };
   }
 
@@ -98,10 +125,12 @@ export function parseHash(hash: string): Route {
 
 export function formatHash(route: Route): string {
   if (route.view === "home") return "";
+  if (route.view === "topics") return "#view=topics";
 
   const params = new URLSearchParams();
   if (route.view === "ranking") {
     params.set("view", "ranking");
+    if (route.topic !== null) params.set("topic", route.topic);
     if (route.metric !== DEFAULT_RANKING.metric) params.set("metric", route.metric);
     if (route.order !== DEFAULT_RANKING.order) params.set("order", route.order);
     if (route.prefCode !== null) params.set("pref", route.prefCode);
@@ -109,6 +138,7 @@ export function formatHash(route: Route): string {
     for (const [key, range] of activeFilters(route.filters)) {
       params.set(key, `${range.min ?? ""}..${range.max ?? ""}`);
     }
+    if (route.display === "map") params.set("show", "map");
   } else {
     params.set("area", route.areaCode);
     if (route.tab !== "overview") params.set("tab", route.tab);

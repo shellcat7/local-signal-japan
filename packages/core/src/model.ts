@@ -4,7 +4,7 @@
  */
 
 /** データセットの形式バージョン。互換性のない変更をしたら上げる。 */
-export const DATASET_SCHEMA_VERSION = 2;
+export const DATASET_SCHEMA_VERSION = 3;
 
 export const INDICATOR_KEYS = [
   "population",
@@ -16,6 +16,39 @@ export const INDICATOR_KEYS = [
   "fiscal"
 ] as const;
 export type IndicatorKey = (typeof INDICATOR_KEYS)[number];
+
+/**
+ * くらしの指標。補助スコアの対象にはせず、値と全国順位だけを示す。
+ * 並び順は画面の表の並び（分野ごと）。
+ */
+export const FACT_KEYS = [
+  "lifeFemale",
+  "lifeMale",
+  "projection2050",
+  "foreignShare",
+  "marriageRate",
+  "birthRate",
+  "elderlyAlone",
+  "commuteRail",
+  "commuteCar",
+  "commuteBike",
+  "commuteWalk",
+  "vacancy",
+  "floorArea",
+  "doctors",
+  "libraries",
+  "garbage",
+  "recycling",
+  "furusatoReceipts",
+  "furusatoPerCapita",
+  "furusatoCostShare",
+  "furusatoOutflow",
+  "furusatoNet"
+] as const;
+export type FactKey = (typeof FACT_KEYS)[number];
+
+/** 並べ替えや絞り込みに使える値（人口、総合補助スコア、7指標、くらしの指標）。 */
+export type MetricKey = IndicatorKey | FactKey;
 
 export const AREA_KINDS = ["designated-city", "city", "special-ward", "ward", "town", "village"] as const;
 export type AreaKind = (typeof AREA_KINDS)[number];

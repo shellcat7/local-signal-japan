@@ -1,12 +1,19 @@
 import { INDICATORS } from "./indicators";
-import { INDICATOR_KEYS, type IndicatorKey } from "./model";
+import { FACT_KEYS, INDICATOR_KEYS, type FactKey, type IndicatorKey, type MetricKey } from "./model";
 import { averageScore } from "./scoring";
 import type { AreaRecord, NationalRow } from "./schema";
 
-/** 一覧で並べ替えに使える値。人口、総合補助スコア、指標ごとの指標値。 */
-export type RankingMetric = "residents" | "overall" | IndicatorKey;
+/** 一覧で並べ替えに使える値。人口、総合補助スコア、指標ごとの指標値、くらしの指標。 */
+export type RankingMetric = "residents" | "overall" | MetricKey;
 
 const KEY_INDEX = new Map(INDICATOR_KEYS.map((key, index) => [key, index]));
+const FACT_INDEX = new Map(FACT_KEYS.map((key, index) => [key, index]));
+
+export const isIndicatorKey = (value: string): value is IndicatorKey => KEY_INDEX.has(value as IndicatorKey);
+export const isFactKey = (value: string): value is FactKey => FACT_INDEX.has(value as FactKey);
+export const isMetricKey = (value: string): value is MetricKey => isIndicatorKey(value) || isFactKey(value);
+/** 絞り込みに使える値の並び（7指標、くらしの指標の順）。 */
+export const METRIC_KEYS: readonly MetricKey[] = [...INDICATOR_KEYS, ...FACT_KEYS];
 
 export function toNationalRow(area: AreaRecord): NationalRow {
   return {
@@ -17,12 +24,22 @@ export function toNationalRow(area: AreaRecord): NationalRow {
     kind: area.kind,
     population: area.population,
     values: INDICATOR_KEYS.map((key) => area.indicators[key].value),
-    scores: INDICATOR_KEYS.map((key) => area.indicators[key].score)
+    scores: INDICATOR_KEYS.map((key) => area.indicators[key].score),
+    facts: FACT_KEYS.map((key) => area.facts[key].value)
   };
 }
 
 export function rowValue(row: NationalRow, key: IndicatorKey): number | null {
   return row.values[KEY_INDEX.get(key) as number] ?? null;
+}
+
+export function rowFact(row: NationalRow, key: FactKey): number | null {
+  return row.facts[FACT_INDEX.get(key) as number] ?? null;
+}
+
+/** 7指標の指標値か、くらしの指標の値。 */
+export function rowMetricValue(row: NationalRow, key: MetricKey): number | null {
+  return isFactKey(key) ? rowFact(row, key) : rowValue(row, key);
 }
 
 export function rowScore(row: NationalRow, key: IndicatorKey): number | null {
@@ -36,7 +53,7 @@ export function rowOverallScore(row: NationalRow): number | null {
 /** 一覧で並べる値。人口は住民基本台帳人口、総合は補助スコアの平均、指標は指標値そのもの。 */
 export function rowMetric(row: NationalRow, metric: RankingMetric): number | null {
   if (metric === "residents") return row.population;
-  return metric === "overall" ? rowOverallScore(row) : rowValue(row, metric);
+  return metric === "overall" ? rowOverallScore(row) : rowMetricValue(row, metric);
 }
 
 /**
@@ -50,6 +67,7 @@ export function valuePosition(key: IndicatorKey, score: number | null): number |
 
 export const POPULATION_BANDS = [
   { id: "all", label: "すべての規模", min: 0, max: Number.POSITIVE_INFINITY },
+  { id: "over-10k", label: "1万人以上", min: 10_000, max: Number.POSITIVE_INFINITY },
   { id: "under-10k", label: "1万人未満", min: 0, max: 10_000 },
   { id: "10k-50k", label: "1万〜5万人", min: 10_000, max: 50_000 },
   { id: "50k-200k", label: "5万〜20万人", min: 50_000, max: 200_000 },
@@ -59,7 +77,7 @@ export type PopulationBandId = (typeof POPULATION_BANDS)[number]["id"];
 
 /** 指標値の範囲（両端を含む）。単位は指標値と同じ。 */
 export type RangeFilter = { min?: number; max?: number };
-export type IndicatorFilters = Partial<Record<IndicatorKey, RangeFilter>>;
+export type IndicatorFilters = Partial<Record<MetricKey, RangeFilter>>;
 
 export type RankingOptions = {
   metric: RankingMetric;
@@ -73,9 +91,9 @@ export type RankingOptions = {
 };
 
 /** 条件として意味のある範囲だけを残す（数値でないもの、空の指定を捨てる）。 */
-export function activeFilters(filters: IndicatorFilters | undefined): Array<[IndicatorKey, RangeFilter]> {
-  const active: Array<[IndicatorKey, RangeFilter]> = [];
-  for (const key of INDICATOR_KEYS) {
+export function activeFilters(filters: IndicatorFilters | undefined): Array<[MetricKey, RangeFilter]> {
+  const active: Array<[MetricKey, RangeFilter]> = [];
+  for (const key of METRIC_KEYS) {
     const range = filters?.[key];
     const min = Number.isFinite(range?.min) ? (range?.min as number) : undefined;
     const max = Number.isFinite(range?.max) ? (range?.max as number) : undefined;
@@ -86,9 +104,9 @@ export function activeFilters(filters: IndicatorFilters | undefined): Array<[Ind
 }
 
 /** すべての条件を満たすか。値は同梱データセットの値（画面に出る桁に丸めたもの）と比べる。 */
-export function matchesFilters(row: NationalRow, filters: ReadonlyArray<[IndicatorKey, RangeFilter]>): boolean {
+export function matchesFilters(row: NationalRow, filters: ReadonlyArray<[MetricKey, RangeFilter]>): boolean {
   return filters.every(([key, range]) => {
-    const value = rowValue(row, key);
+    const value = rowMetricValue(row, key);
     if (value === null) return false;
     return (range.min === undefined || value >= range.min) && (range.max === undefined || value <= range.max);
   });

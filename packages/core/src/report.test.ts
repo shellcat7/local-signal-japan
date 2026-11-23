@@ -70,4 +70,11 @@ describe("formatScore", () => {
     expect(formatScore(null)).toBe("欠損");
     expect(formatScore(72)).toBe("72/100");
   });
+
+  it("くらしの指標と、追加の出典を載せる", () => {
+    const report = generateMarkdownReport(makeArea(), makeManifest());
+    expect(report).toContain("## くらしの指標");
+    expect(report).toContain("| ふるさと納税 | ふるさと納税の受入額 | 12.5億円 | 令和7年度（2025年度） |");
+    expect(report).toContain("- 出典: 総務省「ふるさと納税に関する現況調査結果」を加工して作成");
+  });
 });

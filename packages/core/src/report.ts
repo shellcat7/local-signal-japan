@@ -1,4 +1,6 @@
+import { FACT_GROUPS, FACTS, formatFact } from "./facts";
 import { AREA_KIND_LABELS, formatDate, formatNumber } from "./format";
+import { FACT_KEYS } from "./model";
 import { CONFIDENCE_LABELS, SCORE_BAND_LABELS } from "./scoring";
 import type { AreaRecord, Manifest } from "./schema";
 import { buildSummary, SUMMARY_SECTIONS } from "./signals";
@@ -96,9 +98,29 @@ export function renderMarkdownReport(view: AreaView, manifest: Manifest): string
     "",
     view.indicators.map(indicatorSection).join("\n\n"),
     "",
+    "## くらしの指標",
+    "",
+    "補助スコアには含めていない項目です。全国順位は、政令指定都市の区を除く市区町村のうち値があるものの中で、値が大きい順に数えています。",
+    "",
+    tableRow(["分野", "項目", "値", "基準時点", "全国順位"]),
+    tableRow(["---", "---", "---", "---", "---"]),
+    ...FACT_KEYS.map((key) => {
+      const definition = FACTS[key];
+      const fact = area.facts[key];
+      const meta = manifest.facts[key];
+      return tableRow([
+        FACT_GROUPS.find((group) => group.id === definition.group)?.label ?? "",
+        definition.label,
+        fact.value === null ? "欠損" : formatFact(definition, fact.value),
+        meta.period,
+        fact.rank === null ? "—" : `${formatNumber(fact.rank)}位 / ${formatNumber(meta.distribution.count)}`
+      ]);
+    }),
+    "",
     "## 出典とクレジット",
     "",
     `- 出典: ${manifest.source.attribution}`,
+    ...manifest.additionalSources.map((source) => `- 出典: ${source.attribution}`),
     `- ${manifest.source.credit}`,
     `- 利用規約: [${manifest.source.license}](${manifest.source.licenseUrl})`,
     ""

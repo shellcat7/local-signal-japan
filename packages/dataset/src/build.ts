@@ -1,9 +1,12 @@
 import {
   areaIndexSchema,
   buildHistogram,
+  computeFact,
   computeMetric,
   CONTEXT_UPSTREAM,
   DATASET_SCHEMA_VERSION,
+  FACT_KEYS,
+  FACTS,
   INDICATOR_KEYS,
   INDICATORS,
   manifestSchema,
@@ -16,12 +19,16 @@ import {
   summarizeDistribution,
   toNationalRow,
   valueAt,
+  type AdditionalSource,
+  type AreaFact,
   type AreaIndex,
   type AreaIndicator,
   type AreaRecord,
   type AreaSeries,
+  type FactKey,
   type IndicatorKey,
   type Manifest,
+  type ManifestFact,
   type ManifestIndicator,
   type NationalFile,
   type PrefectureFile,
@@ -29,6 +36,7 @@ import {
   type SourceSeries,
   type UpstreamSeries
 } from "@local-signal-japan/core";
+import type { FurusatoData } from "./furusato";
 import type { UpstreamArea, UpstreamPrefecture, UpstreamSeriesData } from "./upstream";
 
 export type UpstreamSnapshot = {
@@ -36,6 +44,8 @@ export type UpstreamSnapshot = {
   areas: UpstreamArea[];
   /** 上流系列の id → 取得結果。 */
   series: Record<string, UpstreamSeriesData>;
+  /** 総務省「ふるさと納税に関する現況調査結果」。 */
+  furusato: FurusatoData;
 };
 
 export type Dataset = {
@@ -55,6 +65,18 @@ export const SOURCE_INFO: Manifest["source"] = {
   credit:
     "このサービスは、統計ダッシュボードのAPI機能を使用していますが、サービスの内容は国によって保証されたものではありません。"
 };
+
+export const FURUSATO_SOURCE: AdditionalSource = {
+  id: "furusato",
+  name: "ふるさと納税に関する現況調査結果（総務省）",
+  url: "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/furusato/archive/",
+  license: "公共データ利用規約（第1.0版）",
+  licenseUrl: "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html",
+  attribution: "総務省「ふるさと納税に関する現況調査結果」を加工して作成"
+};
+
+/** くらしの指標の基準集団（政令指定都市の区を除く、値のある市区町村）の下限。住宅・土地統計調査は約1,060団体。 */
+const MIN_FACT_REFERENCE_AREAS = 900;
 
 /** 各指標の基準年を決めるのに使う系列（指標キー → 保持系列キー）。 */
 const YEAR_PROBE: Record<IndicatorKey, string> = {
@@ -253,6 +275,8 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
     }
   }
 
+  const factBuild = buildFacts(snapshot, members, years.population, memberCodes);
+
   const records: AreaRecord[] = metrics.map(({ area, series, results }) => {
     const prefCode = area.code.slice(0, 2);
     const prefName = prefNames.get(prefCode);
@@ -283,7 +307,8 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
       kind: area.kind,
       population: valueAt(series.population.residents, years.population),
       daytimeRatio: valueAt(daytimeRatio.valuesByArea.get(area.code), daytimeYear),
-      indicators
+      indicators,
+      facts: factBuild.facts.get(area.code) as Record<FactKey, AreaFact>
     };
   });
 
@@ -295,6 +320,7 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
       areas: records.length,
       referenceAreas: records.filter((record) => record.kind !== "ward").length
     },
+    additionalSources: [FURUSATO_SOURCE],
     context: { daytimeRatio: sourceOf(snapshot, CONTEXT_UPSTREAM.daytimeRatio, memberCodes) },
     indicators: Object.fromEntries(
       INDICATOR_KEYS.map((key): [IndicatorKey, ManifestIndicator] => [
@@ -306,7 +332,8 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
           sources: INDICATORS[key].upstream.map((upstream) => sourceOf(snapshot, upstream, memberCodes))
         }
       ])
-    ) as Record<IndicatorKey, ManifestIndicator>
+    ) as Record<IndicatorKey, ManifestIndicator>,
+    facts: factBuild.manifest
   } satisfies Manifest);
 
   const index = areaIndexSchema.parse({
@@ -331,8 +358,121 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
 
   const national = nationalFileSchema.parse({
     indicatorKeys: [...INDICATOR_KEYS],
+    factKeys: [...FACT_KEYS],
     areas: records.map(toNationalRow)
   } satisfies NationalFile);
 
   return { manifest, index, national, prefectures };
+}
+
+type Member = { area: UpstreamArea; series: AreaSeries };
+
+/**
+ * くらしの指標を求める。値はもとの数（basis）から指標定義の計算式で求め、もとの数も一緒に保持する。
+ * 順位と分布は、政令指定都市の区を除く市区町村の中で付ける。
+ */
+function buildFacts(
+  snapshot: UpstreamSnapshot,
+  members: readonly Member[],
+  populationYear: number,
+  memberCodes: ReadonlySet<string>
+): { facts: Map<string, Record<FactKey, AreaFact>>; manifest: Record<FactKey, ManifestFact> } {
+  const { furusato } = snapshot;
+  const residentsAt = (code: string, year: number) =>
+    valueAt(pointsOf(snapshot, "residents", code), Math.min(year, populationYear));
+
+  const yearOf = (key: FactKey): number => {
+    const definition = FACTS[key];
+    if (key === "projection2050") return 2050;
+    if (key === "furusatoOutflow") return furusato.deductionYear;
+    if (definition.provider === "furusato") return furusato.receiptsYear;
+    if (!definition.yearProbe) throw new Error(`指標 ${key} の基準年を決める系列がありません`);
+    const probe = definition.yearProbe;
+    return latestWellCoveredYear(members.map(({ area }) => pointsOf(snapshot, probe, area.code)));
+  };
+  const years = Object.fromEntries(FACT_KEYS.map((key) => [key, yearOf(key)])) as Record<FactKey, number>;
+
+  const resolve = (key: FactKey, name: string, code: string): number | null => {
+    const year = years[key];
+    switch (name) {
+      case "residents":
+        return residentsAt(code, year);
+      case "projection2025":
+        return valueAt(pointsOf(snapshot, "projection", code), 2025);
+      case "projection2050":
+        return valueAt(pointsOf(snapshot, "projection", code), 2050);
+      case "receipts":
+        return furusato.receipts.get(code) ?? null;
+      case "costs":
+        return furusato.costs.get(code) ?? null;
+      case "deduction":
+        return furusato.deductions.get(code) ?? null;
+      default:
+        return valueAt(pointsOf(snapshot, name, code), year);
+    }
+  };
+
+  const facts = new Map<string, Record<FactKey, AreaFact>>();
+  const reference = Object.fromEntries(FACT_KEYS.map((key) => [key, [] as number[]])) as Record<FactKey, number[]>;
+
+  for (const { area } of members) {
+    const entries = FACT_KEYS.map((key): [FactKey, AreaFact] => {
+      const basis: Record<string, number> = {};
+      for (const name of Object.keys(FACTS[key].basis)) {
+        const value = resolve(key, name, area.code);
+        if (value === null) return [key, { value: null, rank: null, basis: {} }];
+        basis[name] = value;
+      }
+      const value = computeFact(key, basis);
+      if (value === null) return [key, { value: null, rank: null, basis: {} }];
+      if (area.kind !== "ward") reference[key].push(value);
+      return [key, { value, rank: null, basis }];
+    });
+    facts.set(area.code, Object.fromEntries(entries) as Record<FactKey, AreaFact>);
+  }
+
+  for (const key of FACT_KEYS) {
+    reference[key].sort((a, b) => a - b);
+    if (reference[key].length < MIN_FACT_REFERENCE_AREAS) {
+      throw new Error(`くらしの指標 ${key} の基準集団が少なすぎます: ${reference[key].length}件`);
+    }
+  }
+
+  // 順位は基準集団の中だけで付ける。
+  for (const { area } of members) {
+    if (area.kind === "ward") continue;
+    const record = facts.get(area.code) as Record<FactKey, AreaFact>;
+    for (const key of FACT_KEYS) {
+      const fact = record[key];
+      if (fact.value !== null) record[key] = { ...fact, rank: rankOf(reference[key], fact.value) };
+    }
+  }
+
+  const residentsUpstream = INDICATORS.population.upstream[0] as UpstreamSeries;
+  const [receiptsDocument, deductionsDocument] = furusato.documents;
+  const manifest = Object.fromEntries(
+    FACT_KEYS.map((key): [FactKey, ManifestFact] => {
+      const definition = FACTS[key];
+      const basisNames = Object.keys(definition.basis);
+      const upstream = [...definition.upstream, ...(basisNames.includes("residents") ? [residentsUpstream] : [])];
+      const documents = [
+        ...(basisNames.some((name) => name === "receipts" || name === "costs") && receiptsDocument
+          ? [receiptsDocument]
+          : []),
+        ...(basisNames.includes("deduction") && deductionsDocument ? [deductionsDocument] : [])
+      ];
+      return [
+        key,
+        {
+          year: years[key],
+          period: definition.period(years[key]),
+          distribution: summarizeDistribution(reference[key]),
+          sources: upstream.map((series) => sourceOf(snapshot, series, memberCodes)),
+          documents
+        }
+      ];
+    })
+  ) as Record<FactKey, ManifestFact>;
+
+  return { facts, manifest };
 }

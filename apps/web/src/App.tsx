@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 import {
   areaFullName,
   findAreaEntry,
+  findTopic,
   formatNumber,
   type AreaIndex,
   type AreaRecord,
@@ -12,10 +13,11 @@ import { AreaDashboard } from "./components/AreaDashboard";
 import { Footer } from "./components/Footer";
 import { Landing } from "./components/Landing";
 import { ScreenerView } from "./components/ScreenerView";
+import { TopicsView } from "./components/TopicsView";
 import { SearchBox } from "./components/SearchBox";
 import { TopBar } from "./components/TopBar";
 import { loadAreaIndex, loadManifest, loadNational, loadPrefecture } from "./lib/data";
-import { useRoute, type AreaRoute, type RankingRoute, type Route, type TabId } from "./lib/route";
+import { hrefOf, useRoute, type AreaRoute, type RankingRoute, type Route, type TabId } from "./lib/route";
 import { SITE_NAME } from "./lib/site";
 import { useAsync } from "./lib/useAsync";
 
@@ -125,27 +127,51 @@ type RankingSectionProps = {
   index: AreaIndex;
   onChange: (route: RankingRoute) => void;
   onOpenArea: (areaCode: string) => void;
+  onOpenTopics: () => void;
 };
 
-function RankingSection({ route, manifest, index, onChange, onOpenArea }: RankingSectionProps) {
+function RankingSection({ route, manifest, index, onChange, onOpenArea, onOpenTopics }: RankingSectionProps) {
   const load = useCallback(() => loadNational(manifest), [manifest]);
   const [national, retry] = useAsync(load);
+  const topic = findTopic(route.topic);
+  const title = topic ? topic.title : "条件でさがす";
 
   useEffect(() => {
-    document.title = `条件でさがす | ${SITE_NAME}`;
+    document.title = `${title} | ${SITE_NAME}`;
     return () => {
       document.title = SITE_NAME;
     };
-  }, []);
+  }, [title]);
 
   return (
     <>
       <header className="container page-head">
-        <h2>条件でさがす</h2>
-        <p>
-          全国{formatNumber(manifest.counts.referenceAreas)}
-          市区町村から、条件に合うものをすべて並べます（政令指定都市の区は、市全体と重なるため除いています）。
-        </p>
+        {topic ? (
+          <>
+            <p className="page-head__kicker">
+              <a
+                href={hrefOf({ view: "topics" })}
+                onClick={(event) => {
+                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                  event.preventDefault();
+                  onOpenTopics();
+                }}
+              >
+                特集
+              </a>
+            </p>
+            <h2>{topic.title}</h2>
+            <p>{topic.lead}</p>
+          </>
+        ) : (
+          <>
+            <h2>条件でさがす</h2>
+            <p>
+              全国{formatNumber(manifest.counts.referenceAreas)}
+              市区町村から、条件に合うものをすべて並べます（政令指定都市の区は、市全体と重なるため除いています）。
+            </p>
+          </>
+        )}
       </header>
       {national.status === "error" && <Status message={national.message} onRetry={retry} />}
       {national.status === "loading" && <Status message="全国のデータを読み込んでいます…" />}
@@ -163,14 +189,54 @@ function RankingSection({ route, manifest, index, onChange, onOpenArea }: Rankin
   );
 }
 
-type HomeSectionProps = {
+type TopicsSectionProps = {
   manifest: Manifest;
   index: AreaIndex;
   onOpenArea: (areaCode: string) => void;
   onOpenRanking: (route: RankingRoute) => void;
 };
 
-function HomeSection({ manifest, index, onOpenArea, onOpenRanking }: HomeSectionProps) {
+function TopicsSection({ manifest, index, onOpenArea, onOpenRanking }: TopicsSectionProps) {
+  const load = useCallback(() => loadNational(manifest), [manifest]);
+  const [national, retry] = useAsync(load);
+
+  useEffect(() => {
+    document.title = `特集 | ${SITE_NAME}`;
+    return () => {
+      document.title = SITE_NAME;
+    };
+  }, []);
+
+  return (
+    <>
+      <header className="container page-head">
+        <h2>特集</h2>
+        <p>決まった条件で並べた、全国の市区町村の一覧です。</p>
+      </header>
+      {national.status === "error" && <Status message={national.message} onRetry={retry} />}
+      {national.status === "loading" && <Status message="全国のデータを読み込んでいます…" />}
+      {national.status === "ready" && (
+        <TopicsView
+          national={national.value}
+          index={index}
+          manifest={manifest}
+          onOpenArea={onOpenArea}
+          onOpenRanking={onOpenRanking}
+        />
+      )}
+    </>
+  );
+}
+
+type HomeSectionProps = {
+  manifest: Manifest;
+  index: AreaIndex;
+  onOpenArea: (areaCode: string) => void;
+  onOpenRanking: (route: RankingRoute) => void;
+  onOpenTopics: () => void;
+};
+
+function HomeSection({ manifest, index, onOpenArea, onOpenRanking, onOpenTopics }: HomeSectionProps) {
   const load = useCallback(() => loadNational(manifest), [manifest]);
   const [national] = useAsync(load);
 
@@ -182,6 +248,7 @@ function HomeSection({ manifest, index, onOpenArea, onOpenRanking }: HomeSection
         national={national}
         onOpenArea={onOpenArea}
         onOpenRanking={onOpenRanking}
+        onOpenTopics={onOpenTopics}
       />
     </div>
   );
@@ -265,6 +332,15 @@ export function App() {
             index={ready.index}
             onOpenArea={selectArea}
             onOpenRanking={openRanking}
+            onOpenTopics={() => goTo({ view: "topics" })}
+          />
+        )}
+        {ready && route.view === "topics" && (
+          <TopicsSection
+            manifest={ready.manifest}
+            index={ready.index}
+            onOpenArea={selectArea}
+            onOpenRanking={openRanking}
           />
         )}
         {ready && route.view === "ranking" && (
@@ -274,6 +350,7 @@ export function App() {
             index={ready.index}
             onChange={(next) => navigate(next, { replace: true })}
             onOpenArea={selectArea}
+            onOpenTopics={() => goTo({ view: "topics" })}
           />
         )}
         {ready &&

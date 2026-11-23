@@ -5,18 +5,45 @@
  *
  *   node lsj.mjs --help
  *
- * 指標の定義・並べ替え・検索の規則は、リポジトリの packages/core と同じ結果になるようにしてあり、
- * リポジトリ側のテスト（apps/cli/src/skill-script.test.ts）で食い違いを検出する。
+ * 7指標とくらしの指標の定義・並べ替え・抜き出し・検索・特集の規則は、リポジトリの packages/core と同じ結果になる
+ * ようにしてあり、リポジトリ側のテスト（apps/cli/src/skill-script.test.ts）で食い違いを検出する。
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_DATA = "https://local-signal-japan.pages.dev/data/";
-const SUPPORTED_SCHEMA_VERSION = 2;
+const SUPPORTED_SCHEMA_VERSION = 3;
 const FETCH_TIMEOUT_MS = 30_000;
 
 const KEYS = ["population", "aging", "migration", "business", "employment", "income", "fiscal"];
+/** くらしの指標のキー。並びは表の並び（分野ごと）。 */
+const FACT_KEYS = [
+  "lifeFemale",
+  "lifeMale",
+  "projection2050",
+  "foreignShare",
+  "marriageRate",
+  "birthRate",
+  "elderlyAlone",
+  "commuteRail",
+  "commuteCar",
+  "commuteBike",
+  "commuteWalk",
+  "vacancy",
+  "floorArea",
+  "doctors",
+  "libraries",
+  "garbage",
+  "recycling",
+  "furusatoReceipts",
+  "furusatoPerCapita",
+  "furusatoCostShare",
+  "furusatoOutflow",
+  "furusatoNet"
+];
+/** 条件と並べ替えに使える指標キー（7指標、くらしの指標の順）。 */
+const METRIC_KEYS = [...KEYS, ...FACT_KEYS];
 /** 人口・所得・財政などを過去と比べる年数。 */
 const COMPARISON_LAG_YEARS = 5;
 /** 転入超過率を平均する年数。 */
@@ -28,9 +55,18 @@ const MAX_COMPARE = 5;
 const MAX_CANDIDATES = 20;
 const OVERALL_LABEL = "総合補助スコア";
 const RESIDENTS_LABEL = "人口";
-/** 並べ替えに使える値。人口、総合補助スコア、各指標の指標値。 */
-const SORT_METRICS = ["residents", "overall", ...KEYS];
+/** 並べ替えに使える値。人口、総合補助スコア、7指標の指標値、くらしの指標。 */
+const SORT_METRICS = ["residents", "overall", ...METRIC_KEYS];
 const MISSING_TEXT = "欠損";
+/** 全国で目立つところ: 上位・下位それぞれ、この順位までを抜き出す。 */
+const HIGHLIGHT_WITHIN = 10;
+/** 人口の少ない市区町村で大きく動く指標は、この人口以上の市区町村の中で比べる。 */
+const HIGHLIGHT_MIN_POPULATION = 10_000;
+const HIGHLIGHT_LIMIT = 6;
+/** 抜き出しの対象にしない指標（意味の取りにくい言い方になるもの）。 */
+const HIGHLIGHT_EXCLUDED = new Set(["furusatoNet"]);
+/** 統計ダッシュボード以外の出典のうち、ふるさと納税の値の出典。 */
+const FURUSATO_SOURCE_ID = "furusato";
 
 /**
  * 指標の定義。orientation は補助スコアが高くなる向き（higher = 値が大きいほど高い）。
@@ -192,8 +228,573 @@ const INDICATORS = {
   }
 };
 
+/** 7指標の、値が大きい側・小さい側を言うときの言葉（全国で目立つところに使う）。 */
+const INDICATOR_WORDS = {
+  population: { high: "高い", low: "低い" },
+  aging: { high: "高い", low: "低い" },
+  migration: { high: "高い", low: "低い" },
+  business: { high: "多い", low: "少ない" },
+  employment: { high: "高い", low: "低い" },
+  income: { high: "多い", low: "少ない" },
+  fiscal: { high: "高い", low: "低い" }
+};
+
+/*
+ * くらしの指標の分野・定義と、特集ランキング。packages/core の FACT_GROUPS・FACTS・TOPICS と同じ内容
+ * （テストで照合する）。unit が「円」の指標は金額で、値は円の数値。基準時点の書き方はデータセットの
+ * manifest.json（facts[key].period）を使う。
+ */
+const FACT_GROUPS = [
+  { id: "people", label: "人口と暮らし" },
+  { id: "commute", label: "通勤・通学" },
+  { id: "housing", label: "住まい" },
+  { id: "services", label: "医療・図書館・ごみ" },
+  { id: "furusato", label: "ふるさと納税" }
+];
+
+const FACTS = {
+  lifeFemale: {
+    group: "people",
+    label: "平均寿命（女性）",
+    columnLabel: "平均寿命・女",
+    unit: "年",
+    decimals: 1,
+    signed: false,
+    words: { high: "長い", low: "短い" },
+    summary: "0歳の女性が平均してあと何年生きるかの見込み（0歳の平均余命）です。",
+    method: "厚生労働省「市区町村別生命表」の0歳の平均余命です。",
+    notes: [
+      "市区町村別生命表は5年ごとの作成です。人口の少ない市区町村でも安定した値になるよう、周辺の地域の死亡状況も使って推定しています。"
+    ],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: { lifeFemale: { label: "0歳の平均余命（女）", unit: "年" } }
+  },
+  lifeMale: {
+    group: "people",
+    label: "平均寿命（男性）",
+    columnLabel: "平均寿命・男",
+    unit: "年",
+    decimals: 1,
+    signed: false,
+    words: { high: "長い", low: "短い" },
+    summary: "0歳の男性が平均してあと何年生きるかの見込み（0歳の平均余命）です。",
+    method: "厚生労働省「市区町村別生命表」の0歳の平均余命です。",
+    notes: [
+      "市区町村別生命表は5年ごとの作成です。人口の少ない市区町村でも安定した値になるよう、周辺の地域の死亡状況も使って推定しています。"
+    ],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: { lifeMale: { label: "0歳の平均余命（男）", unit: "年" } }
+  },
+  projection2050: {
+    group: "people",
+    label: "2050年の推計人口（2025年比）",
+    columnLabel: "2050年推計",
+    unit: "%",
+    decimals: 1,
+    signed: true,
+    words: { high: "高い", low: "低い" },
+    summary: "国立社会保障・人口問題研究所の推計で、2050年の人口が2025年からどれだけ増減する見込みかです。",
+    method: "「日本の地域別将来推計人口（令和5年推計）」の2050年の人口を、同じ推計の2025年の人口と比べた増減率です。",
+    notes: [
+      "推計は、過去の出生・死亡・移動の傾向が続くと仮定した場合の見込みで、予測や目標ではありません。",
+      "東日本大震災と原子力発電所の事故の影響を受けた福島県の一部の市町村は、推計の対象外です。"
+    ],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: {
+      projection2025: { label: "2025年の推計人口", unit: "人" },
+      projection2050: { label: "2050年の推計人口", unit: "人" }
+    }
+  },
+  foreignShare: {
+    group: "people",
+    label: "外国人住民の割合",
+    columnLabel: "外国人住民",
+    unit: "%",
+    decimals: 1,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "住民基本台帳に記録されている住民のうち、外国人住民の割合です。",
+    method: "住民基本台帳人口の外国人住民の数を、住民基本台帳人口の総数で割ります。",
+    notes: [
+      "観光地のリゾートや工場がある市区町村では、働く人の在留で割合が大きく動くことがあります。",
+      "国籍は問わず、日本国籍を持たない住民の合計です。"
+    ],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: { foreignResidents: { label: "外国人住民", unit: "人" }, residents: { label: "住民", unit: "人" } }
+  },
+  marriageRate: {
+    group: "people",
+    label: "婚姻率（人口千人当たり）",
+    columnLabel: "婚姻率",
+    unit: "",
+    decimals: 2,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "1年間の婚姻件数を、人口千人当たりにしたものです。",
+    method: "人口動態統計の婚姻件数を、同じ年の住民基本台帳人口で割り、千を掛けます。",
+    notes: [
+      "婚姻届を出した夫の住所地で数えるため、若い世代が多く住む都市部で高くなりやすい数字です。",
+      "人口の少ない市区町村では、数組の違いで大きく動きます。"
+    ],
+    smallAreaCaution: true,
+    provider: "dashboard",
+    basis: { marriages: { label: "婚姻件数", unit: "組" }, residents: { label: "住民", unit: "人" } }
+  },
+  birthRate: {
+    group: "people",
+    label: "出生率（人口千人当たり）",
+    columnLabel: "出生率",
+    unit: "",
+    decimals: 2,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "1年間の出生数を、人口千人当たりにしたものです。",
+    method: "出生数を、同じ年の住民基本台帳人口で割り、千を掛けます。",
+    notes: [
+      "女性1人が生む子どもの数（合計特殊出生率）とは別の数字です。若い世代の多い地域で高くなります。",
+      "人口の少ない市区町村では、数人の違いで大きく動きます。"
+    ],
+    smallAreaCaution: true,
+    provider: "dashboard",
+    basis: { births: { label: "出生数", unit: "人" }, residents: { label: "住民", unit: "人" } }
+  },
+  elderlyAlone: {
+    group: "people",
+    label: "高齢者の一人暮らし世帯の割合",
+    columnLabel: "高齢単身世帯",
+    unit: "%",
+    decimals: 1,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "一般世帯のうち、65歳以上の人が一人で暮らす世帯の割合です。",
+    method: "国勢調査の65歳以上の単独世帯数を、一般世帯数で割ります（社会・人口統計体系の値）。",
+    notes: ["施設に入所している人は、一般世帯に含まれません。"],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: { elderlyAlone: { label: "65歳以上の単独世帯の割合", unit: "%" } }
+  },
+  commuteRail: {
+    group: "commute",
+    label: "通勤・通学に鉄道・電車だけを使う人の割合",
+    columnLabel: "鉄道・電車",
+    unit: "%",
+    decimals: 1,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "自宅の外へ通勤・通学する人のうち、利用する交通手段が鉄道・電車だけの人の割合です。",
+    method: "国勢調査の「利用交通手段」で、鉄道・電車だけを利用する人数を、自宅外へ通勤・通学する人の総数で割ります。",
+    notes: [
+      "2種類以上の交通手段を使う人（電車とバスなど）は、どの手段の割合にも含まれません。",
+      "常住地（住んでいる市区町村）で数えています。"
+    ],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: {
+      commuteRail: { label: "鉄道・電車だけ", unit: "人" },
+      commuteTotal: { label: "自宅外へ通勤・通学する人", unit: "人" }
+    }
+  },
+  commuteCar: {
+    group: "commute",
+    label: "通勤・通学に自家用車だけを使う人の割合",
+    columnLabel: "自家用車",
+    unit: "%",
+    decimals: 1,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "自宅の外へ通勤・通学する人のうち、利用する交通手段が自家用車だけの人の割合です。",
+    method: "国勢調査の「利用交通手段」で、自家用車だけを利用する人数を、自宅外へ通勤・通学する人の総数で割ります。",
+    notes: [
+      "2種類以上の交通手段を使う人（電車とバスなど）は、どの手段の割合にも含まれません。",
+      "常住地（住んでいる市区町村）で数えています。"
+    ],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: {
+      commuteCar: { label: "自家用車だけ", unit: "人" },
+      commuteTotal: { label: "自宅外へ通勤・通学する人", unit: "人" }
+    }
+  },
+  commuteBike: {
+    group: "commute",
+    label: "通勤・通学に自転車だけを使う人の割合",
+    columnLabel: "自転車",
+    unit: "%",
+    decimals: 1,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "自宅の外へ通勤・通学する人のうち、利用する交通手段が自転車だけの人の割合です。",
+    method: "国勢調査の「利用交通手段」で、自転車だけを利用する人数を、自宅外へ通勤・通学する人の総数で割ります。",
+    notes: [
+      "2種類以上の交通手段を使う人（電車とバスなど）は、どの手段の割合にも含まれません。",
+      "常住地（住んでいる市区町村）で数えています。"
+    ],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: {
+      commuteBike: { label: "自転車だけ", unit: "人" },
+      commuteTotal: { label: "自宅外へ通勤・通学する人", unit: "人" }
+    }
+  },
+  commuteWalk: {
+    group: "commute",
+    label: "通勤・通学に徒歩だけを使う人の割合",
+    columnLabel: "徒歩",
+    unit: "%",
+    decimals: 1,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "自宅の外へ通勤・通学する人のうち、利用する交通手段が徒歩だけの人の割合です。",
+    method: "国勢調査の「利用交通手段」で、徒歩だけを利用する人数を、自宅外へ通勤・通学する人の総数で割ります。",
+    notes: [
+      "2種類以上の交通手段を使う人（電車とバスなど）は、どの手段の割合にも含まれません。",
+      "常住地（住んでいる市区町村）で数えています。",
+      "職場や学校が自宅と同じ敷地や近くにある人が多い地域（観光地、農村、寮のある学校など）で高くなります。"
+    ],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: {
+      commuteWalk: { label: "徒歩だけ", unit: "人" },
+      commuteTotal: { label: "自宅外へ通勤・通学する人", unit: "人" }
+    }
+  },
+  vacancy: {
+    group: "housing",
+    label: "空き家率",
+    columnLabel: "空き家率",
+    unit: "%",
+    decimals: 1,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "住宅のうち、人が住んでいない住宅（空き家）の割合です。",
+    method: "住宅・土地統計調査の空き家数を、総住宅数で割ります（社会・人口統計体系の値）。",
+    notes: [
+      "別荘などの二次的住宅や、賃貸・売却用の住宅も空き家に含まれます。別荘地のある市区町村で高くなります。",
+      "住宅・土地統計調査は標本調査で、市と人口1万5千人以上の町村だけが集計の対象です。"
+    ],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: { vacancy: { label: "空き家率", unit: "%" } }
+  },
+  floorArea: {
+    group: "housing",
+    label: "1住宅当たりの延べ面積",
+    columnLabel: "住宅の広さ",
+    unit: "㎡",
+    decimals: 1,
+    signed: false,
+    words: { high: "広い", low: "狭い" },
+    summary: "人が住んでいる住宅1戸当たりの、床面積の合計です。",
+    method: "住宅・土地統計調査の、居住世帯のある住宅1戸当たりの延べ面積です。",
+    notes: ["住宅・土地統計調査は標本調査で、市と人口1万5千人以上の町村だけが集計の対象です。"],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: { floorArea: { label: "1住宅当たり延べ面積", unit: "㎡" } }
+  },
+  doctors: {
+    group: "services",
+    label: "医師の数（人口10万人当たり）",
+    columnLabel: "医師の数",
+    unit: "人",
+    decimals: 0,
+    signed: false,
+    words: { high: "多い", low: "少ない" },
+    summary: "その市区町村で働く医師の数を、人口10万人当たりにしたものです。",
+    method: "医師・歯科医師・薬剤師統計の医師数を、同じ年の住民基本台帳人口で割り、10万を掛けます。",
+    notes: [
+      "医師が働いている場所で数えるため、大学病院や大きな病院のある市区町村で多くなります。住民がかかれる医療の量とは一致しません。",
+      "人口の少ない市区町村では、数人の違いで大きく動きます。"
+    ],
+    smallAreaCaution: true,
+    provider: "dashboard",
+    basis: { doctors: { label: "医師数", unit: "人" }, residents: { label: "住民", unit: "人" } }
+  },
+  libraries: {
+    group: "services",
+    label: "図書館の数（人口10万人当たり）",
+    columnLabel: "図書館の数",
+    unit: "館",
+    decimals: 1,
+    signed: false,
+    words: { high: "多い", low: "少ない" },
+    summary: "公立・私立の図書館の数を、人口10万人当たりにしたものです。",
+    method: "社会教育調査の図書館数を、同じ年の住民基本台帳人口で割り、10万を掛けます。",
+    notes: [
+      "公民館の図書室や移動図書館は含みません。図書館がなくても、本を借りられる場所がある市区町村もあります。",
+      "人口の少ない市区町村では、1館の違いで大きく動きます。"
+    ],
+    smallAreaCaution: true,
+    provider: "dashboard",
+    basis: { libraries: { label: "図書館数", unit: "館" }, residents: { label: "住民", unit: "人" } }
+  },
+  garbage: {
+    group: "services",
+    label: "1人1日当たりのごみの量",
+    columnLabel: "ごみの量",
+    unit: "g",
+    decimals: 0,
+    signed: false,
+    words: { high: "多い", low: "少ない" },
+    summary: "家庭と事業所から出るごみの総量を、住民1人1日当たりにしたものです。",
+    method: "一般廃棄物処理実態調査の、1人1日当たりのごみ排出量です（社会・人口統計体系の値）。",
+    notes: [
+      "観光客や通勤者が多い市区町村では、住民の数に比べてごみが多くなります。",
+      "原子力発電所の事故で避難指示が出た地域では、住民登録と実際に住む人の数が大きく違い、極端な値になります。"
+    ],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: { garbage: { label: "1人1日当たりのごみ排出量", unit: "g" } }
+  },
+  recycling: {
+    group: "services",
+    label: "ごみのリサイクル率",
+    columnLabel: "リサイクル率",
+    unit: "%",
+    decimals: 1,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "ごみのうち、資源として再利用された量の割合です。",
+    method: "一般廃棄物処理実態調査のリサイクル率です（社会・人口統計体系の値）。",
+    notes: ["ごみを燃料や建設資材に加工する施設を使う市町村では、極端に高い値になることがあります。"],
+    smallAreaCaution: false,
+    provider: "dashboard",
+    basis: { recycling: { label: "リサイクル率", unit: "%" } }
+  },
+  furusatoReceipts: {
+    group: "furusato",
+    label: "ふるさと納税の受入額",
+    columnLabel: "受入額",
+    unit: "円",
+    decimals: 0,
+    signed: false,
+    words: { high: "多い", low: "少ない" },
+    summary: "その市区町村が1年間にふるさと納税で受け入れた寄附の額です。",
+    method: "総務省「ふるさと納税に関する現況調査結果」の、各団体の受入額です。",
+    notes: [
+      "寄附を集めるための費用（返礼品・送料・広告など）を差し引く前の金額です。費用の割合は「受入額に占める費用の割合」で見られます。",
+      "政令指定都市の区は、市全体の値だけが公表されています。"
+    ],
+    smallAreaCaution: false,
+    provider: "furusato",
+    basis: { receipts: { label: "受入額", unit: "円" } }
+  },
+  furusatoPerCapita: {
+    group: "furusato",
+    label: "ふるさと納税の受入額（住民1人当たり）",
+    columnLabel: "受入額/人",
+    unit: "円",
+    decimals: 0,
+    signed: false,
+    words: { high: "多い", low: "少ない" },
+    summary: "ふるさと納税の受入額を、住民1人当たりにしたものです。",
+    method: "ふるさと納税の受入額を、住民基本台帳人口で割ります。",
+    notes: ["人口の少ない町村ほど、受入額が少し増えただけで大きな値になります。"],
+    smallAreaCaution: false,
+    provider: "furusato",
+    basis: { receipts: { label: "受入額", unit: "円" }, residents: { label: "住民", unit: "人" } }
+  },
+  furusatoCostShare: {
+    group: "furusato",
+    label: "ふるさと納税の受入額に占める費用の割合",
+    columnLabel: "費用の割合",
+    unit: "%",
+    decimals: 1,
+    signed: false,
+    words: { high: "高い", low: "低い" },
+    summary: "受け入れた寄附のうち、返礼品の調達・送付、広報、決済、事務などの募集に使った費用の割合です。",
+    method: "総務省「ふるさと納税に関する現況調査結果」の、募集に要した費用の合計を受入額で割ります。",
+    notes: [
+      "国の基準では、募集に要する費用は受入額の5割以下、返礼品の調達費用は3割以下とされています。",
+      "受入額が少ない市区町村では、事務の費用などで割合が大きくなることがあります。"
+    ],
+    smallAreaCaution: false,
+    provider: "furusato",
+    basis: { receipts: { label: "受入額", unit: "円" }, costs: { label: "募集に要した費用", unit: "円" } }
+  },
+  furusatoOutflow: {
+    group: "furusato",
+    label: "ふるさと納税による住民税の控除額",
+    columnLabel: "住民税の控除額",
+    unit: "円",
+    decimals: 0,
+    signed: false,
+    words: { high: "多い", low: "少ない" },
+    summary: "住民がほかの自治体へふるさと納税をしたことで、その市区町村の住民税（市町村民税）が減った額です。",
+    method:
+      "総務省「ふるさと納税に関する現況調査結果」の、寄附金税額控除のうち市町村民税の控除額（都道府県等に対する寄附金・特例控除対象分）です。",
+    notes: [
+      "前の年の寄附にもとづいて、その年度の住民税から差し引かれた額です。",
+      "地方交付税を受けている市区町村では、控除で減った住民税の多くが交付税で補われます。控除額がそのまま減収になるのは、主に交付税を受けていない市区町村です。"
+    ],
+    smallAreaCaution: false,
+    provider: "furusato",
+    basis: { deduction: { label: "市町村民税の控除額", unit: "円" } }
+  },
+  furusatoNet: {
+    group: "furusato",
+    label: "ふるさと納税の受入額と住民税の控除額の差",
+    columnLabel: "受入と控除の差",
+    unit: "円",
+    decimals: 0,
+    signed: true,
+    words: { high: "大きい", low: "小さい" },
+    summary: "受け入れた寄附の額から、住民がほかへ寄附したことによる住民税の控除額を引いたものです。",
+    method: "受入額（令和7年度）から、市町村民税の控除額（令和8年度課税）を引きます。",
+    notes: [
+      "受入額は返礼品などの費用を差し引く前の金額で、控除額の多くは地方交付税で補われる場合があります。実際の収支とは異なる、目安の数字です。",
+      "受入額と控除額は、対象の期間が少しずれています（受入額は年度、控除額は前の年の寄附）。"
+    ],
+    smallAreaCaution: false,
+    provider: "furusato",
+    basis: { receipts: { label: "受入額", unit: "円" }, deduction: { label: "市町村民税の控除額", unit: "円" } }
+  }
+};
+
+const TOPICS = [
+  {
+    id: "half-by-2050",
+    title: "2050年に人口が半分以下になる見込みの市区町村",
+    lead: "国立社会保障・人口問題研究所の推計（令和5年推計）で、2050年の人口が2025年の半分以下になる見込みの市区町村です。減り方が大きい順に並べています。",
+    metric: "projection2050",
+    order: "asc",
+    size: "all",
+    filters: { projection2050: { max: -50 } }
+  },
+  {
+    id: "growing-to-2050",
+    title: "2050年も人口が増える見込みの市区町村",
+    lead: "同じ推計で、2050年の人口が2025年より多くなる見込みの市区町村です。",
+    metric: "projection2050",
+    order: "desc",
+    size: "all",
+    filters: { projection2050: { min: 0.1 } }
+  },
+  {
+    id: "furusato-receipts",
+    title: "ふるさと納税の受入額が多い市区町村",
+    lead: "総務省「ふるさと納税に関する現況調査結果」の受入額の順です。返礼品などの費用を差し引く前の金額です。",
+    metric: "furusatoReceipts",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "furusato-outflow",
+    title: "ふるさと納税で住民税の控除額が多い市区町村",
+    lead: "住民がほかの自治体へ寄附したことで、住民税（市町村民税）が差し引かれた額の順です。",
+    metric: "furusatoOutflow",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "furusato-per-capita",
+    title: "住民1人当たりのふるさと納税受入額が多い市区町村",
+    lead: "受入額を住民基本台帳人口で割った値の順です。",
+    metric: "furusatoPerCapita",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "bicycle",
+    title: "通勤・通学に自転車だけを使う人の割合が高い市区町村",
+    lead: "2020年国勢調査で、自宅の外へ通勤・通学する人のうち、自転車だけを使う人の割合の順です。",
+    metric: "commuteBike",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "car",
+    title: "通勤・通学に自家用車だけを使う人の割合が高い市区町村",
+    lead: "2020年国勢調査で、自宅の外へ通勤・通学する人のうち、自家用車だけを使う人の割合の順です。",
+    metric: "commuteCar",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "rail",
+    title: "通勤・通学に鉄道・電車だけを使う人の割合が高い市区町村",
+    lead: "2020年国勢調査で、鉄道・電車だけを使う人の割合の順です。",
+    metric: "commuteRail",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "life-female",
+    title: "女性の平均寿命が長い市区町村",
+    lead: "厚生労働省「市区町村別生命表」（2020年）の、0歳の女性の平均余命の順です。",
+    metric: "lifeFemale",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "life-male",
+    title: "男性の平均寿命が長い市区町村",
+    lead: "厚生労働省「市区町村別生命表」（2020年）の、0歳の男性の平均余命の順です。",
+    metric: "lifeMale",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "foreign-residents",
+    title: "外国人住民の割合が高い市区町村",
+    lead: "住民基本台帳に記録された住民のうち、外国人住民の割合の順です。",
+    metric: "foreignShare",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "vacant-houses",
+    title: "空き家率が高い市区町村",
+    lead: "2023年住宅・土地統計調査の空き家率の順です。別荘などの二次的住宅も空き家に含まれます。",
+    metric: "vacancy",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "spacious-homes",
+    title: "住宅が広い市区町村",
+    lead: "2023年住宅・土地統計調査の、1住宅当たりの延べ面積の順です。",
+    metric: "floorArea",
+    order: "desc",
+    size: "all",
+    filters: {}
+  },
+  {
+    id: "no-library",
+    title: "図書館がない市区町村",
+    lead: "社会教育調査で図書館の数が0の市区町村を、人口の多い順に並べています。公民館の図書室や移動図書館は含みません。",
+    metric: "residents",
+    order: "desc",
+    size: "all",
+    filters: { libraries: { max: 0 } }
+  },
+  {
+    id: "marriage",
+    title: "婚姻率が高い市区町村（人口1万人以上）",
+    lead: "人口千人当たりの婚姻件数の順です。人口の少ない市区町村は数組の違いで大きく動くため、人口1万人以上に絞っています。",
+    metric: "marriageRate",
+    order: "desc",
+    size: "over-10k",
+    filters: {}
+  }
+];
+
 const POPULATION_BANDS = [
   { id: "all", label: "すべての規模", min: 0, max: Number.POSITIVE_INFINITY },
+  { id: "over-10k", label: "1万人以上", min: 10_000, max: Number.POSITIVE_INFINITY },
   { id: "under-10k", label: "1万人未満", min: 0, max: 10_000 },
   { id: "10k-50k", label: "1万〜5万人", min: 10_000, max: 50_000 },
   { id: "50k-200k", label: "5万〜20万人", min: 50_000, max: 200_000 },
@@ -214,34 +815,47 @@ const READING_NOTES = [
   "補助スコアは、全国の市区町村（政令指定都市の区を除く基準集団）の中での位置を0〜100で表したパーセンタイルで、50が全国の中央です。",
   "補助スコアは値が大きいほど高くなりますが、高齢化率と完全失業率だけは値が小さいほど高くなります。向きは集計上の約束で、良し悪しの判定ではありません。",
   "順位は基準集団の中で指標値が大きい順に数えたもので（同じ値は同順位）、良し悪しの順ではありません。",
-  "値が null の指標は欠損です。低い値や0として扱わないでください。政令指定都市の区には順位がありません。"
+  "値が null の指標は欠損です。低い値や0として扱わないでください。政令指定都市の区には順位がありません。",
+  "くらしの指標（facts）は補助スコアの対象外で、値と全国順位（値が大きい順）だけを示します。基準時点は指標ごとに違います（period）。",
+  "unit が「円」の値は金額で、円の数値です。valueText・moneyTexts・medianText は「18.9億円」のように読みやすく書いたものです。",
+  "smallAreaCaution が true の指標（婚姻率・出生率・医師と図書館の数）は、人口の少ない市区町村で少数の増減により大きく動きます。"
 ];
 
 const USAGE = `まちのものさし（Local Signal Japan）データ参照スクリプト（全国の市区町村の公的統計）
 
 使い方:
   node lsj.mjs indicators
-      7指標の定義・単位・基準時点・全国の分布（中央値など）・出典の系列を表示します。
+      7指標とくらしの指標の定義・単位・基準時点・全国の分布（中央値など）・出典を表示します。
   node lsj.mjs search <検索語> [--limit N]
       市区町村名・よみがな・5桁の市区町村コードで検索します。
   node lsj.mjs show <市区町村>
-      1つの市区町村の全指標（値・基準時点・補助スコア・全国順位・5年前比・欠損理由・出典の系列）を表示します。
+      1つの市区町村の7指標（値・基準時点・補助スコア・全国順位・5年前比・欠損理由・出典の系列）、
+      くらしの指標（値・基準時点・全国順位・もとの数）、全国で目立つところを表示します。
   node lsj.mjs screen [--where "<指標キー><演算子><数値>"]... [--sort residents|overall|<指標キー>]
                       [--order desc|asc] [--pref <都道府県>] [--size <人口規模>] [--limit N] [--csv]
       数値の条件に合う市区町村をもれなく抜き出し、条件に合う中での順位を付けます（政令指定都市の区は対象外）。
       --where  指標値の条件。何度でも指定でき、すべてを満たす市区町村だけが残ります。
                演算子は >=（以上）と <=（以下）。同じ指標に両方を付けると範囲になります。
+               金額（円）の指標は円の数値で指定します（例: furusatoReceipts>=1000000000 は10億円以上）。
       --sort   並べ替えに使う値。residents（人口、既定）、overall（総合補助スコア）、指標キーのどれか。
       --order  desc（大きい順、既定）か asc（小さい順）。
       --pref   都道府県名（例: 東京都）か2桁の都道府県コード（例: 13）。
-      --size   人口規模。all（既定） | under-10k | 10k-50k | 50k-200k | over-200k
+      --size   人口規模。${POPULATION_BANDS.map((band) => `${band.id}${band.id === "all" ? "（既定）" : ""}`).join(" | ")}
       --limit  出力する件数（既定 ${DEFAULT_LIMIT}、0 ですべて）。該当した市区町村の数は件数にかかわらず出力します。
-      --csv    BOM付きUTF-8のCSVで出力します。
+      --csv    BOM付きUTF-8のCSVで出力します（くらしの指標はすべての列が入り、金額は円の数値です）。
   node lsj.mjs compare <市区町村> <市区町村> [...]
-      2〜${MAX_COMPARE}つの市区町村を並べて比べます。
+      2〜${MAX_COMPARE}つの市区町村を並べて比べます（7指標とくらしの指標）。
+  node lsj.mjs topics [<特集id>] [--pref <都道府県>] [--limit N] [--csv]
+      特集ランキング（決まった条件で並べた一覧）。id を省くと特集の一覧を表示します。計算は screen と同じです。
 
-指標キー:
-${KEYS.map((key) => `  ${key.padEnd(10)} ${INDICATORS[key].metricLabel}${INDICATORS[key].unit ? `（${INDICATORS[key].unit}）` : ""}`).join("\n")}
+指標キー（7指標）:
+${KEYS.map((key) => `  ${key.padEnd(18)} ${INDICATORS[key].metricLabel}${INDICATORS[key].unit ? `（${INDICATORS[key].unit}）` : ""}`).join("\n")}
+
+くらしの指標キー:
+${FACT_KEYS.map((key) => `  ${key.padEnd(18)} ${FACTS[key].label}${FACTS[key].unit ? `（${FACTS[key].unit}）` : ""}`).join("\n")}
+
+特集:
+${TOPICS.map((topic) => `  ${topic.id.padEnd(20)} ${topic.title}`).join("\n")}
 
 <市区町村> には5桁の市区町村コード（例: 13101）か名前（例: 千代田区、横浜市青葉区、東京都府中市）を指定します。
 同じ名前の市区町村が複数あるときは、候補を返して終了します（推測で1つに決めません）。
@@ -254,6 +868,8 @@ ${KEYS.map((key) => `  ${key.padEnd(10)} ${INDICATORS[key].metricLabel}${INDICAT
 
 例:
   node lsj.mjs screen --where "aging<=25" --where "income>=400" --pref 東京都 --sort income --limit 0
+  node lsj.mjs screen --where "vacancy<=20" --size over-10k --sort furusatoReceipts
+  node lsj.mjs topics half-by-2050 --limit 0
   node lsj.mjs compare 13101 横浜市青葉区 --text`;
 
 /** code は機械が読むための種別。extra は JSON の error にそのまま入れる追加情報。 */
@@ -418,6 +1034,7 @@ function validateManifest(manifest) {
     typeof manifest.source.attribution === "string" &&
     typeof manifest.source.credit === "string" &&
     isPlainObject(manifest.counts) &&
+    Array.isArray(manifest.additionalSources) &&
     isPlainObject(manifest.indicators) &&
     KEYS.every((key) => {
       const indicator = manifest.indicators[key];
@@ -427,11 +1044,23 @@ function validateManifest(manifest) {
         isPlainObject(indicator.distribution) &&
         Array.isArray(indicator.sources)
       );
+    }) &&
+    isPlainObject(manifest.facts) &&
+    FACT_KEYS.every((key) => {
+      const fact = manifest.facts[key];
+      return (
+        isPlainObject(fact) &&
+        Number.isInteger(fact.year) &&
+        typeof fact.period === "string" &&
+        isPlainObject(fact.distribution) &&
+        Array.isArray(fact.sources) &&
+        Array.isArray(fact.documents)
+      );
     });
   if (!complete) {
     throw new LsjError(
       "invalid-data",
-      "manifest.json に必要な項目（出典、取得日時、7指標の基準年・分布）がそろっていません。"
+      "manifest.json に必要な項目（出典、取得日時、7指標とくらしの指標の基準年・分布）がそろっていません。"
     );
   }
   return manifest;
@@ -456,7 +1085,14 @@ function createContext(location) {
     async national() {
       const national = await read("national.json");
       const keys = isPlainObject(national) ? national.indicatorKeys : null;
-      if (!Array.isArray(keys) || keys.join(",") !== KEYS.join(",") || !Array.isArray(national.areas)) {
+      const factKeys = isPlainObject(national) ? national.factKeys : null;
+      if (
+        !Array.isArray(keys) ||
+        keys.join(",") !== KEYS.join(",") ||
+        !Array.isArray(factKeys) ||
+        factKeys.join(",") !== FACT_KEYS.join(",") ||
+        !Array.isArray(national.areas)
+      ) {
         throw new LsjError("invalid-data", "national.json の指標の並びが、このスクリプトの想定と一致しません。");
       }
       return national.areas;
@@ -511,6 +1147,28 @@ function keyed(valueOf) {
   return Object.fromEntries(KEYS.map((key) => [key, valueOf(key)]));
 }
 
+function factKeyed(valueOf) {
+  return Object.fromEntries(FACT_KEYS.map((key) => [key, valueOf(key)]));
+}
+
+function isFactKey(key) {
+  return FACT_KEYS.includes(key);
+}
+
+/** 全国一覧（national.json）の1行から、7指標の指標値かくらしの指標の値を取り出す。 */
+function metricValue(row, key) {
+  return isFactKey(key) ? (row.facts[FACT_KEYS.indexOf(key)] ?? null) : (row.values[KEYS.indexOf(key)] ?? null);
+}
+
+/** 表の列見出しなどに使う短い名前。 */
+function columnLabelOf(key) {
+  return isFactKey(key) ? FACTS[key].columnLabel : INDICATORS[key].columnLabel;
+}
+
+function unitOf(key) {
+  return isFactKey(key) ? FACTS[key].unit : INDICATORS[key].unit;
+}
+
 const numberFormatters = new Map();
 
 function formatNumber(value, decimals = 0, signed = false) {
@@ -535,6 +1193,38 @@ function formatMetric(key, value) {
   return `${formatNumber(value, definition.decimals, definition.signed)}${definition.unit}`;
 }
 
+/** 金額を「億円」「万円」で読みやすく書く（1億円以上は小数第1位までの億円、1万円以上は万円）。 */
+function formatYen(value, signed = false) {
+  const sign = value < 0 ? "\u2212" : signed && value > 0 ? "+" : "";
+  const absolute = Math.abs(value);
+  if (absolute >= 100_000_000) return `${sign}${formatNumber(absolute / 100_000_000, 1)}億円`;
+  if (absolute >= 10_000) return `${sign}${formatNumber(Math.round(absolute / 10_000))}万円`;
+  return `${sign}${formatNumber(Math.round(absolute))}円`;
+}
+
+/** くらしの指標の値を、単位つきで書く。金額は「億円」「万円」に読み替える。 */
+function formatFact(key, value) {
+  if (value === null) return MISSING_TEXT;
+  const definition = FACTS[key];
+  if (definition.unit === "円") return formatYen(value, definition.signed);
+  return `${formatNumber(value, definition.decimals, definition.signed)}${definition.unit}`;
+}
+
+/** 7指標かくらしの指標の値を、単位つきで書く。 */
+function formatMetricValue(key, value) {
+  return isFactKey(key) ? formatFact(key, value) : formatMetric(key, value);
+}
+
+/** 金額のくらしの指標を「18.9億円」のように書いたもの（欠損は null）。 */
+function moneyTextsOf(valueOf) {
+  return Object.fromEntries(
+    FACT_KEYS.filter((key) => FACTS[key].unit === "円").map((key) => {
+      const value = valueOf(key);
+      return [key, value === null ? null : formatFact(key, value)];
+    })
+  );
+}
+
 /** ISO 8601 の日時を、日本時間の日付（YYYY-MM-DD）にする。 */
 function formatDate(isoDateTime) {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date(isoDateTime));
@@ -544,8 +1234,23 @@ function statNameOf(manifest, key) {
   return [...new Set(manifest.indicators[key].sources.map((source) => source.statName))].join("・");
 }
 
-/** どの結果にも付ける出典。数値を引用するときは attribution・credit と、指標ごとの基準時点を添える。 */
-function sourceBlock(manifest) {
+/** くらしの指標の出典の統計名・資料名。ふるさと納税の値は総務省の調査、それ以外は統計ダッシュボードの系列。 */
+function factStatNameOf(manifest, key) {
+  const furusato = manifest.additionalSources.find((source) => source.id === FURUSATO_SOURCE_ID);
+  const names = [
+    ...(FACTS[key].provider === "furusato" && furusato ? [furusato.name] : []),
+    ...manifest.facts[key].sources.map((source) => source.statName)
+  ];
+  return [...new Set(names)].join("・");
+}
+
+/**
+ * どの結果にも付ける出典。数値を引用するときは citation の各行（attributions の出典と credit）と、
+ * 指標ごとの基準時点を添える。furusato は、結果にふるさと納税の値が入っているとき true にする。
+ */
+function sourceBlock(manifest, { furusato = false } = {}) {
+  const fetchedDate = formatDate(manifest.generatedAt);
+  const extra = furusato ? manifest.additionalSources.filter((source) => source.id === FURUSATO_SOURCE_ID) : [];
   return {
     attribution: manifest.source.attribution,
     credit: manifest.source.credit,
@@ -555,8 +1260,27 @@ function sourceBlock(manifest) {
     licenseUrl: manifest.source.licenseUrl,
     fetchedAt: manifest.generatedAt,
     // 取得日（日本時間）。回答に「データ取得日」として書く日付。
-    fetchedDate: formatDate(manifest.generatedAt),
-    periods: keyed((key) => periodOf(key, manifest.indicators[key].year))
+    fetchedDate,
+    // この結果の値に当てはまる出典のすべて（統計ダッシュボード、ふるさと納税の値があれば総務省の調査）。
+    attributions: [manifest.source.attribution, ...extra.map((source) => source.attribution)],
+    // 回答の最後にそのまま書き写す行。
+    citation: [
+      `出典: ${manifest.source.attribution}（データ取得日: ${fetchedDate}）`,
+      ...extra.map((source) => `出典: ${source.attribution}`),
+      manifest.source.credit
+    ],
+    additionalSources: extra.map(({ id, name, url, license, licenseUrl, attribution }) => ({
+      id,
+      name,
+      url,
+      license,
+      licenseUrl,
+      attribution
+    })),
+    periods: {
+      ...keyed((key) => periodOf(key, manifest.indicators[key].year)),
+      ...factKeyed((key) => manifest.facts[key].period)
+    }
   };
 }
 
@@ -570,9 +1294,24 @@ function indicatorInfo(manifest, key) {
   };
 }
 
+function factInfo(manifest, key) {
+  return {
+    label: FACTS[key].label,
+    columnLabel: FACTS[key].columnLabel,
+    unit: FACTS[key].unit,
+    period: manifest.facts[key].period,
+    statName: factStatNameOf(manifest, key),
+    provider: FACTS[key].provider
+  };
+}
+
 function populationInfo(manifest) {
   const year = manifest.indicators.population.year;
   return { label: "住民基本台帳人口", unit: "人", period: `${year}年${residentsAsOf(year)}` };
+}
+
+function groupLabelOf(groupId) {
+  return FACT_GROUPS.find((group) => group.id === groupId)?.label ?? groupId;
 }
 
 // ---------------------------------------------------------------------------
@@ -752,6 +1491,20 @@ function missingTextOf(area, key, year) {
   return `出典（統計ダッシュボード）に${periodOf(key, year)}の値が収録されていません。`;
 }
 
+/** くらしの指標の値がない理由。 */
+function factMissingTextOf(area, key) {
+  if (area.kind === "ward" && FACTS[key].provider === "furusato") return "市全体の値だけが公表されています";
+  if (key === "vacancy" || key === "floorArea") return "この調査の集計の対象外です";
+  return "値が公表されていません";
+}
+
+/** もとの数を、単位に合わせて書く。 */
+function basisText(unit, value) {
+  if (unit === "円") return formatYen(value);
+  if (unit === "%" || unit === "年" || unit === "㎡") return `${formatNumber(value, 1)}${unit}`;
+  return `${formatNumber(value)}${unit}`;
+}
+
 function sourceUrl(seriesCode, areaCode) {
   return `https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=${seriesCode}&RegionCode=${areaCode}`;
 }
@@ -776,15 +1529,123 @@ function areaHeader(area, manifest) {
 function wardNote(area) {
   return area.kind === "ward"
     ? [
-        `${localNameOf(area)}は政令指定都市の区です。基準集団に含まれないため順位はなく、screen の対象にもなりません。` +
-          `補助スコアは基準集団に当てはめた位置です。所得と財政は市全体（${area.parentName ?? "所属する市"}）の値を見てください。`
+        `${localNameOf(area)}は政令指定都市の区です。基準集団に含まれないため順位はなく、screen・topics・全国で目立つところの対象にもなりません。` +
+          `補助スコアは基準集団に当てはめた位置です。所得・財政とふるさと納税は市全体（${area.parentName ?? "所属する市"}）の値を見てください。`
       ]
     : [];
+}
+
+/** くらしの指標1つぶん（show で出す）。 */
+function factEntry(area, manifest, key) {
+  const definition = FACTS[key];
+  const fact = area.facts?.[key] ?? { value: null, rank: null, basis: {} };
+  const meta = manifest.facts[key];
+  const basis = Object.fromEntries(
+    Object.entries(definition.basis).flatMap(([name, { label, unit }]) => {
+      const value = fact.basis?.[name];
+      return value === undefined ? [] : [[name, { label, unit, value, valueText: basisText(unit, value) }]];
+    })
+  );
+  return {
+    label: definition.label,
+    group: definition.group,
+    groupLabel: groupLabelOf(definition.group),
+    value: fact.value,
+    unit: definition.unit,
+    valueText: fact.value === null ? null : formatFact(key, fact.value),
+    period: meta.period,
+    statName: factStatNameOf(manifest, key),
+    provider: definition.provider,
+    rank: fact.rank,
+    rankTotal: meta.distribution.count,
+    median: meta.distribution.p50,
+    medianText: formatFact(key, meta.distribution.p50),
+    smallAreaCaution: definition.smallAreaCaution,
+    basis,
+    ...(fact.value === null ? { missing: { text: factMissingTextOf(area, key) } } : {}),
+    notes: definition.notes
+  };
+}
+
+/** 市区町村の記録（pref/*.json）を、全国一覧（national.json）の1行の形にする。 */
+function nationalRowOf(area) {
+  return {
+    code: area.code,
+    name: area.name,
+    ...(area.parentName ? { parentName: area.parentName } : {}),
+    prefCode: area.prefCode,
+    kind: area.kind,
+    population: area.population,
+    values: KEYS.map((key) => area.indicators[key].value),
+    scores: KEYS.map((key) => area.indicators[key].score),
+    facts: FACT_KEYS.map((key) => area.facts?.[key]?.value ?? null)
+  };
+}
+
+/**
+ * その市区町村が、全国の上位・下位10位以内に入っている指標を抜き出す（packages/core の findHighlights と同じ規則）。
+ * 比べるのは政令指定都市の区を除く、値のある市区町村。smallAreaCaution の指標は人口1万人以上の市区町村の中で比べ、
+ * 対象の市区町村も1万人以上のときだけ抜き出す。同じ値の市区町村も数に入れて端から10以内に収まるときだけ選び
+ * （順位は自分より大きい・小さい値の数 + 1）、端に近い順（同じ順位は表の並び）に最大6つ。良し悪しは判断しない。
+ */
+function findHighlights(target, rows, manifest, limit = HIGHLIGHT_LIMIT) {
+  if (target.kind === "ward") return [];
+
+  const reference = rows.filter((row) => row.kind !== "ward");
+  const found = [];
+
+  for (const key of METRIC_KEYS) {
+    if (HIGHLIGHT_EXCLUDED.has(key)) continue;
+    const value = metricValue(target, key);
+    if (value === null) continue;
+
+    const fact = isFactKey(key);
+    const limited = fact ? FACTS[key].smallAreaCaution : false;
+    const large = (row) => typeof row.population === "number" && row.population >= HIGHLIGHT_MIN_POPULATION;
+    if (limited && !large(target)) continue;
+
+    const values = reference
+      .filter((row) => !limited || large(row))
+      .map((row) => metricValue(row, key))
+      .filter((candidate) => candidate !== null);
+
+    const highRank = 1 + values.filter((candidate) => candidate > value).length;
+    const lowRank = 1 + values.filter((candidate) => candidate < value).length;
+    // 同じ値の市区町村も数に入れて、端から10以内に収まるときだけ抜き出す。
+    // （0%のように同じ値が何百もあるとき、「最も低い」と言うと誤解を招くため）
+    const atLeast = values.filter((candidate) => candidate >= value).length;
+    const atMost = values.filter((candidate) => candidate <= value).length;
+    const side = atLeast <= HIGHLIGHT_WITHIN ? "high" : atMost <= HIGHLIGHT_WITHIN ? "low" : null;
+    if (side === null) continue;
+
+    const rank = side === "high" ? highRank : lowRank;
+    const words = fact ? FACTS[key].words : INDICATOR_WORDS[key];
+    const scope = limited ? "人口1万人以上の市区町村で" : "全国で";
+    const ordinal = rank === 1 ? "最も" : `${rank}番目に`;
+    found.push({
+      key,
+      side,
+      rank,
+      total: values.length,
+      limited,
+      label: fact ? FACTS[key].label : INDICATORS[key].metricLabel,
+      valueText: formatMetricValue(key, value),
+      period: fact ? manifest.facts[key].period : periodOf(key, manifest.indicators[key].year),
+      phrase: `${scope}${ordinal}${words[side]}`
+    });
+  }
+
+  return found.sort((a, b) => a.rank - b.rank).slice(0, limit);
 }
 
 // ---------------------------------------------------------------------------
 // コマンド
 // ---------------------------------------------------------------------------
+
+function distributionOf(meta) {
+  const { count, min, p10, p25, p50, p75, p90, max } = meta.distribution;
+  return { count, min, p10, p25, median: p50, p75, p90, max };
+}
 
 async function commandIndicators(context) {
   const manifest = await context.manifest();
@@ -792,7 +1653,6 @@ async function commandIndicators(context) {
     indicators: keyed((key) => {
       const definition = INDICATORS[key];
       const meta = manifest.indicators[key];
-      const { count, min, p10, p25, p50, p75, p90, max } = meta.distribution;
       return {
         label: definition.label,
         metricLabel: definition.metricLabel,
@@ -803,19 +1663,50 @@ async function commandIndicators(context) {
         summary: definition.summary,
         method: definition.method,
         scoreOrientation: definition.orientation,
-        distribution: { count, min, p10, p25, median: p50, p75, p90, max },
+        distribution: distributionOf(meta),
         notes: definition.notes,
         sources: meta.sources.map((source) => ({ name: source.name, statName: source.statName, code: source.code }))
       };
     }),
+    facts: factKeyed((key) => {
+      const definition = FACTS[key];
+      const meta = manifest.facts[key];
+      return {
+        group: definition.group,
+        groupLabel: groupLabelOf(definition.group),
+        label: definition.label,
+        columnLabel: definition.columnLabel,
+        unit: definition.unit,
+        decimals: definition.decimals,
+        signed: definition.signed,
+        period: meta.period,
+        provider: definition.provider,
+        statName: factStatNameOf(manifest, key),
+        summary: definition.summary,
+        method: definition.method,
+        notes: definition.notes,
+        words: definition.words,
+        smallAreaCaution: definition.smallAreaCaution,
+        basis: definition.basis,
+        distribution: distributionOf(meta),
+        medianText: formatFact(key, meta.distribution.p50),
+        sources: meta.sources.map((source) => ({ name: source.name, statName: source.statName, code: source.code })),
+        documents: meta.documents.map((document) => ({
+          title: document.title,
+          publisher: document.publisher,
+          url: document.url
+        }))
+      };
+    }),
+    factGroups: FACT_GROUPS.map(({ id, label }) => ({ id, label })),
     counts: { areas: manifest.counts.areas, referenceAreas: manifest.counts.referenceAreas },
     populationBands: POPULATION_BANDS.filter((band) => band.id !== "all").map(({ id, label }) => ({ id, label })),
     reading: [
       ...READING_NOTES,
-      "distribution は基準集団における指標値の分布、scoreOrientation は補助スコアが高くなる向き（higher = 値が大きいほど高い）です。",
+      "distribution は基準集団における値の分布、scoreOrientation は補助スコアが高くなる向き（higher = 値が大きいほど高い）です。",
       `総合補助スコアは、補助スコアがある指標の単純平均です（${MIN_INDICATORS_FOR_OVERALL}指標以上そろう場合だけ算出）。`
     ],
-    source: sourceBlock(manifest)
+    source: sourceBlock(manifest, { furusato: true })
   };
 }
 
@@ -877,7 +1768,8 @@ function describeArea(area, manifest) {
           url: sourceUrl(source.code, area.code)
         }))
       };
-    })
+    }),
+    facts: factKeyed((key) => factEntry(area, manifest, key))
   };
 }
 
@@ -885,8 +1777,18 @@ async function commandShow(context, positionals) {
   if (positionals.length > 1) {
     throw new LsjError("usage", "show に指定できる市区町村は1つです。複数を並べるときは compare を使ってください。");
   }
-  const [manifest, area] = await Promise.all([context.manifest(), loadArea(context, positionals[0])]);
-  return { ...describeArea(area, manifest), notes: wardNote(area), source: sourceBlock(manifest) };
+  const [manifest, area, rows] = await Promise.all([
+    context.manifest(),
+    loadArea(context, positionals[0]),
+    context.national()
+  ]);
+  const target = rows.find((row) => row.code === area.code) ?? nationalRowOf(area);
+  return {
+    ...describeArea(area, manifest),
+    highlights: findHighlights(target, rows, manifest),
+    notes: wardNote(area),
+    source: sourceBlock(manifest, { furusato: true })
+  };
 }
 
 async function commandCompare(context, positionals) {
@@ -915,6 +1817,7 @@ async function commandCompare(context, positionals) {
           missingTextOf(area, key, manifest.indicators[key].year)
         ])
       );
+      const factValue = (key) => area.facts?.[key]?.value ?? null;
       return {
         code: area.code,
         name: localNameOf(area),
@@ -925,7 +1828,10 @@ async function commandCompare(context, positionals) {
         values: keyed((key) => area.indicators[key].value),
         scores: keyed((key) => area.indicators[key].score),
         ranks: keyed((key) => area.indicators[key].rank),
-        missing
+        missing,
+        facts: factKeyed(factValue),
+        factRanks: factKeyed((key) => area.facts?.[key]?.rank ?? null),
+        moneyTexts: moneyTextsOf(factValue)
       };
     }),
     indicators: keyed((key) => ({
@@ -934,9 +1840,15 @@ async function commandCompare(context, positionals) {
       median: manifest.indicators[key].distribution.p50,
       rankTotal: manifest.indicators[key].distribution.count
     })),
+    facts: factKeyed((key) => ({
+      ...factInfo(manifest, key),
+      median: manifest.facts[key].distribution.p50,
+      medianText: formatFact(key, manifest.facts[key].distribution.p50),
+      rankTotal: manifest.facts[key].distribution.count
+    })),
     population: populationInfo(manifest),
     notes: areas.flatMap(wardNote),
-    source: sourceBlock(manifest)
+    source: sourceBlock(manifest, { furusato: true })
   };
 }
 
@@ -952,20 +1864,31 @@ function normalizeExpression(expression) {
     .trim();
 }
 
+/** 大文字・小文字の違いを問わずに、指標キー（7指標とくらしの指標）を決める。 */
+function findMetricKey(text) {
+  const lower = text.toLowerCase();
+  return METRIC_KEYS.find((key) => key.toLowerCase() === lower);
+}
+
 function parseCondition(expression) {
   const match = /^([^<>=!\s]*)\s*([<>=!]*)\s*(.*)$/.exec(normalizeExpression(expression));
-  const key = (match?.[1] ?? "").toLowerCase();
+  const keyText = match?.[1] ?? "";
   const op = match?.[2] ?? "";
   const valueText = match?.[3] ?? "";
 
-  if (key === "" || op === "") {
+  if (keyText === "" || op === "") {
     throw new LsjError(
       "usage",
       `条件は「<指標キー><演算子><数値>」の形で指定してください（例: "aging>=30"）: ${expression}`
     );
   }
-  if (!KEYS.includes(key)) {
-    throw new LsjError("usage", `条件の指標キーが不明です: ${key}（使える指標キー: ${KEYS.join(", ")}）`);
+  const key = findMetricKey(keyText);
+  if (key === undefined) {
+    throw new LsjError(
+      "usage",
+      `条件の指標キーが不明です: ${keyText.toLowerCase()}` +
+        `（使える指標キー: ${KEYS.join(", ")}。くらしの指標キー: ${FACT_KEYS.join(", ")}）`
+    );
   }
   if (op !== ">=" && op !== "<=") {
     throw new LsjError("usage", `条件の演算子は >=（以上）と <=（以下）だけ使えます: ${expression}`);
@@ -989,12 +1912,12 @@ function buildFilters(conditions) {
     ranges.set(key, range);
   }
 
-  const filters = KEYS.filter((key) => ranges.has(key)).map((key) => [key, ranges.get(key)]);
+  const filters = METRIC_KEYS.filter((key) => ranges.has(key)).map((key) => [key, ranges.get(key)]);
   for (const [key, range] of filters) {
     if (range.min !== undefined && range.max !== undefined && range.min > range.max) {
       throw new LsjError(
         "usage",
-        `条件が両立しません: ${INDICATORS[key].columnLabel}が ${range.min}以上 かつ ${range.max}以下 になっています。`
+        `条件が両立しません: ${columnLabelOf(key)}が ${range.min}以上 かつ ${range.max}以下 になっています。`
       );
     }
   }
@@ -1002,11 +1925,13 @@ function buildFilters(conditions) {
 }
 
 function parseSort(value) {
-  const metric = (value ?? "residents").trim().toLowerCase();
-  if (SORT_METRICS.includes(metric)) return metric;
+  const text = (value ?? "residents").trim().toLowerCase();
+  const metric = SORT_METRICS.find((candidate) => candidate.toLowerCase() === text);
+  if (metric) return metric;
   throw new LsjError(
     "usage",
-    `--sort には residents（人口）、overall（総合補助スコア）、指標キー（${KEYS.join(", ")}）のどれかを指定してください: ${value}`
+    `--sort には residents（人口）、overall（総合補助スコア）、指標キー（${KEYS.join(", ")}）、` +
+      `くらしの指標キー（${FACT_KEYS.join(", ")}）のどれかを指定してください: ${value}`
   );
 }
 
@@ -1041,17 +1966,25 @@ function resolvePrefecture(prefectures, value) {
 
 function sortLabel(metric) {
   if (metric === "residents") return RESIDENTS_LABEL;
-  return metric === "overall" ? OVERALL_LABEL : INDICATORS[metric].columnLabel;
+  return metric === "overall" ? OVERALL_LABEL : columnLabelOf(metric);
+}
+
+/** 条件の数値は、指定されたとおりの桁で書く（負の数は表と同じ負号にする）。金額は桁区切りを付ける。 */
+function boundText(value, unit) {
+  const text = String(value);
+  const grouped =
+    unit === "円"
+      ? text.replace(/^(-?)(\d+)/, (_, sign, digits) => sign + digits.replace(/\B(?=(\d{3})+$)/g, ","))
+      : text;
+  return `${grouped.replace("-", "\u2212")}${unit}`;
 }
 
 function describeConditions(query) {
-  // 条件の数値は、指定されたとおりの桁で書く（負の数は表と同じ負号にする）。
-  const bound = (value, unit) => `${String(value).replace("-", "\u2212")}${unit}`;
   const parts = query.filters.map(([key, range]) => {
-    const { columnLabel, unit } = INDICATORS[key];
-    const min = range.min === undefined ? "" : `${bound(range.min, unit)}以上`;
-    const max = range.max === undefined ? "" : `${bound(range.max, unit)}以下`;
-    return `${columnLabel} ${min}${max}`;
+    const unit = unitOf(key);
+    const min = range.min === undefined ? "" : `${boundText(range.min, unit)}以上`;
+    const max = range.max === undefined ? "" : `${boundText(range.max, unit)}以下`;
+    return `${columnLabelOf(key)} ${min}${max}`;
   });
   if (query.pref) parts.push(`都道府県 ${query.pref.name}`);
   if (query.band.id !== "all") parts.push(`人口規模 ${query.band.label}`);
@@ -1064,7 +1997,7 @@ function describeConditions(query) {
 /** 並べ替えに使う値。人口は住民基本台帳人口、総合は補助スコアの平均、指標は指標値そのもの。 */
 function metricOf(row, metric) {
   if (metric === "residents") return row.population ?? null;
-  return metric === "overall" ? overallScoreOf(row.scores) : (row.values[KEYS.indexOf(metric)] ?? null);
+  return metric === "overall" ? overallScoreOf(row.scores) : metricValue(row, metric);
 }
 
 /** 条件の対象になる市区町村か。政令指定都市の区は市全体と重複するため外す。 */
@@ -1081,13 +2014,14 @@ function inScope(row, query) {
 /** すべての条件を満たすか（両端を含む）。条件を付けた指標が欠損なら満たさない。 */
 function matchesFilters(row, filters) {
   return filters.every(([key, range]) => {
-    const value = row.values[KEYS.indexOf(key)] ?? null;
+    const value = metricValue(row, key);
     if (value === null) return false;
     return (range.min === undefined || value >= range.min) && (range.max === undefined || value <= range.max);
   });
 }
 
 function toScreenRow(row, prefNames, rank, sortValue) {
+  const factValue = (key) => row.facts[FACT_KEYS.indexOf(key)] ?? null;
   return {
     rank,
     sortValue,
@@ -1099,30 +2033,18 @@ function toScreenRow(row, prefNames, rank, sortValue) {
     population: row.population,
     overallScore: overallScoreOf(row.scores),
     values: keyed((key) => row.values[KEYS.indexOf(key)] ?? null),
-    scores: keyed((key) => row.scores[KEYS.indexOf(key)] ?? null)
+    scores: keyed((key) => row.scores[KEYS.indexOf(key)] ?? null),
+    facts: factKeyed(factValue),
+    moneyTexts: moneyTextsOf(factValue)
   };
 }
 
-async function commandScreen(context, positionals, options) {
-  if (positionals.length > 0) {
-    throw new LsjError(
-      "usage",
-      `screen に渡せない引数です（条件は --where "aging>=30" の形で指定してください）: ${positionals.join(" ")}`
-    );
-  }
-
-  // データを読む前に、指定の誤りを先に確かめる。
-  const parsed = {
-    filters: buildFilters(options.where.map(parseCondition)),
-    metric: parseSort(options.sort),
-    order: parseOrder(options.order),
-    band: parseSize(options.size),
-    limit: parseLimit(options.limit)
-  };
+/** 条件に合う市区町村を抜き出して順位を付ける（screen と topics で共通）。 */
+async function runScreenQuery(context, parsed, prefText) {
   const [manifest, index, rows] = await Promise.all([context.manifest(), context.index(), context.national()]);
   const query = {
     ...parsed,
-    pref: options.pref === undefined ? null : resolvePrefecture(index.prefectures, options.pref)
+    pref: prefText === undefined ? null : resolvePrefecture(index.prefectures, prefText)
   };
 
   const prefNames = new Map(index.prefectures.map((pref) => [pref.code, pref.name]));
@@ -1171,9 +2093,76 @@ async function commandScreen(context, positionals, options) {
     truncated: shown.length < matched.length,
     rows: shown,
     indicators: keyed((key) => indicatorInfo(manifest, key)),
+    facts: factKeyed((key) => factInfo(manifest, key)),
     population: populationInfo(manifest),
-    source: sourceBlock(manifest)
+    // 行にはふるさと納税の値も入るので、総務省の出典も常に入れる。
+    source: sourceBlock(manifest, { furusato: true })
   };
+}
+
+async function commandScreen(context, positionals, options) {
+  if (positionals.length > 0) {
+    throw new LsjError(
+      "usage",
+      `screen に渡せない引数です（条件は --where "aging>=30" の形で指定してください）: ${positionals.join(" ")}`
+    );
+  }
+
+  // データを読む前に、指定の誤りを先に確かめる。
+  const parsed = {
+    filters: buildFilters(options.where.map(parseCondition)),
+    metric: parseSort(options.sort),
+    order: parseOrder(options.order),
+    band: parseSize(options.size),
+    limit: parseLimit(options.limit)
+  };
+  return runScreenQuery(context, parsed, options.pref);
+}
+
+// --- topics ---------------------------------------------------------------
+
+async function commandTopics(context, positionals, options) {
+  if (positionals.length > 1) {
+    throw new LsjError("usage", `topics に指定できる特集は1つです: ${positionals.join(" ")}`);
+  }
+  const used = ["sort", "order", "size"].filter((name) => options[name] !== undefined);
+  if (options.where.length > 0) used.unshift("where");
+  if (used.length > 0) {
+    throw new LsjError(
+      "usage",
+      `topics では ${used.map((name) => `--${name}`).join("、")} を使えません（並べ方と条件は特集ごとに決まっています）。` +
+        "条件を変えて調べるときは screen を使ってください。"
+    );
+  }
+
+  const manifest = await context.manifest();
+  if (positionals.length === 0) {
+    return { topics: TOPICS, source: sourceBlock(manifest) };
+  }
+
+  const id = positionals[0].normalize("NFKC").trim().toLowerCase();
+  const topic = TOPICS.find((candidate) => candidate.id === id);
+  if (!topic) {
+    throw new LsjError(
+      "not-found",
+      `特集が見つかりません: ${positionals[0]}（使える特集: ${TOPICS.map((item) => item.id).join(", ")}）`,
+      {
+        topics: TOPICS.map(({ id: topicId, title }) => ({ id: topicId, title }))
+      }
+    );
+  }
+
+  const parsed = {
+    filters: METRIC_KEYS.filter((key) => topic.filters[key] !== undefined).map((key) => [
+      key,
+      { ...topic.filters[key] }
+    ]),
+    metric: topic.metric,
+    order: topic.order,
+    band: parseSize(topic.size),
+    limit: parseLimit(options.limit)
+  };
+  return { topic, ...(await runScreenQuery(context, parsed, options.pref)) };
 }
 
 // ---------------------------------------------------------------------------
@@ -1245,8 +2234,13 @@ function renderTable(columns, rows) {
   ];
 }
 
-function sourceLines(source) {
-  return [`出典: ${source.attribution}（取得日 ${source.fetchedDate}）`, source.credit];
+/** 出典の行。furusato が true で、出典にふるさと納税の調査が入っているときは、その行も入れる。 */
+function sourceLines(source, furusato = true) {
+  return [
+    `出典: ${source.attribution}（取得日 ${source.fetchedDate}）`,
+    ...(furusato ? source.additionalSources.map((item) => `出典: ${item.attribution}`) : []),
+    source.credit
+  ];
 }
 
 function populationText(population) {
@@ -1279,6 +2273,31 @@ function textIndicators(result) {
       [...new Set(indicator.sources.map((source) => source.statName))].join("・")
     ];
   });
+  const factColumns = [
+    { header: "くらしの指標キー", align: "left" },
+    { header: "分野", align: "left" },
+    { header: "項目", align: "left" },
+    { header: "基準時点", align: "left" },
+    { header: "中央値", align: "right" },
+    { header: "最小", align: "right" },
+    { header: "最大", align: "right" },
+    { header: "市区町村数", align: "right" },
+    { header: "出典", align: "left" }
+  ];
+  const factRows = FACT_KEYS.map((key) => {
+    const fact = result.facts[key];
+    return [
+      key,
+      fact.groupLabel,
+      fact.label,
+      fact.period,
+      formatFact(key, fact.distribution.median),
+      formatFact(key, fact.distribution.min),
+      formatFact(key, fact.distribution.max),
+      formatNumber(fact.distribution.count),
+      fact.statName
+    ];
+  });
 
   return [
     `収録: ${formatNumber(result.counts.areas)}市区町村（うち順位と補助スコアの基準集団は、政令指定都市の区を除く${formatNumber(result.counts.referenceAreas)}市区町村）`,
@@ -1289,6 +2308,16 @@ function textIndicators(result) {
       `${key}: ${result.indicators[key].summary}`,
       `  算出方法: ${result.indicators[key].method}`,
       ...result.indicators[key].notes.map((note) => `  注意: ${note}`)
+    ]),
+    "",
+    "くらしの指標（補助スコアの対象外。値と全国順位だけを示します）:",
+    "",
+    ...renderTable(factColumns, factRows),
+    "",
+    ...FACT_KEYS.flatMap((key) => [
+      `${key}: ${result.facts[key].summary}`,
+      `  算出方法: ${result.facts[key].method}`,
+      ...result.facts[key].notes.map((note) => `  注意: ${note}`)
     ]),
     "",
     ...result.reading.map((note) => `- ${note}`),
@@ -1315,6 +2344,20 @@ function changeText(key, change) {
   return `${formatNumber(change.value, INDICATORS[key].change.decimals, true)}${unit}`;
 }
 
+function rankText(rank, total) {
+  return rank === null ? "-" : `${formatNumber(rank)}位/${formatNumber(total)}`;
+}
+
+function highlightLines(result) {
+  if (result.area.kind === "ward") {
+    return ["- 政令指定都市の区は、市全体と重なるため全国の比較に含めていません。"];
+  }
+  if (result.highlights.length === 0) {
+    return ["- 該当なし（全国の上位・下位10位以内に入る項目はありません）"];
+  }
+  return result.highlights.map((item) => `- ${item.label}が${item.phrase}（${item.valueText}、${item.period}）`);
+}
+
 function textShow(result) {
   const { area } = result;
   const columns = [
@@ -1333,9 +2376,28 @@ function textShow(result) {
       formatMetric(key, indicator.value),
       indicator.period,
       indicator.score === null ? MISSING_TEXT : String(indicator.score),
-      indicator.rank === null ? "-" : `${formatNumber(indicator.rank)}位/${formatNumber(indicator.rankTotal)}`,
+      rankText(indicator.rank, indicator.rankTotal),
       changeText(key, indicator.change),
       formatMetric(key, indicator.median)
+    ];
+  });
+  const factColumns = [
+    { header: "分野", align: "left" },
+    { header: "項目", align: "left" },
+    { header: "値", align: "right" },
+    { header: "基準時点", align: "left" },
+    { header: "全国順位", align: "right" },
+    { header: "全国の中央値", align: "right" }
+  ];
+  const factRows = FACT_KEYS.map((key) => {
+    const fact = result.facts[key];
+    return [
+      fact.groupLabel,
+      fact.label,
+      fact.value === null ? `${MISSING_TEXT}（${fact.missing.text}）` : fact.valueText,
+      fact.period,
+      rankText(fact.rank, fact.rankTotal),
+      fact.medianText
     ];
   });
   const daytime =
@@ -1347,6 +2409,12 @@ function textShow(result) {
   const missing = KEYS.filter((key) => result.indicators[key].missing).map(
     (key) => `欠損: ${result.indicators[key].metricLabel} … ${result.indicators[key].missing.text}`
   );
+  const smallArea =
+    area.population !== null && area.population < HIGHLIGHT_MIN_POPULATION
+      ? [
+          "人口1万人未満のため、婚姻率・出生率・医師と図書館の数などは、少数の増減で大きく動きます。全国順位はその前提で読んでください。"
+        ]
+      : [];
 
   return [
     `${area.prefName} ${area.name}（${area.code}、${area.kindLabel}）`,
@@ -1364,6 +2432,13 @@ function textShow(result) {
         return `- ${fact.label}: ${formatNumber(fact.value, decimals ?? 0, signed ?? false)}${fact.unit}（${fact.period}）`;
       })
     ),
+    "",
+    "全国で目立つところ（全国の上位・下位10位以内に入る項目を決まった規則で抜き出したもので、良し悪しの判断ではありません）:",
+    ...highlightLines(result),
+    "",
+    "くらしの指標（補助スコアの対象外。値・基準時点・全国順位）:",
+    ...renderTable(factColumns, factRows),
+    ...smallArea,
     "",
     "出典の系列（統計ダッシュボードの系列コード）:",
     ...KEYS.flatMap((key) =>
@@ -1386,6 +2461,11 @@ function textCompare(result) {
     const rank = area.ranks[key] === null ? "順位なし" : `${formatNumber(area.ranks[key])}位`;
     return `${formatMetric(key, area.values[key])}（スコア${area.scores[key]}・${rank}）`;
   };
+  const factCell = (area, key) => {
+    if (area.facts[key] === null) return MISSING_TEXT;
+    const rank = area.factRanks[key] === null ? "順位なし" : `${formatNumber(area.factRanks[key])}位`;
+    return `${formatFact(key, area.facts[key])}（${rank}）`;
+  };
   const rows = [
     ["市区町村コード", ...result.areas.map((area) => area.code)],
     [`人口（${result.population.period}）`, ...result.areas.map((area) => populationText(area.population))],
@@ -1393,6 +2473,10 @@ function textCompare(result) {
     ...KEYS.map((key) => [
       `${result.indicators[key].metricLabel}（${result.indicators[key].period}）`,
       ...result.areas.map((area) => cell(area, key))
+    ]),
+    ...FACT_KEYS.map((key) => [
+      `${result.facts[key].label}（${result.facts[key].period}）`,
+      ...result.areas.map((area) => factCell(area, key))
     ])
   ];
   const missing = result.areas.flatMap((area) =>
@@ -1405,8 +2489,15 @@ function textCompare(result) {
     ...(result.notes.length > 0 ? ["", ...result.notes] : []),
     "",
     "スコアは補助スコア（全国の中での位置、0〜100、50が中央）。順位は値が大きい順で、良し悪しの順ではありません。",
+    "くらしの指標は補助スコアの対象外で、順位は政令指定都市の区を除く市区町村のうち値があるものの中で数えています。",
     ...sourceLines(result.source)
   ];
+}
+
+/** 並べ替えか条件に使ったくらしの指標（定義順）。表に列を出し、基準時点と出典を添える。 */
+function involvedFacts(result) {
+  const { sort, filters } = result.conditions;
+  return FACT_KEYS.filter((key) => key === sort || filters[key] !== undefined);
 }
 
 function screenHeaderLines(result) {
@@ -1424,7 +2515,9 @@ function screenHeaderLines(result) {
   ];
 }
 
-function screenFooterLines(result) {
+/** allSources を true にすると、表に出していない値の出典（ふるさと納税）も入れる（CSVは全指標の値を含むため）。 */
+function screenFooterLines(result, { allSources = false } = {}) {
+  const facts = involvedFacts(result);
   return [
     "対象は政令指定都市の区を除く市区町村です。順位は条件で絞り込んだ中で付けたもので（同じ値は同順位）、良し悪しの順ではありません。",
     "",
@@ -1439,9 +2532,13 @@ function screenFooterLines(result) {
       const info = result.indicators[key];
       return `- ${info.metricLabel}: ${info.period}（${info.statName}）`;
     }),
+    ...facts.flatMap((key) => {
+      const info = result.facts[key];
+      return [`- ${info.label}: ${info.period}（${info.statName}）`, ...FACTS[key].notes.map((note) => `  ${note}`)];
+    }),
     `- 人口: ${result.population.period}現在（${result.population.label}）`,
     "",
-    ...sourceLines(result.source)
+    ...sourceLines(result.source, allSources || facts.some((key) => FACTS[key].provider === "furusato"))
   ];
 }
 
@@ -1452,6 +2549,11 @@ function textScreen(result) {
     header: mark(INDICATORS[key].columnLabel, key === metric),
     align: "right",
     cell: (row) => formatMetric(key, row.values[key])
+  });
+  const factColumn = (key) => ({
+    header: mark(FACTS[key].columnLabel, key === metric),
+    align: "right",
+    cell: (row) => formatFact(key, row.facts[key])
   });
   const residentsColumn = {
     header: mark(RESIDENTS_LABEL, metric === "residents"),
@@ -1464,14 +2566,23 @@ function textScreen(result) {
     cell: (row) => String(row.sortValue ?? MISSING_TEXT)
   };
   const sortColumn =
-    metric === "residents" ? residentsColumn : metric === "overall" ? overallColumn : indicatorColumn(metric);
-  // 並べ替えに使った値の列を【】付きで先頭に置き、続けて残りの指標を定義順に、最後に人口を並べる。
+    metric === "residents"
+      ? residentsColumn
+      : metric === "overall"
+        ? overallColumn
+        : isFactKey(metric)
+          ? factColumn(metric)
+          : indicatorColumn(metric);
+  // 並べ替えに使った値の列を【】付きで先頭に置き、続けて条件に使ったくらしの指標、7指標（定義順）、最後に人口を並べる。
   const columns = [
     { header: "順位", align: "right", cell: (row) => String(row.rank ?? "-") },
     { header: "コード", align: "left", cell: (row) => row.code },
     { header: "市区町村", align: "left", cell: (row) => row.name },
     { header: "都道府県", align: "left", cell: (row) => row.prefName },
     sortColumn,
+    ...involvedFacts(result)
+      .filter((key) => key !== metric)
+      .map(factColumn),
     ...KEYS.filter((key) => key !== metric).map(indicatorColumn),
     ...(metric === "residents" ? [] : [residentsColumn])
   ];
@@ -1491,13 +2602,27 @@ function textScreen(result) {
   ];
 }
 
+function textTopics(result) {
+  if (!result.topic) {
+    const width = Math.max(...result.topics.map((topic) => topic.id.length));
+    return [
+      "特集ランキング（node lsj.mjs topics <id> で一覧を表示します）:",
+      ...result.topics.map((topic) => `  ${topic.id.padEnd(width)}  ${topic.title}`)
+    ];
+  }
+  return [result.topic.title, result.topic.lead, "", ...textScreen(result)];
+}
+
 function csvCell(value) {
   if (value === null || value === undefined) return "";
   const text = String(value);
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-/** 表計算ソフトでそのまま開けるCSV（BOM付きUTF-8、CRLF）。数値は単位を付けず、欠損は空欄にする。 */
+/**
+ * 表計算ソフトでそのまま開けるCSV（BOM付きUTF-8、CRLF）。数値は単位を付けず、欠損は空欄にする。
+ * くらしの指標はすべての列を入れる。金額は円の数値のまま。
+ */
 function csvScreen(result) {
   const header = [
     "順位",
@@ -1510,6 +2635,10 @@ function csvScreen(result) {
     ...KEYS.map((key) => {
       const { unit, period } = result.indicators[key];
       return `${INDICATORS[key].columnLabel}（${unit ? `${unit}、` : ""}${period}）`;
+    }),
+    ...FACT_KEYS.map((key) => {
+      const { label, unit, period } = result.facts[key];
+      return `${label}（${unit ? `${unit}、` : ""}${period}）`;
     })
   ];
   const lines = result.rows.map((row) => [
@@ -1520,9 +2649,19 @@ function csvScreen(result) {
     KIND_LABELS[row.kind] ?? row.kind,
     row.population,
     row.overallScore,
-    ...KEYS.map((key) => row.values[key])
+    ...KEYS.map((key) => row.values[key]),
+    ...FACT_KEYS.map((key) => row.facts[key])
   ]);
   return `\uFEFF${[header, ...lines].map((line) => line.map(csvCell).join(",")).join("\r\n")}\r\n`;
+}
+
+/** CSVに入れられない見出し・条件・基準時点・出典（すべての値の出典）。 */
+function csvNoteLines(result) {
+  return [
+    ...(result.topic ? [result.topic.title, result.topic.lead] : []),
+    ...screenHeaderLines(result),
+    ...screenFooterLines(result, { allSources: true })
+  ];
 }
 
 const COMMANDS = {
@@ -1530,17 +2669,18 @@ const COMMANDS = {
   search: { run: commandSearch, text: textSearch, jsonDepth: 2 },
   show: { run: commandShow, text: textShow, jsonDepth: 2 },
   screen: { run: commandScreen, text: textScreen, jsonDepth: 2 },
-  compare: { run: commandCompare, text: textCompare, jsonDepth: 2 }
+  compare: { run: commandCompare, text: textCompare, jsonDepth: 2 },
+  topics: { run: commandTopics, text: textTopics, jsonDepth: 2 }
 };
 
-function outputFormat(options, command) {
+function outputFormat(options, command, rest) {
   const chosen = ["json", "text", "csv"].filter((format) => options[format]);
   if (chosen.length > 1) {
     throw new LsjError("usage", `--${chosen.join(" と --")} は同時に指定できません。`);
   }
   const format = chosen[0] ?? "json";
-  if (format === "csv" && command !== "screen") {
-    throw new LsjError("usage", "--csv は screen でだけ使えます。");
+  if (format === "csv" && !(command === "screen" || (command === "topics" && rest.length > 0))) {
+    throw new LsjError("usage", "--csv は screen と topics <特集id> でだけ使えます。");
   }
   return format;
 }
@@ -1560,7 +2700,7 @@ async function main(argv) {
     );
   }
 
-  const format = outputFormat(options, command);
+  const format = outputFormat(options, command, rest);
   const location = options.data ?? (process.env.LSJ_DATA || DEFAULT_DATA);
   const context = createContext(location);
   // ほかのファイルを読む前に、データセットの形式バージョンを確かめる。
@@ -1572,7 +2712,7 @@ async function main(argv) {
   } else if (format === "csv") {
     process.stdout.write(csvScreen(result));
     // CSVには注記を入れられないので、条件・基準時点・出典は標準エラー出力に示す。
-    console.error([...screenHeaderLines(result), ...screenFooterLines(result)].join("\n"));
+    console.error(csvNoteLines(result).join("\n"));
   } else {
     console.log(toReadableJson(result, COMMANDS[command].jsonDepth));
   }

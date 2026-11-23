@@ -8,13 +8,17 @@
 
 _A dashboard for Japanese municipalities that shows official public statistics together with their sources, reference periods, and missing-data notes. All data comes from the Statistics Dashboard API of the Statistics Bureau of Japan (no API key required) and ships as a static dataset, so the site runs without any backend. The UI and documentation are in Japanese._
 
-![千代田区の概要画面。上部に「まちのものさし」の名前と検索欄があり、市区町村名と人口の下に、指標ごとの指標値・全国順位・全国での位置・推移・5年前比をまとめた表と、補助スコアの内訳が並ぶ](docs/images/overview.png)
+![大阪府門真市の概要画面。上部に「まちのものさし」の名前と検索欄、市区町村名と人口の下に「全国で目立つところ」として、通勤・通学に自転車だけを使う人の割合が全国で最も高いことが示され、その下に7つの指標の表と補助スコアの内訳が並ぶ](docs/images/overview.png)
 
 ## できること
 
 - **名前でさがす**: 市区町村名・よみがな・5桁の市区町村コードで検索（全国約1,900市区町村。政令指定都市の区を含む）。検索欄は、どの画面でも上部の同じ位置にあります
 - **都道府県からさがす**: 日本地図の形に並べた都道府県のます目から、その都道府県の市区町村の一覧へ
-- **条件でさがす**: 「高齢化率30%以下で、課税対象所得350万円以上」のような条件に合う市区町村を、全1,741市区町村からすべて表示。列見出しで並べ替え、結果は CSV で保存
+- **条件でさがす**: 「高齢化率30%以下で、課税対象所得350万円以上」のような条件に合う市区町村を、全1,741市区町村からすべて表示。くらしの指標でも絞り込み・並べ替えができ、結果は表か色分け地図で見られる。CSV で保存
+- **特集**: 「2050年に人口が半分以下になる見込みの市区町村」「ふるさと納税の受入額が多い市区町村」「通勤・通学に自転車だけを使う人の割合が高い市区町村」など、決まった条件で並べた15本の一覧
+- **全国で目立つところ**: 市区町村ごとに、全国の上位・下位10位以内に入る項目を決まった規則で抜き出して表示（例: 大阪府門真市は、通勤・通学に自転車だけを使う人の割合が全国で最も高い）
+- **くらし**: 平均寿命、2050年の推計人口、外国人住民の割合、婚姻率・出生率、通勤手段、空き家率、住宅の広さ、医師・図書館の数、ごみ、ふるさと納税など22項目を、全国順位と出典つきで
+- **画像で保存・Xに投稿**: ランキング・地図・「全国で目立つところ」を、出典を描き込んだ画像（1200×675）にしてその場で保存
 - **概要**: 7つの指標の指標値・全国順位・全国での位置・推移・5年前比を1つの表で確認。補助スコアの内訳と、読み取り時の注意・欠損
 - **指標**: 指標ごとの値、基準時点、時系列グラフ、全国の分布の中での位置、算出方法、出典の系列と取得日
 - **比較**: 全国のどの市区町村とも4つまで並べて比較（指標の傾向が近い市区町村を候補として提示）。同じ都道府県内での比較
@@ -37,7 +41,7 @@ LLM に条件を伝えて検索させると、いくつかの例は返ってき�
 - **断定しない。** 「この地域は成長している／衰退している」といった判定はしません。補助スコアは全国の中での相対的な位置を示すだけです。
 - **欠損を低い評価として扱わない。** 値がそろわない指標は「欠損」と表示して理由を添え、平均から除きます。
 - **入力を保存・送信しない。** 検索はブラウザの中で完結します。サーバー側のプログラム、アクセス解析、Cookie はありません。外部への通信は Content-Security-Policy で禁止しています。
-- **APIキーが要らない。** 出典は利用登録不要の API で、取得済みのデータをリポジトリに同梱しています。公開に必要な設定はありません。
+- **APIキーが要らない。** 出典は利用登録不要の API と公開ファイルで、取得済みのデータをリポジトリに同梱しています。公開に必要な設定はありません。
 
 ## 収録している指標
 
@@ -50,6 +54,8 @@ LLM に条件を伝えて検索させると、いくつかの例は返ってき�
 | 雇用       | 完全失業率                        | 国勢調査（社会・人口統計体系）         |
 | 所得       | 納税義務者1人当たりの課税対象所得 | 社会・人口統計体系                     |
 | 財政       | 財政力指数                        | 社会・人口統計体系                     |
+
+このほか、補助スコアの対象にしない「くらしの指標」を22項目収録しています（平均寿命、2050年の推計人口、外国人住民の割合、婚姻率、出生率、高齢者の一人暮らし、通勤・通学の手段、空き家率、住宅の広さ、医師・図書館の数、ごみの量・リサイクル率、ふるさと納税の受入額・費用の割合・住民税の控除額）。
 
 算出方法は [docs/METHODOLOGY.md](docs/METHODOLOGY.md)、系列コードと取得のしかたは [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) にあります。
 
@@ -89,7 +95,7 @@ pnpm localsignal show 13101
 pnpm localsignal report 横浜市青葉区 --out report.md
 ```
 
-`show --json` で、画面と同じ表示用データを JSON で出力します。
+`show` は、7つの指標、くらしの指標、全国で目立つところを表示します。`show --json` で、同じ内容を JSON で出力します。
 
 条件に合う市区町村をもれなく抜き出すには `screen` を使います（画面の「条件でさがす」と同じ計算です）。
 
@@ -102,8 +108,19 @@ pnpm -s localsignal screen --where "fiscal>=1" --size 10k-50k --limit 0 --csv > 
 ```
 
 - `--where "<指標キー><演算子><数値>"`: 演算子は `>=` と `<=`。何度でも指定でき、同じ指標に両方を付けると範囲になります。指標キーは `population`（5年間の人口増減率）、`aging`、`migration`、`business`、`employment`、`income`、`fiscal`
-- `--sort residents|overall|<指標キー>`（既定は人口）、`--order desc|asc`、`--pref <都道府県名か2桁コード>`、`--size all|under-10k|10k-50k|50k-200k|over-200k`、`--limit N`（既定20、0で全件）、`--json`、`--csv`、`--out <ファイル>`
+- くらしの指標のキーも使えます: `lifeFemale`・`lifeMale`（平均寿命）、`projection2050`（2050年推計人口）、`foreignShare`（外国人住民）、`marriageRate`・`birthRate`（婚姻率・出生率）、`elderlyAlone`（高齢者の一人暮らし）、`commuteRail`・`commuteCar`・`commuteBike`・`commuteWalk`（通勤手段）、`vacancy`（空き家率）、`floorArea`（住宅の広さ）、`doctors`・`libraries`（医師・図書館の数）、`garbage`・`recycling`（ごみ）、`furusatoReceipts`・`furusatoPerCapita`・`furusatoCostShare`・`furusatoOutflow`・`furusatoNet`（ふるさと納税）。金額は円で指定します（例: `--where "furusatoReceipts>=1000000000"`）
+- `--sort residents|overall|<指標キー>`（既定は人口）、`--order desc|asc`、`--pref <都道府県名か2桁コード>`、`--size all|over-10k|under-10k|10k-50k|50k-200k|over-200k`、`--limit N`（既定20、0で全件）、`--json`、`--csv`、`--out <ファイル>`
 - 出力には、条件、該当した市区町村の数、各指標の基準時点、出典が入ります。並べ替えに使う値が欠損の市区町村は、順位なしで末尾に残ります
+
+特集は `topics` で見られます（計算は `screen` と同じ。既定は20件）。
+
+```bash
+pnpm localsignal topics
+```
+
+```bash
+pnpm localsignal topics half-by-2050 --limit 5
+```
 
 ## エージェント用スキル
 
@@ -117,7 +134,7 @@ node skills/local-signal-japan/scripts/lsj.mjs screen --where "aging<=25" --pref
 LSJ_DATA=apps/web/public/data node skills/local-signal-japan/scripts/lsj.mjs show 東京都府中市 --text
 ```
 
-コマンドは `indicators`、`search`、`show`、`screen`、`compare` です。既定の出力は JSON で、どの結果にも出典と指標ごとの基準時点が付きます。同じ名前の市区町村があるとき（府中市など）は、推測せずに候補を返します。
+コマンドは `indicators`、`search`、`show`、`screen`、`compare`、`topics` です。くらしの指標と、全国で目立つところも扱えます。既定の出力は JSON で、どの結果にも出典（ふるさと納税を含むときは総務省の出典も）と指標ごとの基準時点が付きます。同じ名前の市区町村があるとき（府中市など）は、推測せずに候補を返します。
 
 データは既定で公開サイト（`https://local-signal-japan.pages.dev/data/`）から読みます。`--data` か環境変数 `LSJ_DATA` で、手元のフォルダや別の URL に変えられます。
 
@@ -182,6 +199,10 @@ pnpm test:e2e
 出典：[統計ダッシュボード](https://dashboard.e-stat.go.jp/)（総務省統計局）のデータを加工して作成
 
 このサービスは、統計ダッシュボードのAPI機能を使用していますが、サービスの内容は国によって保証されたものではありません。
+
+出典：総務省「ふるさと納税に関する現況調査結果」を加工して作成
+
+地図：国土数値情報（行政区域データ）（国土交通省）を加工して作成（[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja)）
 
 統計データは[公共データ利用規約（第1.0版）](https://dashboard.e-stat.go.jp/static/terms)に基づいて利用しています。派生物を公開するときも、上の出典の記載とクレジット表示を残してください。
 

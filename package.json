@@ -22,6 +22,7 @@
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "preflight": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm scan:secrets && pnpm build",
     "data:refresh": "tsx packages/dataset/src/refresh.ts",
+    "data:map": "node scripts/build-map.mjs",
     "localsignal": "tsx apps/cli/src/index.ts"
   },
   "devDependencies": {
@@ -31,6 +32,7 @@
     "@types/node": "^22.19.0",
     "eslint": "^10.15.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "mapshaper": "~0.8.7",
     "prettier": "^3.10.1",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",

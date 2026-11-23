@@ -28,7 +28,9 @@ describe("parseHash", () => {
       order: "asc",
       prefCode: "13",
       size: "over-200k",
-      filters: {}
+      filters: {},
+      topic: null,
+      display: "table"
     });
     expect(parseHash("#view=ranking")).toEqual({
       view: "ranking",
@@ -36,7 +38,9 @@ describe("parseHash", () => {
       order: "desc",
       prefCode: null,
       size: "all",
-      filters: {}
+      filters: {},
+      topic: null,
+      display: "table"
     });
   });
 
@@ -51,7 +55,9 @@ describe("parseHash", () => {
       order: "desc",
       prefCode: null,
       size: "all",
-      filters: {}
+      filters: {},
+      topic: null,
+      display: "table"
     });
   });
 });
@@ -61,7 +67,16 @@ describe("formatHash", () => {
     expect(formatHash({ view: "area", areaCode: "13101", tab: "overview", compare: [] })).toBe("#area=13101");
     expect(formatHash({ view: "area", areaCode: "13101", tab: "report", compare: [] })).toBe("#area=13101&tab=report");
     expect(
-      formatHash({ view: "ranking", metric: "residents", order: "desc", prefCode: null, size: "all", filters: {} })
+      formatHash({
+        view: "ranking",
+        metric: "residents",
+        order: "desc",
+        prefCode: null,
+        size: "all",
+        filters: {},
+        topic: null,
+        display: "table"
+      })
     ).toBe("#view=ranking");
   });
 
@@ -78,15 +93,37 @@ describe("formatHash", () => {
   it("parseHash と往復できる", () => {
     const routes: Route[] = [
       { view: "area", areaCode: "14117", tab: "comparison", compare: ["13101", "16210"] },
-      { view: "ranking", metric: "aging", order: "asc", prefCode: "47", size: "10k-50k", filters: {} },
+      {
+        view: "ranking",
+        metric: "aging",
+        order: "asc",
+        prefCode: "47",
+        size: "10k-50k",
+        filters: {},
+        topic: null,
+        display: "table"
+      },
       {
         view: "ranking",
         metric: "income",
         order: "desc",
         prefCode: null,
         size: "all",
-        filters: { aging: { max: 30 }, income: { min: 350 }, migration: { min: -0.5, max: 0.25 } }
-      }
+        filters: { aging: { max: 30 }, income: { min: 350 }, migration: { min: -0.5, max: 0.25 } },
+        topic: null,
+        display: "map"
+      },
+      {
+        view: "ranking",
+        metric: "commuteBike",
+        order: "desc",
+        prefCode: null,
+        size: "all",
+        filters: { lifeFemale: { min: 88 } },
+        topic: "bicycle",
+        display: "table"
+      },
+      { view: "topics" }
     ];
     for (const route of routes) {
       expect(parseHash(formatHash(route))).toEqual(route);
@@ -107,5 +144,25 @@ describe("指標値の条件", () => {
 
   it("読めない指定は条件として扱わない", () => {
     expect(parseHash("#view=ranking&aging=abc&income=..&fiscal=1e9..&population=5")).toMatchObject({ filters: {} });
+  });
+});
+
+describe("特集と地図", () => {
+  it("特集の id は定義にあるものだけを読む", () => {
+    expect(parseHash("#view=ranking&topic=bicycle")).toMatchObject({ topic: "bicycle" });
+    expect(parseHash("#view=ranking&topic=unknown")).toMatchObject({ topic: null });
+  });
+
+  it("くらしの指標でも並べ替え・絞り込みができる", () => {
+    expect(parseHash("#view=ranking&metric=furusatoReceipts&vacancy=..20")).toMatchObject({
+      metric: "furusatoReceipts",
+      filters: { vacancy: { max: 20 } }
+    });
+  });
+
+  it("地図の表示と、特集の一覧を読む", () => {
+    expect(parseHash("#view=ranking&show=map")).toMatchObject({ display: "map" });
+    expect(parseHash("#view=topics")).toEqual({ view: "topics" });
+    expect(parseHash("#area=16210&tab=life")).toMatchObject({ tab: "life" });
   });
 });

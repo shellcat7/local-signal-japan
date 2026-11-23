@@ -7,19 +7,22 @@ import {
   buildAreaView,
   buildSummary,
   CONFIDENCE_LABELS,
-  formatDate,
   formatNumber,
   formatScore,
+  POPULATION_BANDS,
   renderMarkdownReport,
   SCORE_BAND_LABELS,
   searchAreas,
   SUMMARY_SECTIONS,
+  TOPICS,
   type AreaSearchResult
 } from "@local-signal-japan/core";
 import { readArea, readAreaIndex, readManifest, readNational } from "@local-signal-japan/dataset";
 import { CliError } from "./errors";
 import {
+  attributionLines,
   DEFAULT_SCREEN_LIMIT,
+  describeFactKeys,
   describeIndicatorKeys,
   parseScreenArgs,
   renderScreenCsv,
@@ -30,6 +33,20 @@ import {
   screenHeaderLines,
   type ScreenArgs
 } from "./screen";
+import { buildHighlights, buildShownFacts, factLines, highlightLines } from "./show";
+import {
+  renderTopicCsv,
+  renderTopicJson,
+  renderTopicList,
+  renderTopicListJson,
+  renderTopicText,
+  resolveTopic,
+  runTopic,
+  topicNoteLines,
+  type TopicArgs
+} from "./topics";
+
+const KEY_INDENT = "\n                         ";
 
 const USAGE = `まちのものさし（Local Signal Japan）CLI
 
@@ -37,7 +54,8 @@ const USAGE = `まちのものさし（Local Signal Japan）CLI
   pnpm localsignal search <検索語>
       市区町村名・よみがな・市区町村コードで検索します。
   pnpm localsignal show <市区町村> [--json]
-      指標値と補助スコアを表示します。--json で表示用データをJSONで出力します。
+      7指標の値と補助スコア、くらしの指標（値・基準時点・全国順位）、全国で目立つところを表示します。
+      --json で表示用データ（facts と highlights を含む）をJSONで出力します。
   pnpm localsignal report <市区町村> [--out <ファイル>]
       Markdownレポートを出力します。--out を省くと標準出力に書きます。
   pnpm localsignal screen [--where "<指標キー><演算子><数値>"]... [--sort residents|overall|<指標キー>]
@@ -47,20 +65,32 @@ const USAGE = `まちのものさし（Local Signal Japan）CLI
       政令指定都市の区は市全体と重複するため対象外です。条件を付けた指標が欠損の市区町村は該当しません。
       --where  指標値の条件。何度でも指定でき、すべてを満たす市区町村だけが残ります。
                演算子は >=（以上）と <=（以下）。同じ指標に両方を付けると範囲になります。
-               指標キー: ${describeIndicatorKeys().join("\n                         ")}
-      --sort   並べ替えに使う値。residents（人口、既定）、overall（総合補助スコア）、指標キーのどれか。
+               金額（円）の指標は、円の数値で指定します（例: furusatoReceipts>=1000000000 は10億円以上）。
+               指標キー: ${describeIndicatorKeys().join(KEY_INDENT)}
+               くらしの指標キー: ${describeFactKeys().join(KEY_INDENT)}
+      --sort   並べ替えに使う値。residents（人口、既定）、overall（総合補助スコア）、指標キー、くらしの指標キーのどれか。
       --order  desc（大きい順、既定）か asc（小さい順）。
       --pref   都道府県名（例: 東京都）か2桁の都道府県コード（例: 13）。
-      --size   人口規模。all（既定） | under-10k | 10k-50k | 50k-200k | over-200k
+      --size   人口規模。${POPULATION_BANDS.map((band) => `${band.id}${band.id === "all" ? "（既定）" : ""}`).join(" | ")}
       --limit  出力する件数（既定 ${DEFAULT_SCREEN_LIMIT}、0 ですべて）。該当した市区町村の数は件数にかかわらず表示します。
-      --json   条件・該当数・各行・基準時点・出典をJSONで出力します。
-      --csv    BOM付きUTF-8のCSVで出力します（見出しに単位と基準時点が入ります）。
+      --json   条件・該当数・各行（くらしの指標の値を含む）・基準時点・出典をJSONで出力します。
+      --csv    BOM付きUTF-8のCSVで出力します（見出しに単位と基準時点が入り、金額は円の数値です）。
       --out    出力をファイルに書きます。
+      表には7指標に加えて、並べ替えか条件に使ったくらしの指標の列を出します。
       例: pnpm localsignal screen --where "aging<=25" --where "income>=400" --pref 東京都 --sort income
+          pnpm localsignal screen --where "vacancy<=20" --size over-10k --sort furusatoReceipts
+  pnpm localsignal topics [<特集id>] [--pref <都道府県>] [--limit <件数>] [--json | --csv] [--out <ファイル>]
+      特集ランキング（決まった条件で並べた一覧）を表示します。id を省くと特集の一覧を表示します。
+      一覧の計算は screen と同じで、--limit の既定は ${DEFAULT_SCREEN_LIMIT} です。
+      特集: ${TOPICS.map((topic) => topic.id).join(", ")}
+      例: pnpm localsignal topics half-by-2050 --limit 5
 
 <市区町村> には5桁の市区町村コード(例: 13101)か名前(例: 千代田区、横浜市青葉区)を指定します。
 データはリポジトリ同梱のデータセットを読みます。更新は pnpm data:refresh です。
+ふるさと納税の値の出典は、総務省「ふるさと納税に関する現況調査結果」です（それ以外は統計ダッシュボード）。
 JSONやCSVをファイルやパイプに渡すときは、pnpm 自身の表示が混ざらないよう pnpm -s localsignal ... とするか、--out を使ってください。`;
+
+type OutputFormat = "text" | "json" | "csv";
 
 function describeCandidate(area: AreaSearchResult): string {
   return `${area.code}  ${area.prefName} ${areaLocalName(area)}（${AREA_KIND_LABELS[area.kind]}）`;
@@ -114,15 +144,30 @@ async function search(query: string | undefined): Promise<void> {
 }
 
 async function show(query: string | undefined, asJson: boolean): Promise<void> {
-  const { manifest, view } = await resolveArea(query);
+  const [{ manifest, view }, national] = await Promise.all([resolveArea(query), readNational()]);
   const summary = buildSummary(view, manifest);
+  const { area } = view;
+  const facts = buildShownFacts(area, manifest);
+  const highlights = buildHighlights(area, national.areas, manifest);
 
   if (asJson) {
-    console.log(JSON.stringify({ ...view, summary, source: manifest.source }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          ...view,
+          summary,
+          facts,
+          highlights,
+          source: manifest.source,
+          additionalSources: manifest.additionalSources
+        },
+        null,
+        2
+      )
+    );
     return;
   }
 
-  const { area } = view;
   const lines = [
     `${view.fullName}（${area.code}、${AREA_KIND_LABELS[area.kind]}）`,
     `人口: ${area.population === null ? "欠損" : `${formatNumber(area.population)}人`}`,
@@ -145,8 +190,12 @@ async function show(query: string | undefined, asJson: boolean): Promise<void> {
 
   lines.push(
     "",
-    `出典: ${manifest.source.attribution}（取得日 ${formatDate(manifest.generatedAt)}）`,
-    manifest.source.credit
+    ...highlightLines(area, highlights),
+    "",
+    ...factLines(facts, manifest),
+    "",
+    // くらしの指標にふるさと納税の値が入るので、総務省の出典も添える。
+    ...attributionLines({ ...manifest.source, fetchedAt: manifest.generatedAt }, manifest.additionalSources, true)
   );
   console.log(lines.join("\n"));
 }
@@ -166,25 +215,59 @@ async function report(query: string | undefined, out: string | undefined): Promi
   console.log(`書き出しました: ${outPath}`);
 }
 
-async function screen(args: ScreenArgs, format: "text" | "json" | "csv", out: string | undefined): Promise<void> {
+async function writeOut(out: string, rendered: string): Promise<string> {
+  const outPath = path.resolve(out);
+  await mkdir(path.dirname(outPath), { recursive: true });
+  await writeFile(outPath, rendered, "utf8");
+  return outPath;
+}
+
+async function screen(args: ScreenArgs, format: OutputFormat, out: string | undefined): Promise<void> {
   const [manifest, index, national] = await Promise.all([readManifest(), readAreaIndex(), readNational()]);
   const result = runScreen(national.areas, manifest, index.prefectures, parseScreenArgs(args, index.prefectures));
   const rendered = { text: renderScreenText, json: renderScreenJson, csv: renderScreenCsv }[format](result);
+  // CSVには注記を入れられないので、条件・基準時点・出典（すべての値の出典）は別に示す。
+  const csvNotes = [...screenHeaderLines(result), ...screenFooterLines(result, { allSources: true })];
 
   if (out) {
-    const outPath = path.resolve(out);
-    await mkdir(path.dirname(outPath), { recursive: true });
-    await writeFile(outPath, rendered, "utf8");
-    console.log([...screenHeaderLines(result), `書き出しました: ${outPath}`].join("\n"));
+    const outPath = await writeOut(out, rendered);
+    console.log(
+      [...(format === "csv" ? csvNotes : screenHeaderLines(result)), `書き出しました: ${outPath}`].join("\n")
+    );
     return;
   }
 
   process.stdout.write(rendered);
-  if (format === "csv") {
-    // CSVには注記を入れられないので、条件・基準時点・出典は標準エラー出力に示す。
-    console.error([...screenHeaderLines(result), ...screenFooterLines(result)].join("\n"));
-  }
+  if (format === "csv") console.error(csvNotes.join("\n"));
 }
+
+async function topics(id: string | undefined, args: TopicArgs, format: OutputFormat, out: string | undefined) {
+  if (id === undefined) {
+    if (format === "csv") throw new CliError("--csv は、特集の id を指定したときだけ使えます。");
+    const rendered = format === "json" ? renderTopicListJson() : renderTopicList();
+    if (out) console.log(`書き出しました: ${await writeOut(out, rendered)}`);
+    else process.stdout.write(rendered);
+    return;
+  }
+
+  const topic = resolveTopic(id);
+  const [manifest, index, national] = await Promise.all([readManifest(), readAreaIndex(), readNational()]);
+  const result = runTopic(national.areas, manifest, index.prefectures, topic, args);
+  const rendered = { text: renderTopicText, json: renderTopicJson, csv: renderTopicCsv }[format](result);
+
+  if (out) {
+    const outPath = await writeOut(out, rendered);
+    const notes = format === "csv" ? topicNoteLines(result) : [result.topic.title, ...screenHeaderLines(result)];
+    console.log([...notes, `書き出しました: ${outPath}`].join("\n"));
+    return;
+  }
+
+  process.stdout.write(rendered);
+  if (format === "csv") console.error(topicNoteLines(result).join("\n"));
+}
+
+/** 特集では、並べ方と条件を変えるオプションを受け付けない。 */
+const SCREEN_ONLY_OPTIONS = ["where", "sort", "order", "size"] as const;
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -202,12 +285,16 @@ async function main(): Promise<void> {
       help: { type: "boolean", short: "h", default: false }
     }
   });
-  const [command, query] = positionals;
+  const [command, query, ...rest] = positionals;
 
   if (values.help || !command) {
     console.log(USAGE);
     return;
   }
+  if (values.json && values.csv) {
+    throw new CliError("--json と --csv は同時に指定できません。");
+  }
+  const format: OutputFormat = values.csv ? "csv" : values.json ? "json" : "text";
 
   switch (command) {
     case "search":
@@ -220,10 +307,20 @@ async function main(): Promise<void> {
       if (query !== undefined) {
         throw new CliError(`screen に渡せない引数です（条件は --where "aging>=30" の形で指定してください）: ${query}`);
       }
-      if (values.json && values.csv) {
-        throw new CliError("--json と --csv は同時に指定できません。");
+      return screen(values, format, values.out);
+    }
+    case "topics": {
+      if (rest.length > 0) {
+        throw new CliError(`topics に指定できる特集は1つです: ${rest.join(" ")}`);
       }
-      return screen(values, values.csv ? "csv" : values.json ? "json" : "text", values.out);
+      const used = SCREEN_ONLY_OPTIONS.filter((name) => values[name] !== undefined);
+      if (used.length > 0) {
+        throw new CliError(
+          `topics では ${used.map((name) => `--${name}`).join("、")} を使えません（並べ方と条件は特集ごとに決まっています）。` +
+            "条件を変えて調べるときは screen を使ってください。"
+        );
+      }
+      return topics(query, { pref: values.pref, limit: values.limit }, format, values.out);
     }
     default:
       throw new CliError(`不明なコマンドです: ${command}\n\n${USAGE}`);

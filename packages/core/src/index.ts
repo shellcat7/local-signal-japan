@@ -1,4 +1,6 @@
+export * from "./facts";
 export * from "./format";
+export * from "./highlights";
 export * from "./indicators";
 export * from "./model";
 export * from "./national";
@@ -7,4 +9,5 @@ export * from "./schema";
 export * from "./scoring";
 export * from "./search";
 export * from "./signals";
+export * from "./topics";
 export * from "./view";

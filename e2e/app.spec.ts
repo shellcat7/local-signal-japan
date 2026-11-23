@@ -45,7 +45,16 @@ async function expectAccessible(page: Page) {
 test.describe("ダークモード", () => {
   test.use({ colorScheme: "dark" });
 
-  for (const hash of ["", "#area=13101", "#area=13101&tab=indicators", "#area=16210&tab=comparison", "#view=ranking"]) {
+  for (const hash of [
+    "",
+    "#area=13101",
+    "#area=01668&tab=life",
+    "#area=13101&tab=indicators",
+    "#area=16210&tab=comparison",
+    "#view=ranking",
+    "#view=topics",
+    "#view=ranking&topic=bicycle&metric=commuteBike&show=map"
+  ]) {
     test(`文字のコントラストなどの基準を満たす: ${hash || "トップページ"}`, async ({ page }) => {
       await page.goto(`./${hash}`);
       await expect(page.getByText(CREDIT)).toBeVisible();
@@ -61,7 +70,8 @@ test.describe("トップページ", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: "まちのものさし" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "収録している指標" })).toBeVisible();
-    await expect(page.getByRole("table").getByRole("row")).toHaveCount(8);
+    await expect(page.getByRole("region", { name: "収録している指標の表" }).getByRole("row")).toHaveCount(8);
+    await expect(page.getByRole("region", { name: "くらしの指標の表" }).getByRole("row")).toHaveCount(23);
     await expect(page.getByText(CREDIT)).toBeVisible();
     await expect(page.getByRole("link", { name: "統計ダッシュボード（総務省統計局）" })).toHaveAttribute(
       "href",
@@ -74,19 +84,44 @@ test.describe("トップページ", () => {
     expect(externalRequests, "外部への通信をしないこと").toEqual([]);
   });
 
-  test("実際のデータからの抜粋を表示し、続きの一覧へ進める", async ({ page }) => {
+  test("特集の抜粋を表示し、特集の一覧へ進める", async ({ page }) => {
     const { errors, externalRequests } = watch(page);
     await page.goto("./");
 
-    const leaderboard = page.locator(".leaderboard").filter({ hasText: "人口の増減率が大きい" });
-    await expect(leaderboard.getByRole("listitem")).toHaveCount(5);
-    await leaderboard.getByRole("link", { name: "6位以下を見る" }).click();
+    const featured = page.getByRole("region", { name: "特集" });
+    await expect(featured.locator(".topic")).toHaveCount(6);
+    const shrinking = featured.getByRole("region", { name: "2050年に人口が半分以下になる見込みの市区町村" });
+    await expect(shrinking.getByRole("listitem")).toHaveCount(3);
+    await shrinking.getByRole("link", { name: /件すべてを見る/ }).click();
 
-    await expect(page).toHaveURL(/#view=ranking&metric=population&size=over-200k$/);
+    await expect(page).toHaveURL(
+      /#view=ranking&topic=half-by-2050&metric=projection2050&order=asc&projection2050=\.\.-50$/
+    );
+    await expect(
+      page.getByRole("heading", { level: 2, name: "2050年に人口が半分以下になる見込みの市区町村" })
+    ).toBeVisible();
+    await expect(page).toHaveTitle("2050年に人口が半分以下になる見込みの市区町村 | まちのものさし");
+
+    // 条件を変えると、特集の見出しは外れる。
+    await page.getByLabel("都道府県").selectOption("01");
     await expect(page.getByRole("heading", { level: 2, name: "条件でさがす" })).toBeVisible();
+    await expect(page).not.toHaveURL(/topic=/);
 
     expect(errors).toEqual([]);
     expect(externalRequests).toEqual([]);
+  });
+
+  test("特集の一覧から、それぞれの一覧を開ける", async ({ page }) => {
+    await page.goto("./");
+    await page.getByRole("navigation", { name: "メインメニュー" }).getByRole("link", { name: "特集" }).click();
+    await expect(page).toHaveURL(/#view=topics$/);
+    await expect(page.locator(".topic")).toHaveCount(15);
+    await expectNoHorizontalOverflow(page);
+    await expectAccessible(page);
+
+    await page.getByRole("link", { name: "ふるさと納税の受入額が多い市区町村" }).click();
+    await expect(page.getByRole("table").getByRole("row").nth(1)).toContainText("億円");
+    await expect(page.getByText(/総務省「ふるさと納税に関する現況調査結果」を加工して作成/).first()).toBeVisible();
   });
 
   test("「/」キーで検索欄に移れる", async ({ page }) => {
@@ -255,6 +290,66 @@ test.describe("条件でさがす", () => {
     expect(externalRequests).toEqual([]);
   });
 
+  test("くらしの指標でも絞り込み・並べ替えができ、結果を画像で保存できる", async ({ page }) => {
+    const { errors, externalRequests } = watch(page);
+    await page.goto("./#view=ranking");
+
+    await page.getByLabel("くらしの指標で絞り込む").selectOption("lifeFemale");
+    await page.getByLabel("平均寿命・女（年）の下限").fill("88.5");
+    await expect(page).toHaveURL(/lifeFemale=88\.5\.\.$/);
+
+    await page.getByLabel("並べる値").selectOption("furusatoReceipts");
+    await expect(page).toHaveURL(/metric=furusatoReceipts/);
+    const table = page.getByRole("table");
+    await expect(table.getByRole("columnheader", { name: /受入額/ })).toHaveAttribute("aria-sort", "descending");
+    await expect(table.getByRole("columnheader", { name: /平均寿命・女/ })).toBeVisible();
+
+    // 金額の条件は万円で入れる。
+    await page.getByLabel("くらしの指標で絞り込む").selectOption("furusatoReceipts");
+    await page.getByLabel("受入額（万円）の下限").fill("100000");
+    await expect(page).toHaveURL(/furusatoReceipts=1000000000\.\./);
+    const rows = table.getByRole("row");
+    await expect(rows.nth(1)).toContainText("億円");
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.locator(".results__share").getByRole("button", { name: "画像で保存" }).click();
+    expect((await downloadPromise).suggestedFilename()).toBe("machinomonosashi-furusatoReceipts.png");
+
+    // 条件を外す。
+    await page.getByRole("button", { name: "受入額（万円）の条件を外す" }).click();
+    await expect(page).not.toHaveURL(/furusatoReceipts=/);
+
+    expect(errors).toEqual([]);
+    expect(externalRequests).toEqual([]);
+  });
+
+  test("結果を地図で見られ、地図も画像で保存できる", async ({ page }) => {
+    const { errors, externalRequests } = watch(page);
+    await page.goto("./#view=ranking&metric=foreignShare");
+    await page.getByRole("button", { name: "地図" }).click();
+    await expect(page).toHaveURL(/show=map/);
+
+    const map = page.getByRole("img", { name: /外国人住民の割合の大きい順の地図/ });
+    await expect(map).toBeVisible();
+    await expect(page.locator(".map__areas path")).toHaveCount(1741);
+    await expect(page.locator(".map__source")).toContainText(
+      "国土数値情報（行政区域データ）（国土交通省）を加工して作成"
+    );
+    await expect(page.getByRole("list", { name: "凡例" }).getByRole("listitem")).not.toHaveCount(0);
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.locator(".results__share").getByRole("button", { name: "画像で保存" }).click();
+    expect((await downloadPromise).suggestedFilename()).toBe("machinomonosashi-foreignShare.png");
+
+    // 地図から市区町村を開ける。
+    // 小さな町の形は、外接矩形の中央が隣の町にかかることがあるため、その町の形に直接クリックを送る。
+    await page.locator('.map__areas path[data-code="10524"]').dispatchEvent("click");
+    await expect(page.getByRole("heading", { level: 2, name: "大泉町" })).toBeFocused();
+
+    expect(errors).toEqual([]);
+    expect(externalRequests).toEqual([]);
+  });
+
   test("条件に合う市区町村がないときは、その旨を表示する", async ({ page }) => {
     await page.goto("./#view=ranking&aging=..5");
     await expect(page.getByText("条件に合う市区町村がありません")).toBeVisible();
@@ -292,7 +387,8 @@ test.describe("条件でさがす", () => {
     expect(lines[0]).toMatch(/^順位,市区町村コード,都道府県,市区町村,区分,人口/);
     expect(lines[1]).toMatch(/^1,16201,富山県,富山市,市,\d+/);
     // 見出し1行 + 15市町村 + 空行 + 出典・注記・取得日
-    expect(lines).toHaveLength(20);
+    expect(lines).toHaveLength(21);
+    expect(csv).toContain("総務省「ふるさと納税に関する現況調査結果」を加工して作成");
     expect(csv).toContain("統計ダッシュボード（https://dashboard.e-stat.go.jp/）のデータを加工して作成");
     expect(csv).toContain(CREDIT);
   });
@@ -365,9 +461,64 @@ test.describe("市区町村の画面", () => {
     await page.getByRole("tab", { name: "概要" }).focus();
     await page.keyboard.press("ArrowRight");
 
-    await expect(page.getByRole("tab", { name: "指標" })).toBeFocused();
-    await expect(page.getByRole("tab", { name: "指標" })).toHaveAttribute("aria-selected", "true");
-    await expect(page).toHaveURL(/#area=13101&tab=indicators$/);
+    await expect(page.getByRole("tab", { name: "くらし" })).toBeFocused();
+    await expect(page.getByRole("tab", { name: "くらし" })).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/#area=13101&tab=life$/);
+  });
+
+  test("全国で目立つところ: 全国の上位・下位に入る項目を抜き出す", async ({ page }) => {
+    const { errors, externalRequests } = watch(page);
+    await page.goto("./#area=27223");
+
+    const highlights = page.getByRole("region", { name: "全国で目立つところ" });
+    const bicycle = highlights.getByRole("listitem").filter({ hasText: "通勤・通学に自転車だけを使う人の割合" });
+    await expect(bicycle).toContainText("全国で最も高い");
+    await expect(bicycle).toContainText(/\d+\.\d%/);
+
+    // 出典つきの画像を保存できる。
+    const downloadPromise = page.waitForEvent("download");
+    await highlights.getByRole("button", { name: "画像で保存" }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("machinomonosashi-27223.png");
+    const image = await readFile(await download.path());
+    expect(image.subarray(1, 4).toString()).toBe("PNG");
+    await expect(highlights.getByRole("status")).toContainText("画像を保存しました");
+
+    // X への投稿は、利用者が押したときだけ X のページを開くリンク。
+    const post = highlights.getByRole("link", { name: "Xに投稿" });
+    await expect(post).toHaveAttribute("href", /^https:\/\/x\.com\/intent\/post\?text=/);
+    await expect(post).toHaveAttribute("target", "_blank");
+
+    expect(errors).toEqual([]);
+    expect(externalRequests).toEqual([]);
+  });
+
+  test("くらし: 平均寿命やふるさと納税などを、全国順位と出典つきで示す", async ({ page }) => {
+    const { errors } = watch(page);
+    await page.goto("./#area=01668&tab=life");
+
+    for (const group of ["人口と暮らし", "通勤・通学", "住まい", "医療・図書館・ごみ", "ふるさと納税"]) {
+      await expect(page.getByRole("heading", { level: 3, name: group })).toBeVisible();
+    }
+    const rowOf = (name: string) =>
+      page.getByRole("row").filter({ has: page.locator(".life-table__name", { hasText: new RegExp(`^${name}$`) }) });
+    const receipts = rowOf("ふるさと納税の受入額");
+    await expect(receipts).toContainText(/\d+\.\d億円/);
+    await expect(receipts).toContainText("令和7年度（2025年度）");
+    await expect(receipts).toContainText(/\d+位/);
+    const perCapita = rowOf("ふるさと納税の受入額（住民1人当たり）");
+    await expect(perCapita).toContainText(/受入額 .*億円／住民 [\d,]+人/);
+
+    // 集計の対象外の調査は、欠損ではなく理由を書く。
+    await expect(rowOf("空き家率")).toContainText("この調査の集計の対象外です");
+
+    // 算出方法と資料を開ける。
+    await receipts.getByText("算出方法と注意").click();
+    await expect(receipts.getByText(/資料：総務省「各自治体の令和7年度受入額等」/)).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+    await expectAccessible(page);
+    expect(errors).toEqual([]);
   });
 
   test("指標: 7つの指標それぞれに出典の系列と取得日を添える", async ({ page }) => {

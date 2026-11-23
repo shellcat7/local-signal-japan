@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   areaSeries,
   buildHistogram,
+  computeFact,
   computeMetric,
+  FACT_KEYS,
+  FACTS,
   INDICATOR_KEYS,
   INDICATORS,
   percentileOf,
@@ -11,7 +14,7 @@ import {
   summarizeDistribution,
   toNationalRow
 } from "@local-signal-japan/core";
-import { SOURCE_INFO } from "./build";
+import { FURUSATO_SOURCE, SOURCE_INFO } from "./build";
 import { readDataset } from "./store";
 
 /**
@@ -59,6 +62,7 @@ describe("同梱データセット", async () => {
 
   it("出典・利用規約・クレジットの表記が規定どおり", () => {
     expect(manifest.source).toEqual(SOURCE_INFO);
+    expect(manifest.additionalSources).toEqual([FURUSATO_SOURCE]);
   });
 
   it("指標定義の上流系列と、マニフェストの出典系列が一致する", () => {
@@ -126,8 +130,51 @@ describe("同梱データセット", async () => {
     }
   });
 
+  it("くらしの指標の値が、保持しているもとの数から再計算した値と一致する", () => {
+    for (const area of areas) {
+      for (const key of FACT_KEYS) {
+        const { value, basis } = area.facts[key];
+        if (value === null) {
+          expect({ code: area.code, key, basis }).toEqual({ code: area.code, key, basis: {} });
+          continue;
+        }
+        expect(Object.keys(basis).sort(), `${area.code} ${key}`).toEqual(Object.keys(FACTS[key].basis).sort());
+        expect({ code: area.code, key, value }).toEqual({ code: area.code, key, value: computeFact(key, basis) });
+      }
+    }
+  });
+
+  it("くらしの指標の順位と分布が、基準集団から再計算した値と一致する", () => {
+    for (const key of FACT_KEYS) {
+      const reference = areas
+        .filter((area) => area.kind !== "ward")
+        .map((area) => area.facts[key].value)
+        .filter((value) => value !== null)
+        .sort((a, b) => a - b);
+
+      expect(reference.length, key).toBeGreaterThanOrEqual(900);
+      expect(manifest.facts[key].distribution).toEqual(summarizeDistribution(reference));
+      expect(manifest.facts[key].period).toBe(FACTS[key].period(manifest.facts[key].year));
+
+      for (const area of areas) {
+        const { value, rank } = area.facts[key];
+        const expected = value === null || area.kind === "ward" ? null : rankOf(reference, value);
+        expect({ code: area.code, key, rank }).toEqual({ code: area.code, key, rank: expected });
+      }
+    }
+  });
+
+  it("くらしの指標の出典が、指標定義と一致する", () => {
+    for (const key of FACT_KEYS) {
+      const ids = manifest.facts[key].sources.map((source) => source.id);
+      for (const upstream of FACTS[key].upstream) expect(ids, key).toContain(upstream.id);
+      expect(manifest.facts[key].documents.length > 0, key).toBe(FACTS[key].provider === "furusato");
+    }
+  });
+
   it("全国一覧が、都道府県ファイルと同じ値を指す", () => {
     expect(national.indicatorKeys).toEqual([...INDICATOR_KEYS]);
+    expect(national.factKeys).toEqual([...FACT_KEYS]);
     expect(national.areas).toEqual(areas.map(toNationalRow));
   });
 

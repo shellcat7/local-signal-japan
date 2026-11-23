@@ -196,11 +196,18 @@ export type FetchJson = (url: string) => Promise<unknown>;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+export type PoliteClient = {
+  json: FetchJson;
+  /** 文字コードを指定して本文を読む（総務省のページは Shift_JIS）。 */
+  text: (url: string, encoding?: string) => Promise<string>;
+  binary: (url: string) => Promise<ArrayBuffer>;
+};
+
 /** 間隔を空けつつ、失敗時は待ち時間を延ばして再試行する取得関数を作る。 */
-export function createPoliteFetch(log: (message: string) => void = () => {}): FetchJson {
+export function createPoliteClient(log: (message: string) => void = () => {}): PoliteClient {
   let lastRequestAt = 0;
 
-  return async (url) => {
+  const request = async (url: string, accept: string): Promise<Response> => {
     for (let attempt = 1; ; attempt += 1) {
       const wait = lastRequestAt + REQUEST_INTERVAL_MS - Date.now();
       if (wait > 0) await sleep(wait);
@@ -208,13 +215,13 @@ export function createPoliteFetch(log: (message: string) => void = () => {}): Fe
 
       try {
         const response = await fetch(url, {
-          headers: { accept: "application/json", "user-agent": "local-signal-japan-dataset" },
+          headers: { accept, "user-agent": "local-signal-japan-dataset" },
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
         });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
-        return (await response.json()) as unknown;
+        return response;
       } catch (error) {
         if (attempt >= MAX_ATTEMPTS) {
           throw new Error(`取得に失敗しました: ${url}`, { cause: error });
@@ -224,6 +231,18 @@ export function createPoliteFetch(log: (message: string) => void = () => {}): Fe
       }
     }
   };
+
+  return {
+    json: async (url) => (await (await request(url, "application/json")).json()) as unknown,
+    text: async (url, encoding = "utf-8") =>
+      new TextDecoder(encoding).decode(await (await request(url, "text/html")).arrayBuffer()),
+    binary: async (url) => (await request(url, "*/*")).arrayBuffer()
+  };
+}
+
+/** JSON だけを取得する、従来の形の関数。 */
+export function createPoliteFetch(log: (message: string) => void = () => {}): FetchJson {
+  return createPoliteClient(log).json;
 }
 
 export function regionInfoUrl(levels: readonly number[]): string {

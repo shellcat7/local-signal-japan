@@ -1,11 +1,16 @@
-/** ブラウザの中で作った文字列を、ファイルとして保存する。どこにも送信しない。 */
-export function downloadText(filename: string, content: string, mimeType: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: `${mimeType};charset=utf-8` }));
+/** ブラウザの中で作ったデータを、ファイルとして保存する。どこにも送信しない。 */
+export function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
-  URL.revokeObjectURL(url);
+  // 保存が始まる前に取り消さないよう、少し待ってから解放する。
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+export function downloadText(filename: string, content: string, mimeType: string) {
+  downloadBlob(filename, new Blob([content], { type: `${mimeType};charset=utf-8` }));
 }
 
 /** 表計算ソフトで開ける CSV の1行。値に「,」や改行、引用符があれば引用符で囲む。 */

@@ -50,7 +50,11 @@ export async function writeDataset(dataset: Dataset, dir = DATASET_DIR): Promise
 
   await writeFile(
     path.join(dir, NATIONAL_FILE),
-    stringifyRows({ indicatorKeys: dataset.national.indicatorKeys }, "areas", dataset.national.areas)
+    stringifyRows(
+      { indicatorKeys: dataset.national.indicatorKeys, factKeys: dataset.national.factKeys },
+      "areas",
+      dataset.national.areas
+    )
   );
 
   for (const pref of dataset.prefectures) {

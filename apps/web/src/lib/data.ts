@@ -78,3 +78,35 @@ export function loadPrefecture(prefCode: string, manifest: Manifest): Promise<Pr
 
   return pending;
 }
+
+/** 市区町村の境界の地図（国土数値情報の行政区域データを軽くしたもの）。座標は表示用に投影済み。 */
+export type MapData = {
+  version: number;
+  source: {
+    name: string;
+    edition: string;
+    publisher: string;
+    url: string;
+    license: string;
+    licenseUrl: string;
+    attribution: string;
+  };
+  viewBox: [number, number, number, number];
+  areas: Array<{ code: string; d: string }>;
+  prefectures: Array<{ code: string; d: string }>;
+  insets: Array<{ label: string; box: [number, number, number, number] }>;
+};
+
+let mapCache: Promise<MapData> | null = null;
+
+/** 地図を表示するときにだけ読む（約1MB）。 */
+export function loadMap(): Promise<MapData> {
+  if (!mapCache) {
+    const pending = fetchJson<MapData>("map.json");
+    mapCache = pending;
+    pending.catch(() => {
+      if (mapCache === pending) mapCache = null;
+    });
+  }
+  return mapCache;
+}

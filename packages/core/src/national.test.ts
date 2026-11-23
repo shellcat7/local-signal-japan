@@ -12,6 +12,7 @@ import {
   unrankedNational,
   valuePosition
 } from "./national";
+import { FACT_KEYS } from "./model";
 import type { NationalRow } from "./schema";
 import { makeArea, withMissing } from "./testing/fixtures";
 
@@ -30,6 +31,7 @@ function row(
     population,
     values: scores.map((score) => (score === null ? null : score / 10)),
     scores,
+    facts: Array.from({ length: FACT_KEYS.length }, () => null),
     ...extra
   };
 }

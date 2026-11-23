@@ -91,7 +91,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$BRANCH"
           git add apps/web/public/data
-          git commit -m "Refresh dataset from the Statistics Dashboard API"
+          git commit -m "Refresh dataset from the Statistics Dashboard API and the hometown-tax survey"
           git push --force origin "$BRANCH"
 
           if [ "$(gh pr list --head "$BRANCH" --state open --json number --jq length)" != "0" ]; then

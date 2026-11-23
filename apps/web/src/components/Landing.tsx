@@ -1,18 +1,26 @@
 import {
+  FACT_GROUPS,
+  FACT_KEYS,
+  FACTS,
+  FEATURED_TOPIC_IDS,
+  findTopic,
   formatDateWithEra,
+  formatFact,
   formatNumber,
   INDICATOR_KEYS,
   INDICATORS,
   metricPeriodText,
+  TOPICS,
   type AreaIndex,
   type Manifest,
   type NationalFile
 } from "@local-signal-japan/core";
 import type { AsyncState } from "../lib/useAsync";
 import type { RankingRoute } from "../lib/route";
+import { hrefOf } from "../lib/route";
 import { HowToRead } from "./HowToRead";
 import { JapanMap } from "./JapanMap";
-import { Leaderboard } from "./Leaderboard";
+import { TopicCard } from "./TopicCard";
 import { PrefectureIndex } from "./PrefectureIndex";
 import { ScrollRegion } from "./ScrollRegion";
 
@@ -22,10 +30,11 @@ type LandingProps = {
   national: AsyncState<NationalFile>;
   onOpenArea: (areaCode: string) => void;
   onOpenRanking: (route: RankingRoute) => void;
+  onOpenTopics: () => void;
 };
 
 /** トップページの、検索欄より下の部分。 */
-export function Landing({ manifest, index, national, onOpenArea, onOpenRanking }: LandingProps) {
+export function Landing({ manifest, index, national, onOpenArea, onOpenRanking, onOpenTopics }: LandingProps) {
   const prefNames = new Map(index.prefectures.map((pref) => [pref.code, pref.name]));
 
   return (
@@ -49,44 +58,37 @@ export function Landing({ manifest, index, national, onOpenArea, onOpenRanking }
       </section>
 
       {national.status === "ready" && (
-        <section className="block" aria-labelledby="leaderboards-title">
+        <section className="block" aria-labelledby="featured-title">
           <header className="block__head">
-            <h2 id="leaderboards-title">人口20万人以上の市区（上位5）</h2>
+            <h2 id="featured-title">特集</h2>
+            <a
+              className="text-link"
+              href={hrefOf({ view: "topics" })}
+              onClick={(event) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                onOpenTopics();
+              }}
+            >
+              特集をすべて見る（{TOPICS.length}本）
+            </a>
           </header>
-          <div className="leaderboards">
-            <Leaderboard
-              rows={national.value.areas}
-              prefNames={prefNames}
-              manifest={manifest}
-              metric="population"
-              order="desc"
-              size="over-200k"
-              title="人口の増減率が大きい"
-              onOpenArea={onOpenArea}
-              onOpenRanking={onOpenRanking}
-            />
-            <Leaderboard
-              rows={national.value.areas}
-              prefNames={prefNames}
-              manifest={manifest}
-              metric="migration"
-              order="desc"
-              size="over-200k"
-              title="転入超過率が大きい"
-              onOpenArea={onOpenArea}
-              onOpenRanking={onOpenRanking}
-            />
-            <Leaderboard
-              rows={national.value.areas}
-              prefNames={prefNames}
-              manifest={manifest}
-              metric="aging"
-              order="asc"
-              size="over-200k"
-              title="高齢化率が小さい"
-              onOpenArea={onOpenArea}
-              onOpenRanking={onOpenRanking}
-            />
+          <div className="topics__grid">
+            {FEATURED_TOPIC_IDS.map((id) => {
+              const topic = findTopic(id);
+              return topic ? (
+                <TopicCard
+                  key={id}
+                  topic={topic}
+                  rows={national.value.areas}
+                  prefNames={prefNames}
+                  manifest={manifest}
+                  limit={3}
+                  onOpenArea={onOpenArea}
+                  onOpenRanking={onOpenRanking}
+                />
+              ) : null;
+            })}
           </div>
         </section>
       )}
@@ -94,8 +96,8 @@ export function Landing({ manifest, index, national, onOpenArea, onOpenRanking }
       <section className="block" aria-labelledby="indicator-list-title">
         <header className="block__head">
           <h2 id="indicator-list-title">収録している指標</h2>
-          <p>全{INDICATOR_KEYS.length}指標</p>
         </header>
+        <h3 className="landing__subhead">7つの指標（補助スコアの対象）</h3>
         <ScrollRegion label="収録している指標の表">
           <table className="data-table">
             <thead>
@@ -130,7 +132,40 @@ export function Landing({ manifest, index, national, onOpenArea, onOpenRanking }
             </tbody>
           </table>
         </ScrollRegion>
+        <h3 className="landing__subhead">くらしの指標（{FACT_KEYS.length}項目）</h3>
+        <ScrollRegion label="くらしの指標の表">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">分野</th>
+                <th scope="col">項目</th>
+                <th scope="col">基準時点</th>
+                <th scope="col" className="is-numeric">
+                  全国の中央値
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {FACT_KEYS.map((key) => (
+                <tr key={key}>
+                  <th scope="row">{FACT_GROUPS.find((group) => group.id === FACTS[key].group)?.label}</th>
+                  <td>{FACTS[key].label}</td>
+                  <td className="is-nowrap">{manifest.facts[key].period}</td>
+                  <td className="is-numeric is-nowrap">
+                    {formatFact(FACTS[key], manifest.facts[key].distribution.p50)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ScrollRegion>
         <ul className="notes">
+          <li>くらしの指標は、値と全国順位だけを示し、補助スコアには含めていません。</li>
+          <li>
+            ふるさと納税の値は、
+            {manifest.additionalSources.find((source) => source.id === "furusato")?.attribution}
+            したものです。
+          </li>
           <li>
             全国の中央値は、政令指定都市の区を除く{formatNumber(manifest.counts.referenceAreas)}
             市区町村のうち、値がある市区町村のものです。

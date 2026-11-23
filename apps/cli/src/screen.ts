@@ -2,24 +2,33 @@ import {
   activeFilters,
   AREA_KIND_LABELS,
   areaLocalName,
+  FACT_KEYS,
+  FACTS,
   formatDate,
+  formatFact,
   formatMetric,
   formatNumber,
   INDICATOR_KEYS,
   INDICATORS,
+  isFactKey,
+  METRIC_KEYS,
   metricPeriodText,
   MIN_INDICATORS_FOR_OVERALL,
   POPULATION_BANDS,
   rankNational,
   unrankedNational,
   residentsAsOf,
+  rowFact,
   rowOverallScore,
   rowScore,
   rowValue,
+  type AdditionalSource,
   type AreaKind,
+  type FactKey,
   type IndicatorFilters,
   type IndicatorKey,
   type Manifest,
+  type MetricKey,
   type NationalRow,
   type PopulationBandId,
   type RangeFilter,
@@ -30,13 +39,17 @@ import { CliError } from "./errors";
 
 /** 条件に使える演算子。>= は以上、<= は以下。 */
 export type ScreenOperator = ">=" | "<=";
-export type ScreenCondition = { key: IndicatorKey; op: ScreenOperator; value: number };
+export type ScreenCondition = { key: MetricKey; op: ScreenOperator; value: number };
 
 export const DEFAULT_SCREEN_LIMIT = 20;
 const OVERALL_LABEL = "総合補助スコア";
 const RESIDENTS_LABEL = "人口";
-/** 並べ替えに使える値。人口、総合補助スコア、各指標の指標値。 */
-const SORT_METRICS: readonly RankingMetric[] = ["residents", "overall", ...INDICATOR_KEYS];
+/** 並べ替えに使える値。人口、総合補助スコア、7指標の指標値、くらしの指標。 */
+const SORT_METRICS: readonly RankingMetric[] = ["residents", "overall", ...METRIC_KEYS];
+/** 金額（円）のくらしの指標。JSONでは円の数値に、読みやすく書いた文字列を添える。 */
+export const MONEY_FACT_KEYS: readonly FactKey[] = FACT_KEYS.filter((key) => FACTS[key].unit === "円");
+/** 統計ダッシュボード以外の出典のうち、ふるさと納税の値の出典。 */
+export const FURUSATO_SOURCE_ID = "furusato";
 
 export type Prefecture = { code: string; name: string };
 
@@ -60,8 +73,19 @@ export type ScreenQuery = {
   limit: number;
 };
 
-function isIndicatorKey(value: string): value is IndicatorKey {
-  return (INDICATOR_KEYS as readonly string[]).includes(value);
+/** 大文字・小文字の違いを問わずに、指標キー（7指標とくらしの指標）を決める。 */
+function findMetricKey(text: string): MetricKey | undefined {
+  const lower = text.toLowerCase();
+  return METRIC_KEYS.find((key) => key.toLowerCase() === lower);
+}
+
+/** 表の列見出しなどに使う短い名前。 */
+function columnLabelOf(key: MetricKey): string {
+  return isFactKey(key) ? FACTS[key].columnLabel : INDICATORS[key].columnLabel;
+}
+
+function unitOf(key: MetricKey): string {
+  return isFactKey(key) ? FACTS[key].unit : INDICATORS[key].unit;
 }
 
 /** 条件に使える指標キーの説明。例: aging（高齢化率（65歳以上人口の割合）、%） */
@@ -69,6 +93,14 @@ export function describeIndicatorKeys(): string[] {
   return INDICATOR_KEYS.map((key) => {
     const { metricLabel, unit } = INDICATORS[key];
     return `${key}（${metricLabel}${unit ? `、${unit}` : ""}）`;
+  });
+}
+
+/** 条件に使えるくらしの指標キーの説明。例: vacancy（空き家率、%） */
+export function describeFactKeys(): string[] {
+  return FACT_KEYS.map((key) => {
+    const { label, unit } = FACTS[key];
+    return `${key}（${label}${unit ? `、${unit}` : ""}）`;
   });
 }
 
@@ -82,22 +114,25 @@ function normalizeExpression(expression: string): string {
     .trim();
 }
 
-/** 「aging>=30」のような条件を1つ読み取る。読み取れなければ、理由を添えたエラーにする。 */
+/** 「aging>=30」「vacancy<=20」のような条件を1つ読み取る。読み取れなければ、理由を添えたエラーにする。 */
 export function parseCondition(expression: string): ScreenCondition {
   const match = /^([^<>=!\s]*)\s*([<>=!]*)\s*(.*)$/.exec(normalizeExpression(expression));
-  const key = (match?.[1] ?? "").toLowerCase();
+  const keyText = match?.[1] ?? "";
   const op = match?.[2] ?? "";
   const valueText = match?.[3] ?? "";
 
-  if (key === "" || op === "") {
+  if (keyText === "" || op === "") {
     throw new CliError(`条件は「<指標キー><演算子><数値>」の形で指定してください（例: "aging>=30"）: ${expression}`);
   }
-  if (!isIndicatorKey(key)) {
+  const key = findMetricKey(keyText);
+  if (key === undefined) {
     throw new CliError(
       [
-        `条件の指標キーが不明です: ${key}`,
+        `条件の指標キーが不明です: ${keyText.toLowerCase()}`,
         "使える指標キー:",
-        ...describeIndicatorKeys().map((line) => `  ${line}`)
+        ...describeIndicatorKeys().map((line) => `  ${line}`),
+        "くらしの指標キー:",
+        ...describeFactKeys().map((line) => `  ${line}`)
       ].join("\n")
     );
   }
@@ -128,7 +163,7 @@ export function buildFilters(conditions: readonly ScreenCondition[]): IndicatorF
   for (const [key, range] of activeFilters(filters)) {
     if (range.min !== undefined && range.max !== undefined && range.min > range.max) {
       throw new CliError(
-        `条件が両立しません: ${INDICATORS[key].columnLabel}が ${range.min}以上 かつ ${range.max}以下 になっています。`
+        `条件が両立しません: ${columnLabelOf(key)}が ${range.min}以上 かつ ${range.max}以下 になっています。`
       );
     }
   }
@@ -137,10 +172,11 @@ export function buildFilters(conditions: readonly ScreenCondition[]): IndicatorF
 
 export function parseSort(value: string | undefined): RankingMetric {
   const text = (value ?? "residents").trim().toLowerCase();
-  const metric = SORT_METRICS.find((candidate) => candidate === text);
+  const metric = SORT_METRICS.find((candidate) => candidate.toLowerCase() === text);
   if (metric) return metric;
   throw new CliError(
-    `--sort には residents（人口）、overall（総合補助スコア）、指標キー（${INDICATOR_KEYS.join(", ")}）のどれかを指定してください: ${value}`
+    `--sort には residents（人口）、overall（総合補助スコア）、指標キー（${INDICATOR_KEYS.join(", ")}）、` +
+      `くらしの指標キー（${FACT_KEYS.join(", ")}）のどれかを指定してください: ${value}`
   );
 }
 
@@ -188,6 +224,7 @@ export function parseScreenArgs(args: ScreenArgs, prefectures: readonly Prefectu
 }
 
 type IndicatorValues = Record<IndicatorKey, number | null>;
+type FactValues = Record<FactKey, number | null>;
 
 type ScreenArea = {
   code: string;
@@ -199,6 +236,10 @@ type ScreenArea = {
   overallScore: number | null;
   values: IndicatorValues;
   scores: IndicatorValues;
+  /** くらしの指標の値。金額は円。 */
+  facts: FactValues;
+  /** 金額のくらしの指標を「18.9億円」のように書いたもの（欠損は null）。 */
+  moneyTexts: Partial<Record<FactKey, string | null>>;
 };
 
 /**
@@ -214,6 +255,18 @@ export type ScreenIndicatorInfo = {
   period: string;
   /** 出典の統計名。 */
   statName: string;
+};
+
+export type ScreenFactInfo = {
+  label: string;
+  columnLabel: string;
+  /** 「円」は金額（値は円の数値）。 */
+  unit: string;
+  period: string;
+  /** 出典の統計名・資料名。 */
+  statName: string;
+  /** dashboard = 統計ダッシュボード、furusato = 総務省「ふるさと納税に関する現況調査結果」。 */
+  provider: "dashboard" | "furusato";
 };
 
 export type ScreenResult = {
@@ -242,12 +295,29 @@ export type ScreenResult = {
   /** 順位を付けた市区町村を順位順に、続けて順位のない市区町村をコード順に並べる。 */
   rows: ScreenRow[];
   indicators: Record<IndicatorKey, ScreenIndicatorInfo>;
+  facts: Record<FactKey, ScreenFactInfo>;
   population: { label: string; unit: string; period: string };
   source: Manifest["source"] & { fetchedAt: string };
+  /** 統計ダッシュボード以外の出典（ふるさと納税の値の出典）。 */
+  additionalSources: AdditionalSource[];
 };
 
 function keyed<T>(valueOf: (key: IndicatorKey) => T): Record<IndicatorKey, T> {
   return Object.fromEntries(INDICATOR_KEYS.map((key) => [key, valueOf(key)])) as Record<IndicatorKey, T>;
+}
+
+function factKeyed<T>(valueOf: (key: FactKey) => T): Record<FactKey, T> {
+  return Object.fromEntries(FACT_KEYS.map((key) => [key, valueOf(key)])) as Record<FactKey, T>;
+}
+
+/** 金額のくらしの指標を読みやすく書いたもの。 */
+export function moneyTextsOf(valueOf: (key: FactKey) => number | null): Partial<Record<FactKey, string | null>> {
+  return Object.fromEntries(
+    MONEY_FACT_KEYS.map((key) => {
+      const value = valueOf(key);
+      return [key, value === null ? null : formatFact(FACTS[key], value)];
+    })
+  );
 }
 
 function toScreenArea(row: NationalRow, prefNames: ReadonlyMap<string, string>): ScreenArea {
@@ -260,8 +330,20 @@ function toScreenArea(row: NationalRow, prefNames: ReadonlyMap<string, string>):
     population: row.population,
     overallScore: rowOverallScore(row),
     values: keyed((key) => rowValue(row, key)),
-    scores: keyed((key) => rowScore(row, key))
+    scores: keyed((key) => rowScore(row, key)),
+    facts: factKeyed((key) => rowFact(row, key)),
+    moneyTexts: moneyTextsOf((key) => rowFact(row, key))
   };
+}
+
+/** くらしの指標の出典の統計名・資料名。ふるさと納税の値は総務省の調査、それ以外は統計ダッシュボードの系列。 */
+export function factStatName(manifest: Manifest, key: FactKey): string {
+  const furusato = manifest.additionalSources.find((source) => source.id === FURUSATO_SOURCE_ID);
+  const names = [
+    ...(FACTS[key].provider === "furusato" && furusato ? [furusato.name] : []),
+    ...manifest.facts[key].sources.map((source) => source.statName)
+  ];
+  return [...new Set(names)].join("・");
 }
 
 /**
@@ -281,12 +363,17 @@ function collectAreas(rows: readonly NationalRow[], options: Omit<RankingOptions
 
 function sortLabel(metric: RankingMetric): string {
   if (metric === "residents") return RESIDENTS_LABEL;
-  return metric === "overall" ? OVERALL_LABEL : INDICATORS[metric].columnLabel;
+  return metric === "overall" ? OVERALL_LABEL : columnLabelOf(metric);
 }
 
-/** 条件の数値は、指定されたとおりの桁で書く（負の数は表と同じ負号にする）。 */
+/** 条件の数値は、指定されたとおりの桁で書く（負の数は表と同じ負号にする）。金額は桁区切りを付ける。 */
 function boundText(value: number, unit: string): string {
-  return `${String(value).replace("-", "\u2212")}${unit}`;
+  const text = String(value);
+  const grouped =
+    unit === "円"
+      ? text.replace(/^(-?)(\d+)/, (_, sign: string, digits: string) => sign + digits.replace(/\B(?=(\d{3})+$)/g, ","))
+      : text;
+  return `${grouped.replace("-", "\u2212")}${unit}`;
 }
 
 function rangeText(range: RangeFilter, unit: string): string {
@@ -298,7 +385,7 @@ function rangeText(range: RangeFilter, unit: string): string {
 /** 条件を日本語で1行にまとめる。 */
 export function describeConditions(query: ScreenQuery): string {
   const parts = activeFilters(query.filters).map(
-    ([key, range]) => `${INDICATORS[key].columnLabel} ${rangeText(range, INDICATORS[key].unit)}`
+    ([key, range]) => `${columnLabelOf(key)} ${rangeText(range, unitOf(key))}`
   );
   if (query.pref) parts.push(`都道府県 ${query.pref.name}`);
   const band = POPULATION_BANDS.find((candidate) => candidate.id === query.size);
@@ -360,13 +447,28 @@ export function runScreen(
       period: metricPeriodText(key, manifest.indicators[key].year),
       statName: [...new Set(manifest.indicators[key].sources.map((source) => source.statName))].join("・")
     })),
+    facts: factKeyed((key) => ({
+      label: FACTS[key].label,
+      columnLabel: FACTS[key].columnLabel,
+      unit: FACTS[key].unit,
+      period: manifest.facts[key].period,
+      statName: factStatName(manifest, key),
+      provider: FACTS[key].provider
+    })),
     population: {
       label: "住民基本台帳人口",
       unit: "人",
       period: `${populationYear}年${residentsAsOf(populationYear)}`
     },
-    source: { ...manifest.source, fetchedAt: manifest.generatedAt }
+    source: { ...manifest.source, fetchedAt: manifest.generatedAt },
+    additionalSources: manifest.additionalSources
   };
+}
+
+/** 並べ替えか条件に使ったくらしの指標（定義順）。表に列を出し、基準時点と出典を添える。 */
+export function involvedFacts(result: ScreenResult): FactKey[] {
+  const { sort, filters } = result.conditions;
+  return FACT_KEYS.filter((key) => key === sort || filters[key] !== undefined);
 }
 
 function isWide(codePoint: number): boolean {
@@ -400,10 +502,14 @@ function pad(text: string, width: number, align: Column["align"]): string {
 
 const MISSING_TEXT = "欠損";
 
+function mark(label: string, isSortColumn: boolean): string {
+  return isSortColumn ? `【${label}】` : label;
+}
+
 function indicatorColumn(key: IndicatorKey, isSortColumn: boolean): Column {
   const definition = INDICATORS[key];
   return {
-    header: isSortColumn ? `【${definition.columnLabel}】` : definition.columnLabel,
+    header: mark(definition.columnLabel, isSortColumn),
     align: "right",
     cell: (row) => {
       const value = row.values[key];
@@ -412,41 +518,53 @@ function indicatorColumn(key: IndicatorKey, isSortColumn: boolean): Column {
   };
 }
 
+function factColumn(key: FactKey, isSortColumn: boolean): Column {
+  const definition = FACTS[key];
+  return {
+    header: mark(definition.columnLabel, isSortColumn),
+    align: "right",
+    cell: (row) => {
+      const value = row.facts[key];
+      return value === null ? MISSING_TEXT : formatFact(definition, value);
+    }
+  };
+}
+
 function residentsColumn(isSortColumn: boolean): Column {
   return {
-    header: isSortColumn ? `【${RESIDENTS_LABEL}】` : RESIDENTS_LABEL,
+    header: mark(RESIDENTS_LABEL, isSortColumn),
     align: "right",
     cell: (row) => (row.population === null ? MISSING_TEXT : `${formatNumber(row.population)}人`)
   };
 }
 
-/** 並べ替えに使った値の列を【】付きで先頭に置き、続けて残りの指標を定義順に、最後に人口を並べる。 */
-function tableColumns(metric: RankingMetric): Column[] {
+/**
+ * 並べ替えに使った値の列を【】付きで先頭に置き、続けて条件に使ったくらしの指標、
+ * 7指標（定義順）、最後に人口を並べる。
+ */
+function tableColumns(metric: RankingMetric, facts: readonly FactKey[]): Column[] {
   const lead: Column[] = [
     { header: "順位", align: "right", cell: (row) => String(row.rank ?? "-") },
     { header: "コード", align: "left", cell: (row) => row.code },
     { header: "市区町村", align: "left", cell: (row) => row.name },
     { header: "都道府県", align: "left", cell: (row) => row.prefName }
   ];
-  const others = (sortKey?: IndicatorKey) =>
-    INDICATOR_KEYS.filter((key) => key !== sortKey).map((key) => indicatorColumn(key, false));
+  const factColumns = facts.filter((key) => key !== metric).map((key) => factColumn(key, false));
+  const indicators = INDICATOR_KEYS.filter((key) => key !== metric).map((key) => indicatorColumn(key, false));
 
   if (metric === "residents") {
-    return [...lead, residentsColumn(true), ...others()];
+    return [...lead, residentsColumn(true), ...factColumns, ...indicators];
   }
-  if (metric === "overall") {
-    const overall: Column = {
-      header: `【${OVERALL_LABEL}】`,
-      align: "right",
-      cell: (row) => String(row.sortValue ?? MISSING_TEXT)
-    };
-    return [...lead, overall, ...others(), residentsColumn(false)];
-  }
-  return [...lead, indicatorColumn(metric, true), ...others(metric), residentsColumn(false)];
+  const sortColumn: Column =
+    metric === "overall"
+      ? { header: mark(OVERALL_LABEL, true), align: "right", cell: (row) => String(row.sortValue ?? MISSING_TEXT) }
+      : isFactKey(metric)
+        ? factColumn(metric, true)
+        : indicatorColumn(metric, true);
+  return [...lead, sortColumn, ...factColumns, ...indicators, residentsColumn(false)];
 }
 
-function renderTable(rows: readonly ScreenRow[], metric: RankingMetric): string[] {
-  const columns = tableColumns(metric);
+function renderTable(rows: readonly ScreenRow[], columns: readonly Column[]): string[] {
   const cells = rows.map((row) => columns.map((column) => column.cell(row)));
   const widths = columns.map((column, index) =>
     Math.max(displayWidth(column.header), ...cells.map((line) => displayWidth(line[index] ?? "")))
@@ -480,9 +598,30 @@ export function screenHeaderLines(result: ScreenResult): string[] {
   ];
 }
 
-/** 順位の付け方、基準時点、出典。数値を引用するときに必要な情報をまとめる。 */
-export function screenFooterLines(result: ScreenResult): string[] {
+/**
+ * 出典の行。統計ダッシュボードの出典とクレジットは常に、ふるさと納税の出典は furusato が true のときに入れる。
+ * show など、ほかの出力でも同じ書き方を使う。
+ */
+export function attributionLines(
+  source: Manifest["source"] & { fetchedAt: string },
+  additionalSources: readonly AdditionalSource[],
+  furusato: boolean
+): string[] {
+  const extra = furusato ? additionalSources.filter((item) => item.id === FURUSATO_SOURCE_ID) : [];
+  return [
+    `出典: ${source.attribution}（取得日 ${formatDate(source.fetchedAt)}）`,
+    ...extra.map((item) => `出典: ${item.attribution}`),
+    source.credit
+  ];
+}
+
+/**
+ * 順位の付け方、基準時点、出典。数値を引用するときに必要な情報をまとめる。
+ * allSources を true にすると、表に出していない値の出典（ふるさと納税）も入れる（CSV・JSONは全指標の値を含むため）。
+ */
+export function screenFooterLines(result: ScreenResult, options: { allSources?: boolean } = {}): string[] {
   const { sort } = result.conditions;
+  const facts = involvedFacts(result);
   const lines = [
     "対象は政令指定都市の区を除く市区町村です。順位は条件で絞り込んだ中で付けたもので（同じ値は同順位）、良し悪しの順ではありません。",
     "",
@@ -499,11 +638,18 @@ export function screenFooterLines(result: ScreenResult): string[] {
     const info = result.indicators[key];
     lines.push(`- ${info.metricLabel}: ${info.period}（${info.statName}）`);
   }
+  for (const key of facts) {
+    const info = result.facts[key];
+    lines.push(`- ${info.label}: ${info.period}（${info.statName}）`, ...FACTS[key].notes.map((note) => `  ${note}`));
+  }
   lines.push(
     `- 人口: ${result.population.period}現在（${result.population.label}）`,
     "",
-    `出典: ${result.source.attribution}（取得日 ${formatDate(result.source.fetchedAt)}）`,
-    result.source.credit
+    ...attributionLines(
+      result.source,
+      result.additionalSources,
+      options.allSources === true || facts.some((key) => FACTS[key].provider === "furusato")
+    )
   );
   return lines;
 }
@@ -514,7 +660,7 @@ export function renderScreenText(result: ScreenResult): string {
   if (result.rows.length === 0) {
     lines.push("条件に合う市区町村はありません。");
   } else {
-    lines.push(...renderTable(result.rows, result.conditions.sort));
+    lines.push(...renderTable(result.rows, tableColumns(result.conditions.sort, involvedFacts(result))));
   }
   if (result.truncated) {
     lines.push(`（ほか ${formatNumber(result.matched - result.returned)}市区町村）`);
@@ -558,7 +704,10 @@ function csvCell(value: string | number | null): string {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
-/** 表計算ソフトでそのまま開けるCSV（BOM付きUTF-8、CRLF）。数値は単位を付けず、欠損は空欄にする。 */
+/**
+ * 表計算ソフトでそのまま開けるCSV（BOM付きUTF-8、CRLF）。数値は単位を付けず、欠損は空欄にする。
+ * くらしの指標はすべての列を入れる。金額は円の数値のまま。
+ */
 export function renderScreenCsv(result: ScreenResult): string {
   const header = [
     "順位",
@@ -571,6 +720,10 @@ export function renderScreenCsv(result: ScreenResult): string {
     ...INDICATOR_KEYS.map((key) => {
       const { unit, period } = result.indicators[key];
       return `${INDICATORS[key].columnLabel}（${unit ? `${unit}、` : ""}${period}）`;
+    }),
+    ...FACT_KEYS.map((key) => {
+      const { label, unit, period } = result.facts[key];
+      return `${label}（${unit ? `${unit}、` : ""}${period}）`;
     })
   ];
   const lines = result.rows.map((row) => [
@@ -581,7 +734,8 @@ export function renderScreenCsv(result: ScreenResult): string {
     AREA_KIND_LABELS[row.kind],
     row.population,
     row.overallScore,
-    ...INDICATOR_KEYS.map((key) => row.values[key])
+    ...INDICATOR_KEYS.map((key) => row.values[key]),
+    ...FACT_KEYS.map((key) => row.facts[key])
   ]);
 
   return `${BOM}${[header, ...lines].map((line) => line.map(csvCell).join(",")).join("\r\n")}\r\n`;

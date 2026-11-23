@@ -35,8 +35,14 @@ export function TopBar({ route, onNavigate, search }: TopBarProps) {
           <a {...link({ view: "home" })} aria-current={route.view === "home" ? "page" : undefined}>
             都道府県から
           </a>
-          <a {...link(DEFAULT_RANKING)} aria-current={route.view === "ranking" ? "page" : undefined}>
+          <a {...link(DEFAULT_RANKING)} aria-current={route.view === "ranking" && !route.topic ? "page" : undefined}>
             条件でさがす
+          </a>
+          <a
+            {...link({ view: "topics" })}
+            aria-current={route.view === "topics" || (route.view === "ranking" && route.topic) ? "page" : undefined}
+          >
+            特集
           </a>
         </nav>
       </div>

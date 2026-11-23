@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INDICATOR_KEYS, type SeriesPoint } from "@local-signal-japan/core";
+import { FACT_KEYS, FACTS, INDICATOR_KEYS, type SeriesPoint } from "@local-signal-japan/core";
 import { buildDataset, latestWellCoveredYear, type UpstreamSnapshot } from "./build";
 import { listUpstreamSeries } from "./fetch";
 import type { UpstreamArea, UpstreamSeriesData } from "./upstream";
@@ -60,6 +60,29 @@ function makeSnapshot(): UpstreamSnapshot {
     put("taxpayers", city.code, [[2024, 1000]]);
     put("index", city.code, [[2022, 0.1 + index / 10000]]);
     put("daytimeRatio", city.code, [[2020, 100]]);
+
+    // くらしの指標（i が大きいほど値が大きい）。
+    put("lifeFemale", city.code, [[2020, 86 + index / 1000]]);
+    put("lifeMale", city.code, [[2020, 80 + index / 1000]]);
+    put("projection", city.code, [
+      [2025, 10000],
+      [2050, 6000 + index]
+    ]);
+    put("foreignResidents", city.code, [[2025, 100 + index]]);
+    put("marriages", city.code, [[2024, 40 + index / 100]]);
+    put("births", city.code, [[2025, 70 + index / 100]]);
+    put("elderlyAlone", city.code, [[2020, 5 + index / 100]]);
+    put("commuteTotal", city.code, [[2020, 5000]]);
+    put("commuteRail", city.code, [[2020, 1000 + index]]);
+    put("commuteCar", city.code, [[2020, 2500]]);
+    put("commuteBike", city.code, [[2020, 400]]);
+    put("commuteWalk", city.code, [[2020, 300]]);
+    put("vacancy", city.code, [[2023, 10 + index / 100]]);
+    put("floorArea", city.code, [[2023, 80 + index / 10]]);
+    put("doctors", city.code, [[2022, 10 + index]]);
+    put("libraries", city.code, [[2021, index % 3]]);
+    put("garbage", city.code, [[2023, 800 + index]]);
+    put("recycling", city.code, [[2023, 15 + index / 100]]);
   });
 
   // 区は人口と高齢化率だけ公表されている想定。高齢化率は全国で最も低い。
@@ -69,7 +92,19 @@ function makeSnapshot(): UpstreamSnapshot {
   ]);
   put("ratio", ward.code, [[2025, 10]]);
 
-  return { prefectures, areas: [...cities, ward, empty], series };
+  const furusato = {
+    receiptsYear: 2025,
+    deductionYear: 2026,
+    receipts: new Map(cities.map((city, index) => [city.code, 1_000_000 * (index + 1)])),
+    costs: new Map(cities.map((city, index) => [city.code, 400_000 * (index + 1)])),
+    deductions: new Map(cities.map((city) => [city.code, 50_000_000])),
+    documents: [
+      { title: "各自治体の令和7年度受入額等", publisher: "総務省", url: "https://www.soumu.go.jp/main_content/1.xlsx" },
+      { title: "住民税控除額", publisher: "総務省", url: "https://www.soumu.go.jp/main_content/2.xlsx" }
+    ]
+  };
+
+  return { prefectures, areas: [...cities, ward, empty], series, furusato };
 }
 
 describe("buildDataset", () => {
@@ -208,6 +243,51 @@ describe("buildDataset", () => {
     const built = buildDataset(snapshot, GENERATED_AT);
     expect(built.manifest.indicators.aging.year).toBe(2025);
     expect(built.manifest.indicators.aging.sources[0]?.latestYear).toBe(2025);
+  });
+
+  it("くらしの指標を、もとの数から定義の計算式で求めて保持する", () => {
+    const city = areaOf(cityCode(10));
+    expect(city.facts.foreignShare.basis).toEqual({ foreignResidents: 110, residents: 10010 });
+    expect(city.facts.projection2050.value).toBeCloseTo(((6000 + 10) / 10000) * 100 - 100, 1);
+    expect(city.facts.commuteRail.value).toBe(20.2);
+    expect(city.facts.furusatoCostShare.value).toBe(40);
+    expect(city.facts.furusatoNet.value).toBe(11_000_000 - 50_000_000);
+    for (const key of FACT_KEYS) {
+      expect(city.facts[key].value, key).not.toBeNull();
+    }
+  });
+
+  it("くらしの指標の基準年と出典を記録する", () => {
+    const facts = dataset.manifest.facts;
+    expect(facts.lifeFemale.year).toBe(2020);
+    expect(facts.marriageRate.year).toBe(2024);
+    expect(facts.birthRate.year).toBe(2025);
+    expect(facts.furusatoReceipts.period).toBe("令和7年度（2025年度）");
+    expect(facts.furusatoOutflow.period).toBe("令和8年度課税（2025年中の寄附）");
+    expect(facts.foreignShare.sources.map((source) => source.id)).toEqual(["foreignResidents", "residents"]);
+    expect(facts.furusatoNet.documents).toHaveLength(2);
+    expect(facts.furusatoOutflow.documents.map((document) => document.title)).toEqual(["住民税控除額"]);
+    expect(dataset.manifest.additionalSources.map((source) => source.id)).toEqual(["furusato"]);
+  });
+
+  it("くらしの指標の順位は区を除いて付け、区は値だけを持つ", () => {
+    const top = areaOf(cityCode(CITY_COUNT - 1));
+    expect(top.facts.lifeFemale.rank).toBe(1);
+    expect(top.facts.furusatoReceipts.rank).toBe(1);
+    const ward = areaOf("01101");
+    expect(ward.facts.lifeFemale.value).toBeNull();
+    expect(ward.facts.furusatoReceipts).toEqual({ value: null, rank: null, basis: {} });
+    expect(dataset.national.factKeys).toEqual([...FACT_KEYS]);
+    expect(dataset.national.areas.find((row) => row.code === top.code)?.facts).toEqual(
+      FACT_KEYS.map((key) => top.facts[key].value)
+    );
+  });
+
+  it("図書館の数が0の市区町村は、値0として順位を付ける", () => {
+    const zero = areaOf(cityCode(0));
+    expect(zero.facts.libraries.value).toBe(0);
+    expect(zero.facts.libraries.rank).toBeGreaterThan(1);
+    expect(FACTS.libraries.unit).toBe("館");
   });
 
   it("市区町村数が少なすぎる取得結果は拒否する", () => {

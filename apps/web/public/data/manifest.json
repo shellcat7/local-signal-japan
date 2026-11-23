@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 2,
-  "generatedAt": "2026-11-23T09:38:39.686Z",
+  "schemaVersion": 3,
+  "generatedAt": "2026-11-23T10:40:55.014Z",
   "source": {
     "name": "統計ダッシュボード（総務省統計局）",
     "url": "https://dashboard.e-stat.go.jp/",
@@ -14,6 +14,16 @@
     "areas": 1912,
     "referenceAreas": 1741
   },
+  "additionalSources": [
+    {
+      "id": "furusato",
+      "name": "ふるさと納税に関する現況調査結果（総務省）",
+      "url": "https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/furusato/archive/",
+      "license": "公共データ利用規約（第1.0版）",
+      "licenseUrl": "https://www.soumu.go.jp/menu_kyotsuu/policy/tyosaku.html",
+      "attribution": "総務省「ふるさと納税に関する現況調査結果」を加工して作成"
+    }
+  ],
   "context": {
     "daytimeRatio": {
       "id": "daytimeRatio",
@@ -456,6 +466,656 @@
           "unit": "",
           "cycle": "FY",
           "latestYear": 2022
+        }
+      ]
+    }
+  },
+  "facts": {
+    "lifeFemale": {
+      "year": 2020,
+      "period": "2020年",
+      "distribution": {
+        "count": 1732,
+        "min": 85.5,
+        "p10": 86.8,
+        "p25": 87.1,
+        "p50": 87.5,
+        "p75": 87.9,
+        "p90": 88.3,
+        "max": 89
+      },
+      "sources": [
+        {
+          "id": "lifeFemale",
+          "code": "0203090201000010010",
+          "name": "平均余命（０歳）（女）",
+          "statName": "社会・人口統計体系",
+          "unit": "年",
+          "cycle": "CY",
+          "latestYear": 2020
+        }
+      ],
+      "documents": []
+    },
+    "lifeMale": {
+      "year": 2020,
+      "period": "2020年",
+      "distribution": {
+        "count": 1732,
+        "min": 78.1,
+        "p10": 80.4,
+        "p25": 80.8,
+        "p50": 81.3,
+        "p75": 81.825,
+        "p90": 82.4,
+        "max": 83.4
+      },
+      "sources": [
+        {
+          "id": "lifeMale",
+          "code": "0203090101000010010",
+          "name": "平均余命（０歳）（男）",
+          "statName": "社会・人口統計体系",
+          "unit": "年",
+          "cycle": "CY",
+          "latestYear": 2020
+        }
+      ],
+      "documents": []
+    },
+    "projection2050": {
+      "year": 2050,
+      "period": "2025→2050年（推計）",
+      "distribution": {
+        "count": 1728,
+        "min": -68.7,
+        "p10": -48.93,
+        "p25": -42,
+        "p50": -31.3,
+        "p75": -18.4,
+        "p90": -7.6,
+        "max": 16.6
+      },
+      "sources": [
+        {
+          "id": "projection",
+          "code": "0201130020000010000",
+          "name": "将来推計人口",
+          "statName": "日本の将来推計人口",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2050
+        }
+      ],
+      "documents": []
+    },
+    "foreignShare": {
+      "year": 2025,
+      "period": "2025年1月1日",
+      "distribution": {
+        "count": 1741,
+        "min": 0,
+        "p10": 0.6,
+        "p25": 1,
+        "p50": 1.6,
+        "p75": 2.7,
+        "p90": 4.4,
+        "max": 36.6
+      },
+      "sources": [
+        {
+          "id": "foreignResidents",
+          "code": "0201220000000010010",
+          "name": "住民基本台帳人口（外国人）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2025
+        },
+        {
+          "id": "residents",
+          "code": "0201200000000010010",
+          "name": "住民基本台帳人口（総数）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2025
+        }
+      ],
+      "documents": []
+    },
+    "marriageRate": {
+      "year": 2023,
+      "period": "2023年",
+      "distribution": {
+        "count": 1741,
+        "min": 0,
+        "p10": 1.51,
+        "p25": 2.06,
+        "p50": 2.64,
+        "p75": 3.39,
+        "p90": 4.11,
+        "max": 9.97
+      },
+      "sources": [
+        {
+          "id": "marriages",
+          "code": "0203070000000010010",
+          "name": "婚姻件数",
+          "statName": "社会・人口統計体系",
+          "unit": "組",
+          "cycle": "CY",
+          "latestYear": 2023
+        },
+        {
+          "id": "residents",
+          "code": "0201200000000010010",
+          "name": "住民基本台帳人口（総数）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2025
+        }
+      ],
+      "documents": []
+    },
+    "birthRate": {
+      "year": 2025,
+      "period": "2025年",
+      "distribution": {
+        "count": 1733,
+        "min": 0.39,
+        "p10": 2.19,
+        "p25": 2.99,
+        "p50": 4.13,
+        "p75": 5.4,
+        "p90": 6.377999999999999,
+        "max": 12.62
+      },
+      "sources": [
+        {
+          "id": "births",
+          "code": "0203010000000010000",
+          "name": "出生数",
+          "statName": "人口動態調査",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2025
+        },
+        {
+          "id": "residents",
+          "code": "0201200000000010010",
+          "name": "住民基本台帳人口（総数）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2025
+        }
+      ],
+      "documents": []
+    },
+    "elderlyAlone": {
+      "year": 2020,
+      "period": "2020年",
+      "distribution": {
+        "count": 1740,
+        "min": 4.5,
+        "p10": 9.290000000000001,
+        "p25": 10.9,
+        "p50": 13.6,
+        "p75": 17.4,
+        "p90": 21.5,
+        "max": 35.3
+      },
+      "sources": [
+        {
+          "id": "elderlyAlone",
+          "code": "0202010401000020010",
+          "name": "６５歳以上世帯員の単独世帯の割合",
+          "statName": "社会・人口統計体系",
+          "unit": "%",
+          "cycle": "FY",
+          "latestYear": 2020
+        }
+      ],
+      "documents": []
+    },
+    "commuteRail": {
+      "year": 2020,
+      "period": "2020年",
+      "distribution": {
+        "count": 1740,
+        "min": 0,
+        "p10": 0.2,
+        "p25": 0.9,
+        "p50": 2.7,
+        "p75": 6,
+        "p90": 20.21000000000001,
+        "max": 62.9
+      },
+      "sources": [
+        {
+          "id": "commuteRail",
+          "code": "1203180101000010030",
+          "name": "自宅外通勤・通学者数（鉄道・電車）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2020
+        },
+        {
+          "id": "commuteTotal",
+          "code": "1203180101000010010",
+          "name": "自宅外通勤・通学者数",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2020
+        }
+      ],
+      "documents": []
+    },
+    "commuteCar": {
+      "year": 2020,
+      "period": "2020年",
+      "distribution": {
+        "count": 1740,
+        "min": 2.6,
+        "p10": 38.9,
+        "p25": 62.5,
+        "p50": 73.3,
+        "p75": 79.3,
+        "p90": 82.6,
+        "max": 89.4
+      },
+      "sources": [
+        {
+          "id": "commuteCar",
+          "code": "1203180101000010060",
+          "name": "自宅外通勤・通学者数（自家用車）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2020
+        },
+        {
+          "id": "commuteTotal",
+          "code": "1203180101000010010",
+          "name": "自宅外通勤・通学者数",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2020
+        }
+      ],
+      "documents": []
+    },
+    "commuteBike": {
+      "year": 2020,
+      "period": "2020年",
+      "distribution": {
+        "count": 1740,
+        "min": 0,
+        "p10": 1.4,
+        "p25": 2.5,
+        "p50": 4.6,
+        "p75": 7.4,
+        "p90": 11.2,
+        "max": 31.8
+      },
+      "sources": [
+        {
+          "id": "commuteBike",
+          "code": "1203180101000010120",
+          "name": "自宅外通勤・通学者数（自転車）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2020
+        },
+        {
+          "id": "commuteTotal",
+          "code": "1203180101000010010",
+          "name": "自宅外通勤・通学者数",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2020
+        }
+      ],
+      "documents": []
+    },
+    "commuteWalk": {
+      "year": 2020,
+      "period": "2020年",
+      "distribution": {
+        "count": 1740,
+        "min": 0.9,
+        "p10": 3.3,
+        "p25": 4.2,
+        "p50": 5.8,
+        "p75": 8.5,
+        "p90": 13,
+        "max": 48.7
+      },
+      "sources": [
+        {
+          "id": "commuteWalk",
+          "code": "1203180101000010020",
+          "name": "自宅外通勤・通学者数（徒歩だけ）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2020
+        },
+        {
+          "id": "commuteTotal",
+          "code": "1203180101000010010",
+          "name": "自宅外通勤・通学者数",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2020
+        }
+      ],
+      "documents": []
+    },
+    "vacancy": {
+      "year": 2023,
+      "period": "2023年",
+      "distribution": {
+        "count": 1059,
+        "min": 3.6,
+        "p10": 8.8,
+        "p25": 11.1,
+        "p50": 14.3,
+        "p75": 18.75,
+        "p90": 23.720000000000002,
+        "max": 70.4
+      },
+      "sources": [
+        {
+          "id": "vacancy",
+          "code": "0801010101000020040",
+          "name": "空き家比率",
+          "statName": "社会・人口統計体系",
+          "unit": "%",
+          "cycle": "FY",
+          "latestYear": 2023
+        }
+      ],
+      "documents": []
+    },
+    "floorArea": {
+      "year": 2023,
+      "period": "2023年",
+      "distribution": {
+        "count": 1059,
+        "min": 51.9,
+        "p10": 80,
+        "p25": 95.9,
+        "p50": 108.5,
+        "p75": 123.05,
+        "p90": 140,
+        "max": 211.4
+      },
+      "sources": [
+        {
+          "id": "floorArea",
+          "code": "0801010401000010000",
+          "name": "１住宅当たり延べ面積",
+          "statName": "社会・人口統計体系",
+          "unit": "㎡",
+          "cycle": "CY",
+          "latestYear": 2023
+        }
+      ],
+      "documents": []
+    },
+    "doctors": {
+      "year": 2022,
+      "period": "2022年",
+      "distribution": {
+        "count": 1741,
+        "min": 0,
+        "p10": 44,
+        "p25": 79,
+        "p50": 141,
+        "p75": 214,
+        "p90": 314,
+        "max": 2886
+      },
+      "sources": [
+        {
+          "id": "doctors",
+          "code": "1505040000000010000",
+          "name": "医師数",
+          "statName": "医師・歯科医師・薬剤師統計",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2022
+        },
+        {
+          "id": "residents",
+          "code": "0201200000000010010",
+          "name": "住民基本台帳人口（総数）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2025
+        }
+      ],
+      "documents": []
+    },
+    "libraries": {
+      "year": 2021,
+      "period": "2021年",
+      "distribution": {
+        "count": 1741,
+        "min": 0,
+        "p10": 0,
+        "p25": 0.8,
+        "p50": 3.1,
+        "p75": 7.3,
+        "p90": 15.2,
+        "max": 606.1
+      },
+      "sources": [
+        {
+          "id": "libraries",
+          "code": "1202010400000010010",
+          "name": "図書館数",
+          "statName": "社会・人口統計体系",
+          "unit": "館",
+          "cycle": "CY",
+          "latestYear": 2021
+        },
+        {
+          "id": "residents",
+          "code": "0201200000000010010",
+          "name": "住民基本台帳人口（総数）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2025
+        }
+      ],
+      "documents": []
+    },
+    "garbage": {
+      "year": 2023,
+      "period": "2023年度",
+      "distribution": {
+        "count": 1718,
+        "min": 56,
+        "p10": 678,
+        "p25": 751,
+        "p50": 850,
+        "p75": 952,
+        "p90": 1094.3,
+        "max": 6340
+      },
+      "sources": [
+        {
+          "id": "garbage",
+          "code": "1405050102000010010",
+          "name": "１人１日当たりのごみ排出量",
+          "statName": "社会・人口統計体系",
+          "unit": "g/人日",
+          "cycle": "FY",
+          "latestYear": 2023
+        }
+      ],
+      "documents": []
+    },
+    "recycling": {
+      "year": 2023,
+      "period": "2023年度",
+      "distribution": {
+        "count": 1718,
+        "min": 0,
+        "p10": 9.2,
+        "p25": 12.325000000000001,
+        "p50": 17.5,
+        "p75": 23.4,
+        "p90": 32.35999999999999,
+        "max": 99.7
+      },
+      "sources": [
+        {
+          "id": "recycling",
+          "code": "1405050800000020010",
+          "name": "ごみのリサイクル率",
+          "statName": "社会・人口統計体系",
+          "unit": "%",
+          "cycle": "FY",
+          "latestYear": 2023
+        }
+      ],
+      "documents": []
+    },
+    "furusatoReceipts": {
+      "year": 2025,
+      "period": "令和7年度（2025年度）",
+      "distribution": {
+        "count": 1741,
+        "min": 0,
+        "p10": 16685000,
+        "p25": 68221000,
+        "p50": 260628695,
+        "p75": 729639000,
+        "p90": 1798011153,
+        "max": 23038604299
+      },
+      "sources": [],
+      "documents": [
+        {
+          "title": "各自治体の令和7年度受入額等",
+          "publisher": "総務省",
+          "url": "https://www.soumu.go.jp/main_content/001084989.xlsx"
+        }
+      ]
+    },
+    "furusatoPerCapita": {
+      "year": 2025,
+      "period": "令和7年度（2025年度）",
+      "distribution": {
+        "count": 1741,
+        "min": 0,
+        "p10": 1101,
+        "p25": 3291,
+        "p50": 10391,
+        "p75": 31007,
+        "p90": 75549,
+        "max": 3188555
+      },
+      "sources": [
+        {
+          "id": "residents",
+          "code": "0201200000000010010",
+          "name": "住民基本台帳人口（総数）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2025
+        }
+      ],
+      "documents": [
+        {
+          "title": "各自治体の令和7年度受入額等",
+          "publisher": "総務省",
+          "url": "https://www.soumu.go.jp/main_content/001084989.xlsx"
+        }
+      ]
+    },
+    "furusatoCostShare": {
+      "year": 2025,
+      "period": "令和7年度（2025年度）",
+      "distribution": {
+        "count": 1740,
+        "min": 0,
+        "p10": 40.8,
+        "p25": 45.775,
+        "p50": 48.2,
+        "p75": 49.6,
+        "p90": 49.9,
+        "max": 68.6
+      },
+      "sources": [],
+      "documents": [
+        {
+          "title": "各自治体の令和7年度受入額等",
+          "publisher": "総務省",
+          "url": "https://www.soumu.go.jp/main_content/001084989.xlsx"
+        }
+      ]
+    },
+    "furusatoOutflow": {
+      "year": 2026,
+      "period": "令和8年度課税（2025年中の寄附）",
+      "distribution": {
+        "count": 1741,
+        "min": 0,
+        "p10": 2785525,
+        "p25": 9034266,
+        "p50": 37194923,
+        "p75": 159254175,
+        "p90": 585702897,
+        "max": 36087299643
+      },
+      "sources": [],
+      "documents": [
+        {
+          "title": "各自治体の令和8年度課税における住民税控除額等",
+          "publisher": "総務省",
+          "url": "https://www.soumu.go.jp/main_content/001085012.xlsx"
+        }
+      ]
+    },
+    "furusatoNet": {
+      "year": 2025,
+      "period": "令和7年度",
+      "distribution": {
+        "count": 1741,
+        "min": -31912172989,
+        "p10": -223156464,
+        "p25": 8027230,
+        "p50": 135060801,
+        "p75": 546242221,
+        "p90": 1473567992,
+        "max": 22632206314
+      },
+      "sources": [],
+      "documents": [
+        {
+          "title": "各自治体の令和7年度受入額等",
+          "publisher": "総務省",
+          "url": "https://www.soumu.go.jp/main_content/001084989.xlsx"
+        },
+        {
+          "title": "各自治体の令和8年度課税における住民税控除額等",
+          "publisher": "総務省",
+          "url": "https://www.soumu.go.jp/main_content/001085012.xlsx"
         }
       ]
     }

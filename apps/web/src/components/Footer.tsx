@@ -18,6 +18,25 @@ export function Footer({ manifest }: { manifest: Manifest | null }) {
           </p>
           {/* 統計ダッシュボードAPIの利用条件として求められているクレジット表示。文言は変更しない。 */}
           <p>{manifest.source.credit}</p>
+          {manifest.additionalSources.map((source) => (
+            <p key={source.id}>
+              出典：
+              <a href={source.url} target="_blank" rel="noreferrer">
+                {source.name}
+              </a>
+              を加工して作成。利用規約：
+              <a href={source.licenseUrl} target="_blank" rel="noreferrer">
+                {source.license}
+              </a>
+            </p>
+          ))}
+          <p>
+            地図：
+            <a href="https://nlftp.mlit.go.jp/ksj/" target="_blank" rel="noreferrer">
+              国土数値情報（行政区域データ）（国土交通省）
+            </a>
+            を加工して作成（CC BY 4.0）
+          </p>
           <p>
             {SITE_NAME}は、{DISCLAIMER}
           </p>

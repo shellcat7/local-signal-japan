@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INDICATOR_KEYS } from "./model";
+import { FACT_KEYS, INDICATOR_KEYS } from "./model";
 import { areaIndexSchema, areaIndicatorSchema, areaRecordSchema, manifestSchema, nationalFileSchema } from "./schema";
 import { fixtureIndex, makeArea, makeManifest } from "./testing/fixtures";
 
@@ -45,15 +45,15 @@ describe("データセットのスキーマ", () => {
       kind: "special-ward",
       population: 68835,
       values: [4.4, 16.2, -0.14, 535.4, 1.9, 1175.5, null],
-      scores: [99, 100, 63, 100, 95, 100, null]
+      scores: [99, 100, 63, 100, 95, 100, null],
+      facts: FACT_KEYS.map(() => null)
     };
-    expect(nationalFileSchema.safeParse({ indicatorKeys: [...INDICATOR_KEYS], areas: [row] }).success).toBe(true);
-    expect(nationalFileSchema.safeParse({ indicatorKeys: [...INDICATOR_KEYS].reverse(), areas: [row] }).success).toBe(
-      false
-    );
-    expect(
-      nationalFileSchema.safeParse({ indicatorKeys: [...INDICATOR_KEYS], areas: [{ ...row, values: [1, 2] }] }).success
-    ).toBe(false);
+    const file = { indicatorKeys: [...INDICATOR_KEYS], factKeys: [...FACT_KEYS], areas: [row] };
+    expect(nationalFileSchema.safeParse(file).success).toBe(true);
+    expect(nationalFileSchema.safeParse({ ...file, indicatorKeys: [...INDICATOR_KEYS].reverse() }).success).toBe(false);
+    expect(nationalFileSchema.safeParse({ ...file, factKeys: [...FACT_KEYS].reverse() }).success).toBe(false);
+    expect(nationalFileSchema.safeParse({ ...file, areas: [{ ...row, values: [1, 2] }] }).success).toBe(false);
+    expect(nationalFileSchema.safeParse({ ...file, areas: [{ ...row, facts: [1, 2] }] }).success).toBe(false);
   });
 
   it("スコアは0〜100の整数に限る", () => {
