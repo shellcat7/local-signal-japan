@@ -1,18 +1,35 @@
-# Privacy
+# プライバシー
 
-The MVP is designed not to store user input or behavioral data.
+Local Signal Japan は、利用者の入力や行動を集めないように作っています。方針ではなく、仕組みとしてそうなっています。
 
-## No Default Storage
+## 収集しないもの
 
-- Municipality search terms are not persisted.
-- Search history is not stored.
-- IP address, user agent, and referer are not stored in application-owned storage.
-- Analytics, ads, tracking tags, and error-reporting SDKs are not included.
+- 検索に入力した文字
+- どの市区町村を見たか
+- 閲覧の履歴
+- IPアドレス、ユーザーエージェント、リファラ（アプリケーションとしては一切扱いません）
 
-## Browser Storage
+アクセス解析、広告、トラッキング用のタグ、エラー収集サービスは入れていません。
 
-The MVP does not use localStorage, sessionStorage, or cookies.
+## 仕組み
 
-## Future Storage
+- **検索はブラウザの中で完結します。** 市区町村の一覧（`areas.json`）を最初に読み込み、候補の絞り込みはすべて手元で行います。入力した文字はどこにも送信しません。
+- **サーバー側のプログラムがありません。** 配信しているのは静的なファイルだけで、入力を受け取って処理する仕組み自体がありません。
+- **表示状態は URL のハッシュに持たせています。** `#area=13101` のようなハッシュ部分は、ブラウザがサーバーに送信しません。どの市区町村を見たかは、配信元のアクセスログに残りません。
+- **データは都道府県単位のファイルです。** 市区町村を開くと、その都道府県のファイル（例: `pref/13.json`）を読み込みます。配信元に伝わるのは「どの都道府県のファイルを取得したか」までです。
+- **外部への通信を禁止しています。** Content-Security-Policy で通信先を同一オリジンに限定しています。外部のスクリプト、フォント、画像は読み込みません。
+- **ブラウザに保存しません。** Cookie、localStorage、sessionStorage を使いません。
 
-If saved searches or history are added later, they must be opt-in and documented before release.
+これらは自動テストで確認しています（`e2e/app.spec.ts` の「外部への通信をしないこと」）。
+
+## ホスティング事業者のログ
+
+Cloudflare や GitHub Pages などの配信元は、通常のアクセスログ（IPアドレス、取得したファイルのパスなど）を事業者の規約に基づいて記録します。これはこのアプリケーションの外側で行われるもので、公開する人が選んだ事業者のプライバシーポリシーに従います。
+
+## 外部サイトへのリンク
+
+出典のリンクを開くと、統計ダッシュボード（総務省統計局）のサイトに移動します。リンクには `rel="noreferrer"` を付け、リンク元の情報を送らないようにしています。
+
+## 将来の変更
+
+検索の保存や履歴のような機能を追加する場合は、利用者が自分で有効にする方式（オプトイン）とし、公開前にこのページを更新します。

@@ -1,135 +1,144 @@
 # Local Signal Japan
 
-Local Signal Japan is a standalone TypeScript/React project that visualizes local public-data signals for Japanese municipalities. The MVP runs with mock data only, so it can be tested without API keys.
+[![CI](https://github.com/shellcat7/local-signal-japan/actions/workflows/ci.yml/badge.svg)](https://github.com/shellcat7/local-signal-japan/actions/workflows/ci.yml)
 
-The app avoids deterministic labels such as "this region is growing" or "this region is declining". It presents normalized indicators as public-data signals with sources, retrieval dates, processing notes, and missing-data notes.
+全国の市区町村について、人口・高齢化・転入転出・事業所・雇用・所得・財政の公開統計を、出典・基準時点・欠損の注記ごと確認できるダッシュボードです。
 
-## Current MVP
+_A dashboard for Japanese municipalities that shows official public statistics together with their sources, reference periods, and missing-data notes. All data comes from the Statistics Dashboard API of the Statistics Bureau of Japan (no API key required) and ships as a static dataset, so the site runs without any backend. The UI and documentation are in Japanese._
 
-- React/Vite dashboard at `/demo`
-- Hono Worker API scaffold
-- Mock municipality signal data
-- Indicator cards for population, aging rate, migration, land price, corporate activity, procurement activity, and employment
-- Neighbor comparison view
-- Markdown report generation
-- CLI report scaffold
-- Secret scanning script
-- Cloudflare deployment notes
+![南砺市の概要画面。総合補助スコア、人口、利用できる指標、信頼度メモと、指標ごとの補助スコアの内訳、公開統計から読み取れるシグナルが並ぶ](docs/images/overview.png)
 
-## Local Setup
+## できること
 
-0. Confirm Node.js, npm, and Corepack are available.
+- **さがす**: 市区町村名・よみがな・5桁の市区町村コードで検索（全国約1,900団体。政令指定都市の区を含む）
+- **概要**: 7つの指標が全国の中でどの位置にあるかと、そこから規則的に書き出したシグナル・注意・欠損
+- **指標**: 指標ごとの値、基準時点、時系列グラフ、算出方法、出典の系列と取得日
+- **比較**: 同じ都道府県の中で、人口規模が近い市区町村との比較
+- **レポート**: 同じ内容を Markdown でダウンロード・コピー
 
-   ```bash
-   node -v
-   npm -v
-   corepack -v
-   ```
+## 設計上の約束
 
-   If `corepack` or `npm` is not recognized on Windows, install the normal Node.js LTS package from `https://nodejs.org/`, then close and reopen Command Prompt.
+- **出典と基準時点を必ず示す。** すべての値に、出典の統計名・系列コード・基準時点・取得日を添えます。各指標のリンクから、出典の値そのものを確認できます。
+- **断定しない。** 「この地域は成長している／衰退している」といった判定はしません。補助スコアは全国の中での相対的な位置を示すだけです。
+- **欠損を低い評価として扱わない。** 値がそろわない指標は「欠損」と表示して理由を添え、平均から除きます。
+- **入力を保存・送信しない。** 検索はブラウザの中で完結します。サーバー側のプログラム、アクセス解析、Cookie はありません。外部への通信は Content-Security-Policy で禁止しています。
+- **APIキーが要らない。** 出典は利用登録不要の API で、取得済みのデータをリポジトリに同梱しています。公開に必要な設定はありません。
 
-1. Enable pnpm through Corepack.
+## 収録している指標
 
-   ```bash
-   corepack enable
-   corepack prepare pnpm@9.12.3 --activate
-   ```
+| 指標       | 指標値                            | 元の統計                               |
+| ---------- | --------------------------------- | -------------------------------------- |
+| 人口       | 5年間の人口増減率                 | 住民基本台帳人口（社会・人口統計体系） |
+| 高齢化     | 高齢化率（65歳以上人口の割合）    | 国勢調査                               |
+| 転入・転出 | 転入超過率（直近3年平均）         | 社会・人口統計体系                     |
+| 事業所     | 人口千人当たりの民営事業所数      | 経済センサス                           |
+| 雇用       | 完全失業率                        | 国勢調査（社会・人口統計体系）         |
+| 所得       | 納税義務者1人当たりの課税対象所得 | 社会・人口統計体系                     |
+| 財政       | 財政力指数                        | 社会・人口統計体系                     |
 
-2. Install dependencies.
+算出方法は [docs/METHODOLOGY.md](docs/METHODOLOGY.md)、系列コードと取得のしかたは [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) にあります。
 
-   ```bash
-   pnpm install
-   ```
+## はじめかた
 
-3. Run the web app.
-
-   ```bash
-   pnpm dev
-   ```
-
-4. Open the demo route.
-
-   ```text
-   http://127.0.0.1:5173/demo
-   ```
-
-## Windows Troubleshooting
-
-If Command Prompt says `'corepack' is not recognized`, use this order:
-
-1. Install Node.js LTS from the official Node.js website.
-2. Close all Command Prompt and PowerShell windows.
-3. Open a new Command Prompt.
-4. Run `node -v`, `npm -v`, and `corepack -v`.
-5. Return to this project directory and run the setup commands again.
-
-If `npm -v` works but `corepack -v` still fails, install pnpm directly:
+Node.js 22.12 以上が必要です。pnpm は Corepack 経由で使います。
 
 ```bash
-npm install -g pnpm@9.12.3
-pnpm -v
+corepack enable
 ```
 
-If `corepack enable` fails on Windows with an `EPERM` error under `C:\Program Files\nodejs`, it is usually a permissions issue while creating package-manager shims. You can continue in either of these ways:
-
 ```bash
-corepack pnpm install
-corepack pnpm preflight
-corepack pnpm dev
-```
-
-Or install pnpm into the user-level npm global folder:
-
-```bash
-npm install -g pnpm@9.12.3
 pnpm install
-pnpm preflight
+```
+
+```bash
 pnpm dev
 ```
 
+<http://127.0.0.1:5173/> を開きます。データは同梱済みなので、そのまま動きます。
+
+Windows で `corepack enable` が権限エラーになる場合は、`npm install -g pnpm@10` で pnpm を入れてから `pnpm install` を実行してください。
+
 ## CLI
 
+同梱データセットを、コマンドラインから検索・表示・レポート出力できます。
+
 ```bash
-pnpm localsignal demo
-pnpm localsignal report --area-code 13101 --out reports/local-signal-demo.md
+pnpm localsignal search 府中
 ```
 
-The bundled CLI fixture supports area code `13101` only in the MVP. Additional connectors will be added behind server-side boundaries.
-
-## Checks
+```bash
+pnpm localsignal show 13101
+```
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm scan:secrets
+pnpm localsignal report 横浜市青葉区 --out report.md
+```
+
+`show --json` で、画面と同じ表示用データを JSON で出力します。
+
+## データの更新
+
+```bash
+pnpm data:refresh
+```
+
+統計ダッシュボード API から最新の統計を取得し、`apps/web/public/data/` を作り直します（APIキー不要、1分ほど）。GitHub Actions の「データ更新」ワークフローが毎月これを実行し、統計値に変更があればプルリクエストを作ります。
+
+## 公開
+
+```bash
+pnpm build
+```
+
+`apps/web/dist/` を静的ファイルとして配信するだけです。Cloudflare と GitHub Pages への公開手順は [docs/DEPLOY.md](docs/DEPLOY.md) にあります。
+
+## 開発
+
+```bash
 pnpm preflight
 ```
 
-## Public Release Checklist
+整形・Lint・型検査・単体テスト・同梱データセットの検査・秘密情報の検査・ビルドをまとめて実行します。
 
-- Confirm `.env`, `.dev.vars`, and other local secret files are not tracked.
-- Confirm `.env.example` contains placeholders only.
-- Confirm frontend bundles contain no API keys, tokens, signed URLs, or upstream raw responses.
-- Confirm all API-key access happens in Cloudflare Workers or Pages Functions.
-- Confirm `/demo` uses only mock data.
-- Confirm sources, retrieval dates, license notes, and processing state are visible in UI and reports.
-- Confirm the wording avoids deterministic regional judgments.
-- Run `pnpm preflight` before publishing.
+```bash
+pnpm exec playwright install chromium
+```
 
-## Documentation
+```bash
+pnpm test:e2e
+```
 
-- [Data sources](docs/DATA_SOURCES.md)
-- [Database](docs/DATABASE.md)
-- [Attribution](docs/ATTRIBUTION.md)
-- [Methodology](docs/METHODOLOGY.md)
-- [Design rationale](docs/DESIGN_RATIONALE.md)
-- [Review checklist](docs/REVIEW_CHECKLIST.md)
-- [Privacy](docs/PRIVACY.md)
-- [Security](docs/SECURITY.md)
-- [Cloudflare deployment](docs/DEPLOY_CLOUDFLARE.md)
-- [Roadmap](docs/ROADMAP.md)
+ブラウザでの動作確認です（主要な操作、アクセシビリティ、横はみ出し、外部通信をしないこと）。
 
-## License
+構成と設計判断は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) にまとめています。
 
-MIT
+| 場所               | 役割                                                              |
+| ------------------ | ----------------------------------------------------------------- |
+| `apps/web`         | 画面（React + Vite）。`public/data/` に同梱データセット           |
+| `apps/cli`         | CLI                                                               |
+| `packages/core`    | 指標の定義、補助スコア、シグナルの文章、レポート、検索            |
+| `packages/dataset` | 統計ダッシュボード API からの取得と、データセットの組み立て・検査 |
+| `e2e`              | ブラウザでの動作確認                                              |
+
+## ドキュメント
+
+- [算出方法](docs/METHODOLOGY.md)
+- [データの出典](docs/DATA_SOURCES.md)
+- [構成](docs/ARCHITECTURE.md)
+- [公開（デプロイ）](docs/DEPLOY.md)
+- [プライバシー](docs/PRIVACY.md)
+- [セキュリティ](SECURITY.md)
+- [ロードマップ](docs/ROADMAP.md)
+- [変更履歴](CHANGELOG.md)
+
+## 出典とクレジット
+
+出典：[統計ダッシュボード](https://dashboard.e-stat.go.jp/)（総務省統計局）のデータを加工して作成
+
+このサービスは、統計ダッシュボードのAPI機能を使用していますが、サービスの内容は国によって保証されたものではありません。
+
+統計データは[公共データ利用規約（第1.0版）](https://dashboard.e-stat.go.jp/static/terms)に基づいて利用しています。派生物を公開するときも、上の出典の記載とクレジット表示を残してください。
+
+## ライセンス
+
+ソースコードは [MIT License](LICENSE) です。同梱している統計データには、上記の利用規約が適用されます。

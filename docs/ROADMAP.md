@@ -1,37 +1,31 @@
-# Roadmap
+# ロードマップ
 
-## Phase 1: MVP Hardening
+優先度の高い順です。どれも、[算出方法](METHODOLOGY.md)と[プライバシー](PRIVACY.md)の約束を崩さない形で進めます。
 
-- Add Playwright screenshot checks for `/demo`.
-- Add source metadata to chart-level datasets.
-- Add fixture coverage for multiple municipality types.
-- Add a lockfile and make CI installation strict.
+## 指標を増やす
 
-## Phase 2: Public Data Connectors
+統計ダッシュボードに市区町村単位の新しい値がないため、いまは収録していない指標です。追加するには別の出典への対応が要ります。APIキーが必要な出典は、キーをデータ取得の処理（GitHub Actions のシークレット）でだけ使い、ブラウザに配るファイルには含めません。
 
-- Add e-Stat connector behind the Worker boundary.
-- Add real-estate connector behind the Worker boundary.
-- Add G Biz INFO connector behind the Worker boundary.
-- Add procurement connector behind the Worker boundary.
-- Keep all API-key usage server-side.
+- 地価: 不動産情報ライブラリ（国土交通省）の API。用途（住宅地・商業地など）を分けて扱う
+- 法人の動き: gBizINFO（経済産業省）の API。設立・移転・閉鎖を分け、個別の法人情報は保持しない
+- 公共調達: 調達ポータルなどの落札情報。公表範囲の違いを注記する
+- 住宅: 空き家比率、新設住宅着工（統計ダッシュボードに収録あり。小規模な市区町村は欠損が多い）
 
-## Phase 3: SDK and CLI
+## 読み取りを助ける
 
-- Publish a region signal scoring SDK package.
-- Add connector interfaces for reusable data ingestion.
-- Expand CLI to generate reports for arbitrary area codes.
-- Add configurable scoring profiles.
+- 都道府県・全国の値を、同じ画面で参照できるようにする
+- 比較対象を自分で選べるようにする（都道府県をまたぐ比較、通勤圏での比較）
+- 補助スコアの重みづけを利用者が変えられるようにする
+- 政令指定都市の区で欠損している指標に、市全体の値を参考として並べる
+- 合併・区の再編があった市区町村に、その履歴を注記する
 
-## Phase 4: Template Repository
+## 使い方を広げる
 
-- Add documented setup scripts.
-- Add a Deploy to Cloudflare button.
-- Add sample GitHub Actions deployment workflow.
-- Add public-data attribution component examples.
+- レポートの印刷用レイアウト、CSV での書き出し
+- `packages/core` を npm パッケージとして公開する
+- 画面の英語表示
 
-## Phase 5: Review and Governance
+## 運用
 
-- Add methodology versioning.
-- Add data freshness warnings.
-- Add confidence scoring per data source.
-- Add a public release review template.
+- データ更新のプルリクエストに、どの指標の基準年が変わったかの要約を付ける
+- データセットの形式を変えるときの移行手順を決める

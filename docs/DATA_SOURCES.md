@@ -1,20 +1,86 @@
-# Data Sources
+# データの出典
 
-The MVP uses mock data only. The mock fixtures are intentionally marked as `isMock: true` and are not real statistics.
+## 出典
 
-## Planned Public Sources
+すべての統計値は、総務省統計局の[統計ダッシュボード](https://dashboard.e-stat.go.jp/)が提供する WebAPI から取得しています。
 
-| Source | Planned Use | API Key Boundary | Notes |
-| --- | --- | --- | --- |
-| e-Stat | Population, age structure, migration | Server side only | Show survey name, retrieval date, and table metadata. |
-| G Biz INFO | Corporate activity signals | Server side only | Avoid storing company profiles in MVP. |
-| Real Estate Information Library | Land-price signals | Server side only | Separate commercial, residential, and industrial locations. |
-| Public procurement sources | Procurement and award signals | Server side only | Show publication date and data processing notes. |
-| Geospatial Information Authority of Japan tiles | Optional map context | Browser tile access only if needed | Do not add map UI until it improves interpretation. |
+- API の仕様: <https://dashboard.e-stat.go.jp/static/api>
+- 利用登録・APIキー: 不要
+- 利用規約: [公共データ利用規約（第1.0版）](https://dashboard.e-stat.go.jp/static/terms)
 
-## Mock Data Rules
+> 出典：統計ダッシュボード（https://dashboard.e-stat.go.jp/）のデータを加工して作成
+>
+> このサービスは、統計ダッシュボードのAPI機能を使用していますが、サービスの内容は国によって保証されたものではありません。
 
-- Mock data must be visually labeled.
-- Mock data must not be mixed with real public data in the same card without explicit labels.
-- Mock source labels use `mock://` labels rather than real URLs.
-- Mock dates are fixture dates, not evidence of actual retrieval from the named public source.
+上の2行は、利用規約で求められている出典の記載とクレジット表示です。画面のフッター、レポート、CLI の出力に必ず入れています。派生物を公開するときも、この表示を残してください。
+
+## 使っている系列
+
+| 指標       | 系列名                         | 系列コード            | 元の統計           |
+| ---------- | ------------------------------ | --------------------- | ------------------ |
+| 人口       | 住民基本台帳人口（総数）       | `0201200000000010010` | 社会・人口統計体系 |
+| 高齢化     | 総人口に占める割合（65歳以上） | `0201010010000020030` | 国勢調査           |
+| 転入・転出 | 転入者数                       | `0204010000000010020` | 社会・人口統計体系 |
+| 転入・転出 | 転出者数                       | `0204020000000010020` | 社会・人口統計体系 |
+| 事業所     | 事業所数（民営）（～2016年）   | `0701010001000010010` | 経済センサス       |
+| 事業所     | 事業所数（民営）               | `0701010001000010012` | 経済センサス       |
+| 雇用       | 完全失業率（国勢調査）         | `0301100000020020010` | 社会・人口統計体系 |
+| 所得       | 課税対象所得                   | `1302070100000010010` | 社会・人口統計体系 |
+| 所得       | 納税義務者数（所得割）         | `1302070100000010020` | 社会・人口統計体系 |
+| 財政       | 財政力指数（市町村財政）       | `1302050000000190010` | 社会・人口統計体系 |
+| （文脈）   | 昼夜間人口比率                 | `0201060000000020000` | 社会・人口統計体系 |
+
+昼夜間人口比率は補助スコアには使わず、読み取り時の注意を出す判定にだけ使っています。
+
+系列名・元の統計名・各系列の最新年は、取得のたびに API のメタ情報から読み取り、`apps/web/public/data/manifest.json` に記録しています。画面の「出典」に出るのはこの記録です。
+
+## 対象の市区町村
+
+統計ダッシュボードの地域マスタで現存している、政令指定都市・市・特別区・政令指定都市の区・町・村が対象です。統計が1つもない地域（北方領土の村）は除いています。
+
+補助スコアの基準集団には、政令指定都市の区を含めません（[算出方法](METHODOLOGY.md)を参照）。
+
+## 同梱データセット
+
+取得した統計は、整形したうえでリポジトリに同梱しています（`apps/web/public/data/`）。画面はこのファイルだけを読み、閲覧時に外部の API を呼びません。
+
+| ファイル                         | 内容                                                   |
+| -------------------------------- | ------------------------------------------------------ |
+| `manifest.json`                  | 取得日時、出典、指標ごとの基準年・全国の分布・出典系列 |
+| `areas.json`                     | 検索用の市区町村一覧（コード・名前・よみがな・区分）   |
+| `pref/01.json` 〜 `pref/47.json` | 都道府県ごとの、市区町村の指標値・補助スコア・時系列   |
+
+形式の定義は [`packages/core/src/schema.ts`](../packages/core/src/schema.ts) にあります。
+
+### 更新のしかた
+
+```bash
+pnpm data:refresh
+```
+
+1. 地域マスタと各系列を、統計ダッシュボード API から取得します。系列は1つにつき1リクエストで全国分を取得し、リクエストの間隔を1.5秒空けます（合計13リクエストほど）。
+2. 指標値と補助スコアを計算し、形式と件数を検査します。市区町村数が極端に少ない、都道府県が47そろわない、といった取得結果は書き出さずに失敗させます。
+3. `apps/web/public/data/` を書き換えます。
+
+`pnpm test` には、同梱データセットを現在の算出ロジックで再計算して突き合わせる検査が入っています。算出方法を変えたら、データセットも作り直してください。
+
+GitHub Actions の「データ更新」ワークフローが毎月1回これを実行し、統計値に変更があればプルリクエストを作ります。
+
+### 取得日と基準時点
+
+- **取得日**: API から取得した日。データセット全体で1つです。
+- **基準時点**: その値が指している年・年度。指標ごとに異なります。
+
+画面とレポートでは、この2つを区別して両方表示しています。
+
+## 値の検証
+
+各指標カードの「出典」のリンクは、その市区町村・その系列の値を返す API の URL です。同梱している値が出典と一致しているかを、誰でもその場で確かめられます。
+
+## 収録していないもの
+
+次の指標は、統計ダッシュボードに市区町村単位の新しい値がないため、収録していません。追加するには別の出典（多くは APIキーが必要）への対応が要ります。[ロードマップ](ROADMAP.md)を参照してください。
+
+- 地価（市区町村単位の値は2009年まで）
+- 公共調達・入札
+- 法人の設立・移転
