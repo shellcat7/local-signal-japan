@@ -31,7 +31,9 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 async function expectAccessible(page: Page) {
-  // 表示の切り替えで不透明度を変えている間は、色の判定がぶれる。動きが終わってから調べる。
+  // 表示の切り替えで不透明度を変えている間は、色の判定がぶれる。
+  // データの読み込みと、それに続く表示の動きが終わってから調べる。
+  await page.waitForLoadState("networkidle");
   await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)));
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   const violations = results.violations.flatMap((violation) =>
