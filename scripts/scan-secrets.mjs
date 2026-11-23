@@ -13,7 +13,9 @@ const ignoredDirectories = new Set([
   ".turbo",
   ".cache",
   "coverage",
-  "tmp"
+  "tmp",
+  "playwright-report",
+  "test-results"
 ]);
 
 const ignoredFiles = new Set(["scripts/scan-secrets.mjs"]);

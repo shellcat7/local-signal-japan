@@ -1,37 +1,36 @@
-# Roadmap
+# ロードマップ
 
-## Phase 1: MVP Hardening
+優先度の高い順です。どれも、[算出方法](METHODOLOGY.md)と[プライバシー](PRIVACY.md)の約束を崩さない形で進めます。
 
-- Add Playwright screenshot checks for `/demo`.
-- Add source metadata to chart-level datasets.
-- Add fixture coverage for multiple municipality types.
-- Add a lockfile and make CI installation strict.
+## 指標を増やす
 
-## Phase 2: Public Data Connectors
+統計ダッシュボードに市区町村単位の新しい値がないため、いまは収録していない指標です。追加するには別の出典への対応が要ります。APIキーが必要な出典は、キーをデータ取得の処理（GitHub Actions のシークレット）でだけ使い、ブラウザに配るファイルには含めません。
 
-- Add e-Stat connector behind the Worker boundary.
-- Add real-estate connector behind the Worker boundary.
-- Add G Biz INFO connector behind the Worker boundary.
-- Add procurement connector behind the Worker boundary.
-- Keep all API-key usage server-side.
+- 地価: 国土数値情報の地価公示（CC BY 4.0、APIキー不要）を市区町村ごとに集計する。用途（住宅地・商業地など）を分けて扱う
+- 合計特殊出生率: 人口動態保健所・市区町村別統計（ベイズ推定値、5年ごと）。いまの「出生率（人口千人当たり）」とは別の数字として示す
+- 投票率: 総務省の選挙結果（選挙ごとの公表）。選挙の種類と日付を必ず添える
+- 地方公務員の給与水準（ラスパイレス指数）: 総務省の地方公務員給与実態調査
+- 法人の動き: gBizINFO（経済産業省）の API。設立・移転・閉鎖を分け、個別の法人情報は保持しない
+- 新設住宅着工（統計ダッシュボードに収録あり。小規模な市区町村は欠損が多い）
 
-## Phase 3: SDK and CLI
+## 読み取りを助ける
 
-- Publish a region signal scoring SDK package.
-- Add connector interfaces for reusable data ingestion.
-- Expand CLI to generate reports for arbitrary area codes.
-- Add configurable scoring profiles.
+- 都道府県・全国の値を、同じ画面で参照できるようにする
+- 通勤圏など、地理的なまとまりで比べられるようにする
+- 比較の表を CSV で書き出す
+- 市区町村の画面に、位置がわかる小さな地図を添える
+- 特集を、データ更新のたびに見直す（基準年が変わった項目の特集を先頭に）
+- 補助スコアの重みづけを利用者が変えられるようにする
+- 政令指定都市の区で欠損している指標に、市全体の値を参考として並べる
+- 合併・区の再編があった市区町村に、その履歴を注記する
 
-## Phase 4: Template Repository
+## 使い方を広げる
 
-- Add documented setup scripts.
-- Add a Deploy to Cloudflare button.
-- Add sample GitHub Actions deployment workflow.
-- Add public-data attribution component examples.
+- レポートの印刷用レイアウト
+- `packages/core` を npm パッケージとして公開する
+- 画面の英語表示
 
-## Phase 5: Review and Governance
+## 運用
 
-- Add methodology versioning.
-- Add data freshness warnings.
-- Add confidence scoring per data source.
-- Add a public release review template.
+- データ更新のプルリクエストに、どの指標の基準年が変わったかの要約を付ける
+- データセットの形式を変えるときの移行手順を決める

@@ -1,0 +1,114 @@
+name: データ更新
+
+# 統計ダッシュボードAPIから最新の統計を取得し、統計値に変更があればプルリクエストを作る。
+# APIキーは不要。プルリクエストの作成には、リポジトリ設定
+# Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests" を有効にしておく。
+on:
+  schedule:
+    # 毎月3日 03:17 (日本時間)。上流の負荷を避けるため、深夜の中途半端な時刻にしている。
+    - cron: "17 18 2 * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  # 依存パッケージのコードを実行するジョブには、書き込み権限を渡さない。
+  build:
+    name: 取得と検査
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: 最新データを取得してデータセットを作り直す
+        run: pnpm data:refresh
+
+      - name: 作り直したデータセットを検査する
+        run: pnpm test && pnpm build
+
+      - name: 統計値に変更があるかを調べる
+        id: diff
+        run: |
+          # manifest.json は取得日時が毎回変わるため、統計値そのものの変更だけを見る。
+          if git diff --quiet -- apps/web/public/data ':(exclude)apps/web/public/data/manifest.json'; then
+            echo "統計値に変更はありませんでした。"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git diff --stat -- apps/web/public/data | tail -n 5
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          name: dataset
+          path: apps/web/public/data
+          retention-days: 3
+
+  propose:
+    name: プルリクエストの作成
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 検査済みのデータセットに置き換える
+        run: rm -rf apps/web/public/data
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dataset
+          path: apps/web/public/data
+
+      - name: ブランチを更新し、プルリクエストがなければ作る
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # 毎回同じブランチを使う。前回のプルリクエストが残っていれば、その内容が更新される。
+          BRANCH: data/refresh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add apps/web/public/data
+          git commit -m "Refresh dataset from the Statistics Dashboard API and the hometown-tax survey"
+          git push --force origin "$BRANCH"
+
+          if [ "$(gh pr list --head "$BRANCH" --state open --json number --jq length)" != "0" ]; then
+            echo "既存のプルリクエストを更新しました。"
+            exit 0
+          fi
+
+          {
+            echo "統計ダッシュボードAPIから取得した最新データで、同梱データセットを作り直しました。"
+            echo
+            echo "- このワークフロー内で \`pnpm test\`（データセットの検査を含む）と \`pnpm build\` が通ることを確認済みです。"
+            echo "- GitHub Actions が作成したプルリクエストでは CI が自動実行されません。内容を確認してからマージしてください。"
+            echo
+            echo '```'
+            git diff --stat HEAD~1 | tail -n 5
+            echo '```'
+          } > "$RUNNER_TEMP/pr-body.md"
+
+          gh pr create --head "$BRANCH" --title "データ更新 $(TZ=Asia/Tokyo date +%Y-%m-%d)" --body-file "$RUNNER_TEMP/pr-body.md" \
+            || echo "::warning::ブランチ $BRANCH は push 済みですが、プルリクエストを作成できませんでした。リポジトリ設定で GitHub Actions によるプルリクエスト作成を許可するか、手動で作成してください。"

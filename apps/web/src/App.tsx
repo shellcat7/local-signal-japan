@@ -1,390 +1,616 @@
-import { useMemo, useState } from "react";
-import type { FormEvent } from "react";
-import { AlertTriangle, Database, Download, FileText, Search, ShieldCheck, TrendingUp } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  PolarAngleAxis,
-  PolarGrid,
-  Radar,
-  RadarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from "recharts";
-import {
-  findAreaSignal,
-  getDefaultAreaSignal,
-  getIndicatorEntries,
-  listAreaOptions,
-  neighborComparisons
+  areaFullName,
+  drawArea,
+  findAreaEntry,
+  findTopic,
+  formatNumber,
+  type AreaIndex,
+  type AreaRecord,
+  type Manifest,
+  type PrefectureFile
 } from "@local-signal-japan/core";
-import { generateMarkdownReport } from "@local-signal-japan/reporting";
-import type { AreaSignal } from "@local-signal-japan/schemas";
-import { buildScoreBreakdown, calculateOverallScore, confidenceLabel } from "@local-signal-japan/scoring";
-import { IndicatorCard, ScorePill } from "@local-signal-japan/ui";
+import { AreaDashboard } from "./components/AreaDashboard";
+import { Footer } from "./components/Footer";
+import { KujiView } from "./components/KujiView";
+import { Landing } from "./components/Landing";
+import { PlayHeader } from "./components/PlayHeader";
+import { QuizView } from "./components/QuizView";
+import { ZukanView } from "./components/ZukanView";
+import { ScreenerView } from "./components/ScreenerView";
+import { TopicsView } from "./components/TopicsView";
+import { SearchBox } from "./components/SearchBox";
+import { TopBar } from "./components/TopBar";
+import { loadAreaIndex, loadManifest, loadMap, loadNational, loadPrefecture } from "./lib/data";
+import {
+  hrefOf,
+  useRoute,
+  type AreaRoute,
+  type KujiRoute,
+  type QuizRoute,
+  type RankingRoute,
+  type Route,
+  type TabId
+} from "./lib/route";
+import { SITE_NAME } from "./lib/site";
+import { useAsync } from "./lib/useAsync";
+import { addCode, clearZukan, EMPTY_ZUKAN, readZukan, writeZukan, type Zukan } from "./lib/zukan";
 
-type ActiveSection = "overview" | "indicators" | "comparison" | "report";
+type LoadedArea = { area: AreaRecord | null; prefecture: PrefectureFile };
 
-const trendSeries = [
-  { year: "2022", population: 58, land: 62, activity: 54 },
-  { year: "2023", population: 62, land: 69, activity: 59 },
-  { year: "2024", population: 66, land: 74, activity: 65 },
-  { year: "2025", population: 70, land: 77, activity: 68 },
-  { year: "2026", population: 72, land: 79, activity: 69 }
-];
-
-const policyItems = [
-  { icon: ShieldCheck, label: "検索履歴を保存しない", detail: "MVPでは入力値を永続化しません。" },
-  { icon: Database, label: "公開データの出典を表示", detail: "取得日・加工有無・mock区分をカード単位で示します。" },
-  { icon: AlertTriangle, label: "断定表現を避ける", detail: "地域評価ではなく公開データ上の補助シグナルとして扱います。" }
-];
-
-const sectionTabs: Array<{ id: ActiveSection; label: string; description: string }> = [
-  { id: "overview", label: "概要", description: "主要シグナルとチャート" },
-  { id: "indicators", label: "指標", description: "根拠・出典カード" },
-  { id: "comparison", label: "比較", description: "近隣自治体との比較" },
-  { id: "report", label: "レポート", description: "Markdown出力" }
-];
-
-function signalGroups(area: AreaSignal) {
-  return [
-    { label: "成長シグナル", items: area.summary.growthSignals, tone: "growth" },
-    { label: "停滞シグナル", items: area.summary.stagnationSignals, tone: "flat" },
-    { label: "要注意シグナル", items: area.summary.cautionSignals, tone: "caution" }
-  ];
+async function loadDataset() {
+  const manifest = await loadManifest();
+  return { manifest, index: await loadAreaIndex(manifest) };
 }
 
-function downloadText(filename: string, content: string) {
-  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
+const notFoundMessage = (areaCode: string) =>
+  `市区町村コード ${areaCode} のデータは収録されていません。上の検索欄からさがしてください。`;
+
+function Status({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="container">
+      <div className="status" role={onRetry ? "alert" : "status"}>
+        <p>{message}</p>
+        {onRetry && (
+          <button type="button" className="button" onClick={onRetry}>
+            再読み込み
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
-function formatScore(score: number | null) {
-  return score === null ? "欠損" : `${score}`;
+type AreaSectionProps = {
+  route: AreaRoute;
+  manifest: Manifest;
+  index: AreaIndex;
+  focusRequestRef: RefObject<boolean>;
+  onTabChange: (tab: TabId) => void;
+  onCompareChange: (codes: string[]) => void;
+  onSelectArea: (areaCode: string) => void;
+  onOpenRanking: (route: RankingRoute) => void;
+};
+
+function AreaSection({
+  route,
+  manifest,
+  index,
+  focusRequestRef,
+  onTabChange,
+  onCompareChange,
+  onSelectArea,
+  onOpenRanking
+}: AreaSectionProps) {
+  const { areaCode } = route;
+  const load = useCallback(async (): Promise<LoadedArea> => {
+    const prefecture = await loadPrefecture(areaCode.slice(0, 2), manifest);
+    return { prefecture, area: prefecture.areas.find((candidate) => candidate.code === areaCode) ?? null };
+  }, [areaCode, manifest]);
+  const [state, retry] = useAsync(load);
+
+  // 読み込み中は、直前に表示していた市区町村があればそれを保ったままにする。
+  const loaded =
+    state.status === "ready"
+      ? state.value
+      : state.status === "loading" && state.previous?.area
+        ? state.previous
+        : undefined;
+  const areaName = loaded?.area ? areaFullName(loaded.area) : null;
+
+  useEffect(() => {
+    document.title = areaName ? `${areaName} | ${SITE_NAME}` : SITE_NAME;
+    return () => {
+      document.title = SITE_NAME;
+    };
+  }, [areaName]);
+
+  if (state.status === "error") {
+    return <Status message={state.message} onRetry={retry} />;
+  }
+
+  if (!loaded) {
+    return <Status message="市区町村のデータを読み込んでいます…" />;
+  }
+
+  if (!loaded.area) {
+    return <Status message={notFoundMessage(areaCode)} />;
+  }
+
+  return (
+    <AreaDashboard
+      area={loaded.area}
+      prefecture={loaded.prefecture}
+      manifest={manifest}
+      index={index}
+      tab={route.tab}
+      // 共有されたURLに収録外のコードが混ざっていても、比較の枠を使わせない。
+      compare={route.compare.filter((code) => findAreaEntry(index, code) !== undefined)}
+      busy={state.status === "loading"}
+      focusRequestRef={focusRequestRef}
+      onTabChange={onTabChange}
+      onCompareChange={onCompareChange}
+      onSelectArea={onSelectArea}
+      onOpenRanking={onOpenRanking}
+    />
+  );
+}
+
+type RankingSectionProps = {
+  route: RankingRoute;
+  manifest: Manifest;
+  index: AreaIndex;
+  onChange: (route: RankingRoute) => void;
+  onOpenArea: (areaCode: string) => void;
+  onOpenTopics: () => void;
+};
+
+function RankingSection({ route, manifest, index, onChange, onOpenArea, onOpenTopics }: RankingSectionProps) {
+  const load = useCallback(() => loadNational(manifest), [manifest]);
+  const [national, retry] = useAsync(load);
+  const topic = findTopic(route.topic);
+  const title = topic ? topic.title : "条件でさがす";
+
+  useEffect(() => {
+    document.title = `${title} | ${SITE_NAME}`;
+    return () => {
+      document.title = SITE_NAME;
+    };
+  }, [title]);
+
+  return (
+    <>
+      <header className="container page-head">
+        {topic ? (
+          <>
+            <p className="page-head__kicker">
+              <a
+                href={hrefOf({ view: "topics" })}
+                onClick={(event) => {
+                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                  event.preventDefault();
+                  onOpenTopics();
+                }}
+              >
+                特集
+              </a>
+            </p>
+            <h2>{topic.title}</h2>
+            <p>{topic.lead}</p>
+          </>
+        ) : (
+          <>
+            <h2>条件でさがす</h2>
+            <p>
+              全国{formatNumber(manifest.counts.referenceAreas)}
+              市区町村から、条件に合うものをすべて並べます（政令指定都市の区は、市全体と重なるため除いています）。
+            </p>
+          </>
+        )}
+      </header>
+      {national.status === "error" && <Status message={national.message} onRetry={retry} />}
+      {national.status === "loading" && <Status message="全国のデータを読み込んでいます…" />}
+      {national.status === "ready" && (
+        <ScreenerView
+          route={route}
+          national={national.value}
+          index={index}
+          manifest={manifest}
+          onChange={onChange}
+          onOpenArea={onOpenArea}
+        />
+      )}
+    </>
+  );
+}
+
+type TopicsSectionProps = {
+  manifest: Manifest;
+  index: AreaIndex;
+  onOpenArea: (areaCode: string) => void;
+  onOpenRanking: (route: RankingRoute) => void;
+};
+
+function TopicsSection({ manifest, index, onOpenArea, onOpenRanking }: TopicsSectionProps) {
+  const load = useCallback(() => loadNational(manifest), [manifest]);
+  const [national, retry] = useAsync(load);
+
+  useEffect(() => {
+    document.title = `特集 | ${SITE_NAME}`;
+    return () => {
+      document.title = SITE_NAME;
+    };
+  }, []);
+
+  return (
+    <>
+      <header className="container page-head">
+        <h2>特集</h2>
+        <p>決まった条件で並べた、全国の市区町村の一覧です。</p>
+      </header>
+      {national.status === "error" && <Status message={national.message} onRetry={retry} />}
+      {national.status === "loading" && <Status message="全国のデータを読み込んでいます…" />}
+      {national.status === "ready" && (
+        <TopicsView
+          national={national.value}
+          index={index}
+          manifest={manifest}
+          onOpenArea={onOpenArea}
+          onOpenRanking={onOpenRanking}
+        />
+      )}
+    </>
+  );
+}
+
+/** あそぶ画面の共通の枠（黄色の地と、まちくじ・まちクイズ・まち図鑑の切り替え）。 */
+function PlayFrame({
+  current,
+  title,
+  lead,
+  onNavigate,
+  children
+}: {
+  current: "kuji" | "quiz" | "zukan";
+  title: string;
+  lead: string;
+  onNavigate: (route: Route) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="play" data-play={current}>
+      <div className="container">
+        <PlayHeader current={current} title={title} lead={lead} onNavigate={onNavigate} />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function usePageTitle(title: string) {
+  useEffect(() => {
+    document.title = `${title} | ${SITE_NAME}`;
+    return () => {
+      document.title = SITE_NAME;
+    };
+  }, [title]);
+}
+
+type KujiSectionProps = {
+  route: KujiRoute;
+  manifest: Manifest;
+  index: AreaIndex;
+  drawn: readonly string[];
+  zukan: Zukan;
+  pendingReveal: string | null;
+  onRevealed: () => void;
+  onDraw: (prefCode: string | null) => void;
+  onChangePref: (prefCode: string | null) => void;
+  onEnableZukan: () => void;
+  onNavigate: (route: Route) => void;
+};
+
+function KujiSection({ manifest, ...props }: KujiSectionProps) {
+  const load = useCallback(() => loadNational(manifest), [manifest]);
+  const [national] = useAsync(load);
+  const loadJapan = useCallback(() => loadMap(manifest), [manifest]);
+  const [map] = useAsync(loadJapan);
+  const entry = props.route.areaCode ? findAreaEntry(props.index, props.route.areaCode) : undefined;
+  const revealed = entry && props.pendingReveal !== entry.code;
+  usePageTitle(revealed ? `まちくじ：${entry.prefName} ${entry.parentName ?? ""}${entry.name}` : "まちくじ");
+
+  return (
+    <PlayFrame
+      current="kuji"
+      title="まちくじ"
+      lead="ボタンを押すと、全国のどこかのまちが出ます。そのまちが全国や都道府県の中で目立つところを読んでみましょう。"
+      onNavigate={props.onNavigate}
+    >
+      <KujiView manifest={manifest} national={national} map={map} {...props} />
+    </PlayFrame>
+  );
+}
+
+type QuizSectionProps = {
+  route: QuizRoute;
+  manifest: Manifest;
+  index: AreaIndex;
+  answers: Readonly<Record<string, ReadonlyArray<number | null>>>;
+  onAnswer: (seed: string, question: number, choice: number) => void;
+  onNavigate: (route: Route, options?: { replace?: boolean }) => void;
+};
+
+function QuizSection({ manifest, ...props }: QuizSectionProps) {
+  const load = useCallback(() => loadNational(manifest), [manifest]);
+  const [national] = useAsync(load);
+  usePageTitle("まちクイズ");
+
+  return (
+    <PlayFrame
+      current="quiz"
+      title="まちクイズ"
+      lead="公的統計から作った4択の5問。日替わりの問題は、同じ日ならだれでも同じです。"
+      onNavigate={props.onNavigate}
+    >
+      <QuizView manifest={manifest} national={national} {...props} />
+    </PlayFrame>
+  );
+}
+
+type ZukanSectionProps = {
+  manifest: Manifest;
+  index: AreaIndex;
+  zukan: Zukan;
+  drawn: readonly string[];
+  onEnable: () => void;
+  onClear: () => void;
+  onNavigate: (route: Route) => void;
+};
+
+function ZukanSection(props: ZukanSectionProps) {
+  usePageTitle("まち図鑑");
+  const loadJapan = useCallback(() => loadMap(props.manifest), [props.manifest]);
+  const [map] = useAsync(loadJapan);
+  return (
+    <PlayFrame
+      current="zukan"
+      title="まち図鑑"
+      lead="まちくじで引いたまちを集めます。47都道府県の、全部のまちを集めたら制覇です。"
+      onNavigate={props.onNavigate}
+    >
+      <ZukanView map={map} {...props} />
+    </PlayFrame>
+  );
+}
+
+type HomeSectionProps = {
+  manifest: Manifest;
+  index: AreaIndex;
+  onOpenArea: (areaCode: string) => void;
+  onOpenRanking: (route: RankingRoute) => void;
+  onOpenTopics: () => void;
+  onDrawKuji: () => void;
+  onNavigate: (route: Route) => void;
+  zukan: Zukan;
+};
+
+function HomeSection({
+  manifest,
+  index,
+  onOpenArea,
+  onOpenRanking,
+  onOpenTopics,
+  onDrawKuji,
+  onNavigate,
+  zukan
+}: HomeSectionProps) {
+  const load = useCallback(() => loadNational(manifest), [manifest]);
+  const [national] = useAsync(load);
+
+  return (
+    <div className="container home">
+      <Landing
+        manifest={manifest}
+        index={index}
+        national={national}
+        onOpenArea={onOpenArea}
+        onOpenRanking={onOpenRanking}
+        onOpenTopics={onOpenTopics}
+        onDrawKuji={onDrawKuji}
+        onNavigate={onNavigate}
+        zukan={zukan}
+      />
+    </div>
+  );
 }
 
 export function App() {
-  const [query, setQuery] = useState("13101");
-  const [area, setArea] = useState<AreaSignal>(() => getDefaultAreaSignal());
-  const [status, setStatus] = useState("架空データのみ表示中");
-  const [activeSection, setActiveSection] = useState<ActiveSection>("overview");
-  const options = listAreaOptions();
+  const [route, navigate] = useRoute();
+  const [dataset] = useAsync(loadDataset);
+  const focusRequestRef = useRef(false);
+  const mainRef = useRef<HTMLElement>(null);
 
-  const indicatorEntries = useMemo(() => getIndicatorEntries(area), [area]);
-  const scoreBreakdown = useMemo(() => buildScoreBreakdown(area), [area]);
-  const overallScore = useMemo(() => calculateOverallScore(area), [area]);
-  const report = useMemo(() => generateMarkdownReport(area), [area]);
-  const evidenceCount = indicatorEntries.reduce((count, [, indicator]) => count + indicator.sources.length, 0);
-  const radarData = scoreBreakdown.map((item) => ({
-    label: item.label.replace("シグナル", "").replace("推移", ""),
-    score: item.score ?? 0
-  }));
+  const ready = dataset.status === "ready" ? dataset.value : null;
+  // まちくじで引いた市区町村（新しい順）。このページを開いている間だけ持つ。
+  const [drawn, setDrawn] = useState<string[]>([]);
+  // まち図鑑。利用者が「図鑑をはじめる」を押したときだけ、この端末のブラウザに保存する。
+  const [zukan, setZukan] = useState<Zukan>(readZukan);
+  const [pendingReveal, setPendingReveal] = useState<string | null>(null);
+  const clearReveal = useCallback(() => setPendingReveal(null), []);
+  // まちクイズの答え（シードごと）。このページを開いている間だけ持ち、保存しない。
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, Array<number | null>>>({});
 
-  const metricTiles = [
-    { label: "総合補助スコア", value: formatScore(overallScore), detail: "利用可能な指標のみで算出" },
-    { label: "指標数", value: `${indicatorEntries.length}`, detail: "人口・地価・法人活動など" },
-    { label: "出典表示", value: `${evidenceCount}`, detail: "カード単位で確認可能" },
-    { label: "信頼度メモ", value: confidenceLabel(area.summary.confidence), detail: "mock接続の暫定評価" }
-  ];
+  const enableZukan = () => {
+    const codes = [...new Set([...drawn, ...zukan.codes])];
+    writeZukan(codes);
+    setZukan({ enabled: true, codes });
+  };
+  const stopZukan = () => {
+    clearZukan();
+    setZukan(EMPTY_ZUKAN);
+  };
+  const answerQuiz = (seed: string, question: number, choice: number) => {
+    setQuizAnswers((previous) => {
+      const picks = [...(previous[seed] ?? [])];
+      if (picks[question] !== undefined && picks[question] !== null) return previous;
+      picks[question] = choice;
+      return { ...previous, [seed]: picks };
+    });
+  };
 
-  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const nextArea = findAreaSignal(query);
-
-    if (nextArea) {
-      setArea(nextArea);
-      setStatus(`${nextArea.prefectureName} ${nextArea.areaName} / mock`);
+  // 検索・例のボタン・比較表・ランキングのどこから選んでも、切り替え後は見出しへフォーカスを移す。
+  const selectArea = (areaCode: string) => {
+    if (route.view !== "area") {
+      focusRequestRef.current = true;
+      navigate({ view: "area", areaCode, tab: "overview", compare: [] });
       return;
     }
 
-    setStatus("該当するデモ自治体がないため、初期データを表示中");
-    setArea(getDefaultAreaSignal());
+    // すでに表示中の市区町村を選び直した場合は切り替わらないので、フォーカス移動も予約しない。
+    focusRequestRef.current = areaCode !== route.areaCode;
+    // 比較に並べていた市区町村を開いたときは、いま見ている市区町村と入れ替える。
+    const compare = route.compare.includes(areaCode)
+      ? [route.areaCode, ...route.compare.filter((code) => code !== areaCode)]
+      : route.compare;
+    navigate({ view: "area", areaCode, tab: route.tab, compare });
   };
 
-  const routeLabel = window.location.pathname === "/demo" ? "/demo" : "preview";
+  const openRanking = (target: RankingRoute) => {
+    navigate(target);
+    window.scrollTo({ top: 0 });
+    // 押したリンクは画面から消えるので、読み上げ位置を本文の先頭へ移す。
+    mainRef.current?.focus({ preventScroll: true });
+  };
+
+  const goTo = (target: Route) => {
+    navigate(target);
+    window.scrollTo({ top: 0 });
+  };
+
+  const drawKuji = (prefCode: string | null) => {
+    if (!ready) return;
+    const picked = drawArea(ready.index.areas, {
+      prefCode,
+      exclude: route.view === "kuji" ? route.areaCode : null
+    });
+    if (!picked) return;
+    setDrawn((previous) => addCode(previous, picked.code));
+    if (zukan.enabled) {
+      const codes = addCode(zukan.codes, picked.code);
+      writeZukan(codes);
+      setZukan({ enabled: true, codes });
+    }
+    setPendingReveal(picked.code);
+    if (route.view === "kuji") {
+      navigate({ view: "kuji", areaCode: picked.code, prefCode });
+      return;
+    }
+    // ほかの画面から引いたときは、ページの先頭から見せる。
+    goTo({ view: "kuji", areaCode: picked.code, prefCode });
+    mainRef.current?.focus({ preventScroll: true });
+  };
 
   return (
-    <main className="app-shell">
-      <header className="app-header">
-        <div>
-          <p className="route-label">{routeLabel}</p>
-          <h1>Local Signal Japan</h1>
-          <p className="header-copy">公開データ上の補助シグナルを、根拠と欠損メモごと確認します。</p>
-        </div>
-        <div className="header-badges" aria-label="データ状態">
-          <span>demo</span>
-          <span>mock data</span>
-          <span>no history</span>
-        </div>
-      </header>
+    <div className="app">
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(event) => {
+          // ハッシュは表示状態に使っているので、書き換えずにフォーカスだけ移す。
+          event.preventDefault();
+          mainRef.current?.focus();
+        }}
+      >
+        本文へ移動
+      </a>
 
-      <section className="command-band">
-        <form className="search-panel" onSubmit={submitSearch}>
-          <label htmlFor="area-query">市区町村名・自治体コード</label>
-          <div className="search-panel__row">
-            <input
-              id="area-query"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="13101 / 千代田区"
-              autoComplete="off"
+      <TopBar
+        route={route}
+        onNavigate={goTo}
+        search={
+          ready ? (
+            <SearchBox
+              index={ready.index}
+              onSelect={selectArea}
+              variant="bar"
+              clearOnSelect
+              shortcut
+              focusOnMount={route.view === "home"}
             />
-            <button type="submit" title="検索">
-              <Search size={18} aria-hidden="true" />
-              <span>検索</span>
-            </button>
-          </div>
-          <div className="option-row" aria-label="デモ自治体">
-            {options.map((option) => (
-              <button
-                type="button"
-                key={option.areaCode}
-                className={option.areaCode === area.areaCode ? "option-chip is-active" : "option-chip"}
-                onClick={() => {
-                  setQuery(option.areaCode);
-                  setArea(findAreaSignal(option.areaCode) ?? getDefaultAreaSignal());
-                  setStatus(`${option.prefectureName} ${option.areaName} / mock`);
-                }}
-              >
-                {option.areaName}
-              </button>
-            ))}
-          </div>
-        </form>
+          ) : null
+        }
+      />
 
-        <aside className="policy-panel" aria-label="公開前提の設計方針">
-          {policyItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div className="policy-item" key={item.label}>
-                <Icon size={18} aria-hidden="true" />
-                <div>
-                  <strong>{item.label}</strong>
-                  <span>{item.detail}</span>
-                </div>
-              </div>
-            );
-          })}
-        </aside>
-      </section>
-
-      <section className="area-overview" aria-label="地域概要">
-        <div className="area-title">
-          <p>{area.prefectureName}</p>
-          <h2>{area.areaName}</h2>
-          <span>{status}</span>
-        </div>
-        <dl className="area-facts">
-          <div>
-            <dt>自治体コード</dt>
-            <dd>{area.areaCode}</dd>
-          </div>
-          <div>
-            <dt>取得日</dt>
-            <dd>{area.retrievedAt}</dd>
-          </div>
-          <div>
-            <dt>欠損メモ</dt>
-            <dd>{area.summary.missingDataNotes.length}</dd>
-          </div>
-        </dl>
-        <div className="metric-strip">
-          {metricTiles.map((metric) => (
-            <article className="metric-tile" key={metric.label}>
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-              <small>{metric.detail}</small>
-            </article>
+      <main id="main" tabIndex={-1} ref={mainRef}>
+        {dataset.status === "loading" && <Status message="データを読み込んでいます…" />}
+        {/* 全体のデータを読めなかったときは、古いスクリプトが残っている可能性もあるのでページごと読み直す。 */}
+        {dataset.status === "error" && <Status message={dataset.message} onRetry={() => window.location.reload()} />}
+        {ready && route.view === "home" && (
+          <HomeSection
+            manifest={ready.manifest}
+            index={ready.index}
+            onOpenArea={selectArea}
+            onOpenRanking={openRanking}
+            onOpenTopics={() => goTo({ view: "topics" })}
+            onDrawKuji={() => drawKuji(null)}
+            onNavigate={goTo}
+            zukan={zukan}
+          />
+        )}
+        {ready && route.view === "kuji" && (
+          <KujiSection
+            route={route}
+            manifest={ready.manifest}
+            index={ready.index}
+            drawn={drawn}
+            zukan={zukan}
+            pendingReveal={pendingReveal}
+            onRevealed={clearReveal}
+            onDraw={drawKuji}
+            onChangePref={(prefCode) => navigate({ ...route, prefCode }, { replace: true })}
+            onEnableZukan={enableZukan}
+            onNavigate={goTo}
+          />
+        )}
+        {ready && route.view === "quiz" && (
+          <QuizSection
+            route={route}
+            manifest={ready.manifest}
+            index={ready.index}
+            answers={quizAnswers}
+            onAnswer={answerQuiz}
+            onNavigate={(next, options) => (options?.replace ? navigate(next, options) : goTo(next))}
+          />
+        )}
+        {ready && route.view === "zukan" && (
+          <ZukanSection
+            manifest={ready.manifest}
+            index={ready.index}
+            zukan={zukan}
+            drawn={drawn}
+            onEnable={enableZukan}
+            onClear={stopZukan}
+            onNavigate={goTo}
+          />
+        )}
+        {ready && route.view === "topics" && (
+          <TopicsSection
+            manifest={ready.manifest}
+            index={ready.index}
+            onOpenArea={selectArea}
+            onOpenRanking={openRanking}
+          />
+        )}
+        {ready && route.view === "ranking" && (
+          <RankingSection
+            route={route}
+            manifest={ready.manifest}
+            index={ready.index}
+            onChange={(next) => navigate(next, { replace: true })}
+            onOpenArea={selectArea}
+            onOpenTopics={() => goTo({ view: "topics" })}
+          />
+        )}
+        {ready &&
+          route.view === "area" &&
+          (findAreaEntry(ready.index, route.areaCode) ? (
+            <AreaSection
+              route={route}
+              manifest={ready.manifest}
+              index={ready.index}
+              focusRequestRef={focusRequestRef}
+              onTabChange={(tab) => navigate({ ...route, tab }, { replace: true })}
+              onCompareChange={(compare) => navigate({ ...route, compare }, { replace: true })}
+              onSelectArea={selectArea}
+              onOpenRanking={openRanking}
+            />
+          ) : (
+            // 一覧にないコードは、存在しない都道府県のファイルを取りに行く前にここで止める。
+            <Status message={notFoundMessage(route.areaCode)} />
           ))}
-        </div>
-      </section>
+      </main>
 
-      <nav className="view-tabs" aria-label="表示セクション">
-        {sectionTabs.map((tab) => (
-          <button
-            type="button"
-            key={tab.id}
-            className={activeSection === tab.id ? "view-tab is-active" : "view-tab"}
-            onClick={() => setActiveSection(tab.id)}
-            aria-pressed={activeSection === tab.id}
-          >
-            <span>{tab.label}</span>
-            <small>{tab.description}</small>
-          </button>
-        ))}
-      </nav>
-
-      {activeSection === "overview" && (
-        <section className="dashboard-grid">
-          <section className="analysis-panel signal-panel">
-            <div className="panel-head">
-              <div>
-                <p>signal review</p>
-                <h2>公開データ上のシグナル</h2>
-              </div>
-              <TrendingUp size={18} aria-hidden="true" />
-            </div>
-            <div className="signal-columns">
-              {signalGroups(area).map((group) => (
-                <article className={`signal-box signal-box--${group.tone}`} key={group.label}>
-                  <h3>{group.label}</h3>
-                  <ul>
-                    {group.items.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="analysis-panel chart-panel">
-            <div className="panel-head">
-              <div>
-                <p>breakdown</p>
-                <h2>スコア内訳</h2>
-              </div>
-              <ScorePill score={overallScore} />
-            </div>
-            <div className="chart-box">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radarData}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="label" tick={{ fontSize: 11 }} />
-                  <Radar dataKey="score" stroke="#236c62" fill="#8fd3c1" fillOpacity={0.6} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
-
-          <section className="analysis-panel chart-panel">
-            <div className="panel-head">
-              <div>
-                <p>mock index</p>
-                <h2>時系列サンプル</h2>
-              </div>
-            </div>
-            <div className="chart-box">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendSeries} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#d9e2e7" />
-                  <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="population" name="人口" stroke="#2d6cdf" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="land" name="地価" stroke="#bf6a02" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="activity" name="法人" stroke="#236c62" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
-        </section>
-      )}
-
-      {activeSection === "indicators" && (
-        <>
-          <section className="section-head">
-            <div>
-              <p>evidence cards</p>
-              <h2>指標カード</h2>
-            </div>
-          </section>
-          <section className="indicator-grid" aria-label="指標カード">
-            {indicatorEntries.map(([, indicator]) => (
-              <IndicatorCard key={indicator.label} indicator={indicator} />
-            ))}
-          </section>
-        </>
-      )}
-
-      {activeSection === "comparison" && (
-        <section className="comparison-panel">
-          <div className="panel-head">
-            <div>
-              <p>demo comparison</p>
-              <h2>近隣自治体比較</h2>
-            </div>
-          </div>
-          <div className="comparison-layout">
-            <div className="chart-box chart-box--wide">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={neighborComparisons} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#d9e2e7" />
-                  <XAxis dataKey="areaName" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="overallScore" name="総合補助スコア">
-                    {neighborComparisons.map((neighbor) => (
-                      <Cell key={neighbor.areaCode} fill={neighbor.isSelected ? "#236c62" : "#879caf"} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>自治体</th>
-                  <th>人口</th>
-                  <th>地価</th>
-                  <th>活動</th>
-                  <th>総合</th>
-                </tr>
-              </thead>
-              <tbody>
-                {neighborComparisons.map((neighbor) => (
-                  <tr key={neighbor.areaCode} className={neighbor.isSelected ? "is-selected" : ""}>
-                    <td>{neighbor.areaName}</td>
-                    <td>{neighbor.populationScore}</td>
-                    <td>{neighbor.landPriceScore}</td>
-                    <td>{neighbor.activityScore}</td>
-                    <td>{neighbor.overallScore}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {activeSection === "report" && (
-        <section className="report-panel">
-          <div className="panel-head">
-            <div>
-              <p>export</p>
-              <h2>Markdownレポート</h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => downloadText(`local-signal-${area.areaCode}.md`, report)}
-              title="Markdownをダウンロード"
-            >
-              <Download size={18} aria-hidden="true" />
-              <span>MD</span>
-            </button>
-          </div>
-          <div className="report-summary">
-            <FileText size={18} aria-hidden="true" />
-            <p>レポートは選択中の自治体、補助スコア、シグナル、欠損メモ、指標別の出典情報を含みます。</p>
-          </div>
-          <div className="report-body">
-            <pre>{report}</pre>
-          </div>
-        </section>
-      )}
-    </main>
+      <Footer manifest={ready?.manifest ?? null} />
+    </div>
   );
 }

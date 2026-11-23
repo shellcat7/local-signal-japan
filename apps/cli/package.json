@@ -1,0 +1,11 @@
+{
+  "name": "@local-signal-japan/cli",
+  "version": "1.0.0",
+  "private": true,
+  "description": "同梱データセットを検索・表示・レポート出力するCLI",
+  "type": "module",
+  "dependencies": {
+    "@local-signal-japan/core": "workspace:*",
+    "@local-signal-japan/dataset": "workspace:*"
+  }
+}

@@ -1,0 +1,115 @@
+import {
+  DATASET_SCHEMA_VERSION,
+  type AreaIndex,
+  type Manifest,
+  type NationalFile,
+  type PrefectureFile
+} from "@local-signal-japan/core";
+
+/**
+ * 同梱データセットの読み込み。
+ * データは同一オリジンの静的ファイルで、外部APIには一切アクセスしない。
+ * 市区町村の詳細は都道府県単位のファイルに入っているため、
+ * 配信元に伝わるのは「どの都道府県を開いたか」までで、検索語や市区町村は伝わらない。
+ */
+const DATA_BASE = `${import.meta.env.BASE_URL}data`;
+
+async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${DATA_BASE}/${path}`, init);
+  } catch (cause) {
+    throw new Error("データを読み込めませんでした。通信状態を確認して、再読み込みしてください。", { cause });
+  }
+
+  if (!response.ok) {
+    throw new Error(`データを読み込めませんでした（HTTP ${response.status}）。時間をおいて再読み込みしてください。`);
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch (cause) {
+    // 配信元が JSON 以外(エラーページなど)を返した場合。
+    throw new Error("データの形式を読み取れませんでした。時間をおいて再読み込みしてください。", { cause });
+  }
+}
+
+export async function loadManifest(): Promise<Manifest> {
+  // マニフェストは毎回再検証し、ほかのファイルは取得日時をキーにしてキャッシュさせる。
+  const manifest = await fetchJson<Manifest>("manifest.json", { cache: "no-cache" });
+  if (manifest.schemaVersion !== DATASET_SCHEMA_VERSION) {
+    throw new Error("データの形式がこの画面と合っていません。ページを再読み込みしてください。");
+  }
+  return manifest;
+}
+
+const versionOf = (manifest: Manifest) => encodeURIComponent(manifest.generatedAt);
+
+export function loadAreaIndex(manifest: Manifest): Promise<AreaIndex> {
+  return fetchJson<AreaIndex>(`areas.json?v=${versionOf(manifest)}`);
+}
+
+let nationalCache: { key: string; pending: Promise<NationalFile> } | null = null;
+
+/** 全国の市区町村の一覧(ランキングと、都道府県をまたぐ比較に使う)。必要になったときに1度だけ読む。 */
+export function loadNational(manifest: Manifest): Promise<NationalFile> {
+  if (nationalCache?.key !== manifest.generatedAt) {
+    const pending = fetchJson<NationalFile>(`national.json?v=${versionOf(manifest)}`);
+    nationalCache = { key: manifest.generatedAt, pending };
+    pending.catch(() => {
+      if (nationalCache?.pending === pending) nationalCache = null;
+    });
+  }
+  return nationalCache.pending;
+}
+
+const prefectureCache = new Map<string, Promise<PrefectureFile>>();
+
+export function loadPrefecture(prefCode: string, manifest: Manifest): Promise<PrefectureFile> {
+  const key = `${prefCode}@${manifest.generatedAt}`;
+  let pending = prefectureCache.get(key);
+
+  if (!pending) {
+    pending = fetchJson<PrefectureFile>(`pref/${prefCode}.json?v=${versionOf(manifest)}`);
+    prefectureCache.set(key, pending);
+    // 失敗した取得はキャッシュに残さず、次の操作で取り直せるようにする。
+    pending.catch(() => prefectureCache.delete(key));
+  }
+
+  return pending;
+}
+
+/** 市区町村の境界の地図（国土数値情報の行政区域データを軽くしたもの）。座標は表示用に投影済み。 */
+export type MapData = {
+  version: number;
+  source: {
+    name: string;
+    edition: string;
+    publisher: string;
+    url: string;
+    license: string;
+    licenseUrl: string;
+    attribution: string;
+  };
+  viewBox: [number, number, number, number];
+  areas: Array<{ code: string; d: string }>;
+  prefectures: Array<{ code: string; d: string }>;
+  insets: Array<{ label: string; box: [number, number, number, number] }>;
+};
+
+let mapCache: { key: string; pending: Promise<MapData> } | null = null;
+
+/**
+ * 地図を表示するときにだけ読む（約800KB）。
+ * 市区町村の合併などで地図を作り直したときに古い地図が残らないよう、データの取得日時をキーにする。
+ */
+export function loadMap(manifest: Manifest): Promise<MapData> {
+  if (mapCache?.key !== manifest.generatedAt) {
+    const pending = fetchJson<MapData>(`map.json?v=${versionOf(manifest)}`);
+    mapCache = { key: manifest.generatedAt, pending };
+    pending.catch(() => {
+      if (mapCache?.pending === pending) mapCache = null;
+    });
+  }
+  return mapCache.pending;
+}
