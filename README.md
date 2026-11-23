@@ -8,7 +8,7 @@
 
 _A dashboard for Japanese municipalities that shows official public statistics together with their sources, reference periods, and missing-data notes. All data comes from the Statistics Dashboard API of the Statistics Bureau of Japan (no API key required) and ships as a static dataset, so the site runs without any backend. The UI and documentation are in Japanese._
 
-![大阪府門真市の概要画面。上部に「まちのものさし」の名前と検索欄、市区町村名と人口の下に「全国で目立つところ」として、通勤・通学に自転車だけを使う人の割合が全国で最も高いことが示され、その下に7つの指標の表と補助スコアの内訳が並ぶ](docs/images/overview.png)
+![大阪府門真市の概要画面。生成りの面に、上部に「まちのものさし」の名前と丸い検索欄とメニュー。市区町村名と人口の下に丸いタブが並び、角の丸い札に「全国で目立つところ」として、通勤・通学に自転車だけを使う人の割合が全国で最も高いことが示され、その下に7つの指標の表と補助スコアの内訳が並ぶ](docs/images/overview.png)
 
 ## できること
 
@@ -21,7 +21,7 @@ _A dashboard for Japanese municipalities that shows official public statistics t
 - **あそぶ**:
   - **まちくじ**: ボタンを押すと全国1,741市区町村から1つが出て、そのまちが全国や都道府県の中で目立つところを3つまで読める（例: 群馬県大泉町は、外国人住民の割合が全国で3番目に高い）。都道府県で絞って引くこともでき、結果はリンクと画像で共有できる
   - **まちクイズ**: 「空き家率が全国で最も高い市区町村は？」のような4択が5問。日替わり（日本時間の0時に変わる）で、同じ日ならだれでも同じ問題。問題を「Xに出題」でき、結果は「🟨⬜🟨🟨🟨 4/5」の形で投稿できる
-  - **まち図鑑**: 引いたまちを集めて、47都道府県の制覇をめざす。利用者が「はじめる」を押したときだけ、この端末のブラウザに記録する
+  - **まち図鑑**: 引いたまちを日本地図に塗って集め、47都道府県の制覇をめざす。利用者が「はじめる」を押したときだけ、この端末のブラウザに記録する
 - **画像で保存・Xに投稿**: ランキング・地図・「全国で目立つところ」・まちくじの札・クイズの問題と結果・図鑑を、出典を描き込んだ画像（1200×675）にしてその場で保存
 - **概要**: 7つの指標の指標値・全国順位・全国での位置・推移・5年前比を1つの表で確認。補助スコアの内訳と、読み取り時の注意・欠損
 - **指標**: 指標ごとの値、基準時点、時系列グラフ、全国の分布の中での位置、算出方法、出典の系列と取得日

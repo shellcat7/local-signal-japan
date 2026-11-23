@@ -23,7 +23,8 @@
     "preflight": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm scan:secrets && pnpm build",
     "data:refresh": "tsx packages/dataset/src/refresh.ts",
     "data:map": "node scripts/build-map.mjs",
-    "localsignal": "tsx apps/cli/src/index.ts"
+    "localsignal": "tsx apps/cli/src/index.ts",
+    "og": "node scripts/build-og.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

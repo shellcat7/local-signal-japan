@@ -21,7 +21,7 @@ import { ScreenerView } from "./components/ScreenerView";
 import { TopicsView } from "./components/TopicsView";
 import { SearchBox } from "./components/SearchBox";
 import { TopBar } from "./components/TopBar";
-import { loadAreaIndex, loadManifest, loadNational, loadPrefecture } from "./lib/data";
+import { loadAreaIndex, loadManifest, loadMap, loadNational, loadPrefecture } from "./lib/data";
 import {
   hrefOf,
   useRoute,
@@ -258,7 +258,7 @@ function PlayFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="play">
+    <div className="play" data-play={current}>
       <div className="container">
         <PlayHeader current={current} title={title} lead={lead} onNavigate={onNavigate} />
         {children}
@@ -293,6 +293,8 @@ type KujiSectionProps = {
 function KujiSection({ manifest, ...props }: KujiSectionProps) {
   const load = useCallback(() => loadNational(manifest), [manifest]);
   const [national] = useAsync(load);
+  const loadJapan = useCallback(() => loadMap(manifest), [manifest]);
+  const [map] = useAsync(loadJapan);
   const entry = props.route.areaCode ? findAreaEntry(props.index, props.route.areaCode) : undefined;
   const revealed = entry && props.pendingReveal !== entry.code;
   usePageTitle(revealed ? `まちくじ：${entry.prefName} ${entry.parentName ?? ""}${entry.name}` : "まちくじ");
@@ -304,7 +306,7 @@ function KujiSection({ manifest, ...props }: KujiSectionProps) {
       lead="ボタンを押すと、全国のどこかのまちが出ます。そのまちが全国や都道府県の中で目立つところを読んでみましょう。"
       onNavigate={props.onNavigate}
     >
-      <KujiView manifest={manifest} national={national} {...props} />
+      <KujiView manifest={manifest} national={national} map={map} {...props} />
     </PlayFrame>
   );
 }
@@ -347,6 +349,8 @@ type ZukanSectionProps = {
 
 function ZukanSection(props: ZukanSectionProps) {
   usePageTitle("まち図鑑");
+  const loadJapan = useCallback(() => loadMap(props.manifest), [props.manifest]);
+  const [map] = useAsync(loadJapan);
   return (
     <PlayFrame
       current="zukan"
@@ -354,7 +358,7 @@ function ZukanSection(props: ZukanSectionProps) {
       lead="まちくじで引いたまちを集めます。47都道府県の、全部のまちを集めたら制覇です。"
       onNavigate={props.onNavigate}
     >
-      <ZukanView {...props} />
+      <ZukanView map={map} {...props} />
     </PlayFrame>
   );
 }

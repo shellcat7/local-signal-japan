@@ -1,11 +1,11 @@
 /*
- * Local Signal Japan のデザイン
+ * まちのものさし（Local Signal Japan）のデザイン
  *
- * 考え方: 白い紙に刷った統計表と、そこに引く蛍光ペン。
- * - 面は白、文字と図の印は墨。区切りは影や囲みではなく罫線と余白で付ける。
- * - 色は「いま見ている市区町村」「並べ替えている列」を示す蛍光の黄だけ。良し悪しを連想させる緑・赤は使わない。
- * - 数字と欧文は IBM Plex Sans、コードや基準時点は IBM Plex Mono。和文は端末の標準書体。
- * - 注記は見出しの下の説明文ではなく、統計表と同じように表の下へまとめる。
+ * 考え方: 生成りの紙に、丸いボタンと中間色。だれが見ても読みやすく、手に取りたくなる見た目にする。
+ * - 面は生成り、文字は温かみのある墨。区切りは角の丸い札と余白で付ける。
+ * - 色は4つの中間色（珊瑚・ミント・バター・空）を入口ごとに使い分ける。値の良し悪しには色を当てない。
+ * - 見出しとボタンは丸ゴシック（Zen Maru Gothic）。数字と欧文の本文は IBM Plex Sans、コードは IBM Plex Mono。
+ * - 注記は、統計表と同じように表の下へまとめる。
  */
 
 @font-face {
@@ -42,50 +42,70 @@
   unicode-range: U+304F, U+3055, U+3057, U+3058, U+3061, U+306E, U+307E, U+3082;
 }
 
+/*
+ * 色と形の考え方（やさしい見た目）
+ * - 面は生成りの紙、文字は温かみのある墨。罫線は薄い茶。
+ * - アクセントは4つの中間色（珊瑚・ミント・バター・空）。上に載せる文字は常に墨。
+ *   まちくじ = 珊瑚、まちクイズ = ミント、まち図鑑 = バター、条件でさがす = 空、のように入口ごとに色を決める。
+ * - 良し悪しを連想させる使い方はしない。地図の濃淡は珊瑚の1色だけで、値の大小を表す。
+ * - ボタンは丸く大きく、下にだけ影を落として「押せる」ことを示す。見出しとボタンは丸ゴシック。
+ */
 :root {
   color-scheme: light;
 
-  --paper: #ffffff;
-  --wash: #f4f5f6;
-  --ink: #14171a;
-  --ink-2: #454b52;
-  --ink-3: #676d75;
-  --rule: #dcdfe3;
-  --rule-strong: #14171a;
+  --paper: #fbf5ea;
+  --card: #fffdf8;
+  --wash: #f4ecde;
+  --ink: #2b2724;
+  --ink-2: #4f4842;
+  --ink-3: #6b625a;
+  --rule: #e6dccb;
+  --rule-strong: #2b2724;
+  --line: #2b2724;
+  /* ボタンの下の影。暗い面では黒にする。 */
+  --shadow: #2b2724;
 
-  /* 蛍光ペン。上に載せる文字は常に墨。 */
-  --mark: #ffe14a;
-  --mark-wash: #fff6c4;
-  --on-mark: #14171a;
+  /* 蛍光ペン（表示中・並べ替え中の印）。上に載せる文字は常に墨。 */
+  --mark: #ffd36b;
+  --mark-wash: #fff0c7;
+  --on-mark: #2b2724;
+
+  /* 入口ごとの中間色。 */
+  --coral: #f4a385;
+  --mint: #9fdcb5;
+  --butter: #fde39c;
+  --sky: #aad7ee;
+  --pink: #f7c2cf;
+  --on-pastel: #2b2724;
 
   /* 図の印。表示中の市区町村は墨、それ以外は灰。 */
-  --data: #14171a;
-  --context: #8e949c;
-  --track: #e6e8eb;
-  --map-out-line: #c4c8cd;
+  --data: #2b2724;
+  --context: #998e83;
+  --track: #ebe2d3;
+  --map-out-line: #d5c9b7;
   /* 地図の濃淡（値の小さい側 → 大きい側）。src/lib/mapScale.ts の MAP_RAMP と同じ並び。 */
-  --map-0: #e4e7ea;
-  --map-1: #d0d4d9;
-  --map-2: #b9bec4;
-  --map-3: #959ba3;
-  --map-4: #6f757d;
-  --map-5: #454b52;
-  --map-6: #14171a;
+  --map-0: #fbe9df;
+  --map-1: #f6cdb8;
+  --map-2: #f0ab8c;
+  --map-3: #e58763;
+  --map-4: #cc6540;
+  --map-5: #a2472a;
+  --map-6: #6e2c18;
 
-  /* あそぶ（まちくじ・まちクイズ・まち図鑑）だけの、ポップな色。朱はハンコと正解の印だけに使う。 */
-  --pop-bg: #fff6cc;
-  --pop-card: #ffffff;
-  --pop-line: #14171a;
-  --pop-shadow: #14171a;
-  --pop-yellow: #ffe14a;
-  --pop-on-yellow: #14171a;
-  --pop-shu: #c93a20;
+  /* あそぶ（まちくじ・まちクイズ・まち図鑑）。朱はハンコと正解の印だけに使う。 */
+  --pop-bg: var(--paper);
+  --pop-card: var(--card);
+  --pop-line: var(--line);
+  --pop-shadow: var(--shadow);
+  --pop-yellow: var(--butter);
+  --pop-on-yellow: var(--on-pastel);
+  --pop-shu: #c23b21;
   --pop-on-shu: #ffffff;
-  /* 黄色の上に置く朱（正解の印）。 */
-  --pop-shu-on-yellow: #c93a20;
-  --pop-soft: #fffbe6;
+  --pop-shu-on-yellow: #b3301a;
+  --pop-soft: #fff8ea;
   --font-pop: "Zen Maru Gothic", var(--font-sans);
 
+  --radius: 18px;
   --gutter: 24px;
   --font-sans:
     "IBM Plex Sans Variable", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Yu Gothic UI",
@@ -93,7 +113,7 @@
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.75;
   color: var(--ink);
   background: var(--paper);
@@ -103,37 +123,40 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --paper: #111315;
-    --wash: #1a1d20;
-    --ink: #eceef0;
-    --ink-2: #b9bec4;
-    --ink-3: #8e949b;
-    --rule: #2c3035;
-    --rule-strong: #eceef0;
-    --mark: #ffd84a;
-    --mark-wash: #3a3410;
-    --data: #eceef0;
-    --context: #6f757d;
-    --track: #2c3035;
-    --map-out-line: #4a4f56;
+    --paper: #1c1916;
+    --card: #26221e;
+    --wash: #2e2924;
+    --ink: #f3ece3;
+    --ink-2: #d2c8bc;
+    --ink-3: #ab9f93;
+    --rule: #3d362f;
+    --rule-strong: #f3ece3;
+    --line: #f3ece3;
+    --shadow: #000000;
+    --mark: #ffd36b;
+    --mark-wash: #3d3216;
+    --coral: #f4a385;
+    --mint: #9fdcb5;
+    --butter: #fde39c;
+    --sky: #aad7ee;
+    --pink: #f7c2cf;
+    --data: #f3ece3;
+    --context: #7d7368;
+    --track: #3d362f;
+    --map-out-line: #4b433b;
     /* 暗い面では、値が大きいほど明るくする。 */
-    --map-0: #2a2e33;
-    --map-1: #3e434a;
-    --map-2: #575d65;
-    --map-3: #767d85;
-    --map-4: #9aa0a7;
-    --map-5: #c3c7cc;
-    --map-6: #eef0f2;
-    --pop-bg: #18170f;
-    --pop-card: #1d2023;
-    --pop-line: #eceef0;
+    --map-0: #3a2a22;
+    --map-1: #5a3727;
+    --map-2: #7f4731;
+    --map-3: #a85b3d;
+    --map-4: #d07753;
+    --map-5: #ee9d79;
+    --map-6: #fbd2bd;
     --pop-shadow: #000000;
-    --pop-yellow: #ffd84a;
-    --pop-on-yellow: #14171a;
     --pop-shu: #ff8a6e;
-    --pop-on-shu: #14171a;
-    --pop-shu-on-yellow: #b3301a;
-    --pop-soft: #2a2614;
+    --pop-on-shu: #2b2724;
+    --pop-shu-on-yellow: #a8301a;
+    --pop-soft: #2c2620;
   }
 }
 
@@ -2264,9 +2287,21 @@ th[aria-sort] .sort-button {
  */
 
 .play {
+  --accent: var(--pop-yellow);
   padding-bottom: 72px;
   background: var(--pop-bg);
-  border-bottom: 2px solid var(--pop-line);
+}
+
+.play[data-play="kuji"] {
+  --accent: var(--coral);
+}
+
+.play[data-play="quiz"] {
+  --accent: var(--mint);
+}
+
+.play[data-play="zukan"] {
+  --accent: var(--butter);
 }
 
 .play-head {
@@ -2308,8 +2343,8 @@ th[aria-sort] .sort-button {
 
 .play-tabs a[aria-current="page"] {
   color: var(--pop-on-yellow);
-  background: var(--pop-yellow);
-  box-shadow: 3px 3px 0 var(--pop-shadow);
+  background: var(--accent);
+  box-shadow: 0 3px 0 var(--pop-shadow);
 }
 
 .play-status {
@@ -2334,10 +2369,10 @@ th[aria-sort] .sort-button {
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  background: var(--pop-yellow);
+  background: var(--accent);
   border: 2.5px solid var(--pop-line);
   border-radius: 999px;
-  box-shadow: 4px 4px 0 var(--pop-shadow);
+  box-shadow: 0 4px 0 var(--pop-shadow);
 }
 
 .pop-button:hover:not(:disabled) {
@@ -2345,7 +2380,7 @@ th[aria-sort] .sort-button {
 }
 
 .pop-button:active:not(:disabled) {
-  box-shadow: 1px 1px 0 var(--pop-shadow);
+  box-shadow: 0 1px 0 var(--pop-shadow);
   transform: translate(3px, 3px);
 }
 
@@ -2379,7 +2414,7 @@ th[aria-sort] .sort-button {
   min-height: 40px;
   padding: 0 16px;
   font-size: 0.9rem;
-  box-shadow: 3px 3px 0 var(--pop-shadow);
+  box-shadow: 0 3px 0 var(--pop-shadow);
 }
 
 .share--pop .share__status {
@@ -2460,7 +2495,7 @@ th[aria-sort] .sort-button {
   background: var(--pop-card);
   border: 3px solid var(--pop-line);
   border-radius: 22px;
-  box-shadow: 7px 7px 0 var(--pop-shadow);
+  box-shadow: 0 7px 0 var(--pop-shadow);
 }
 
 /* 札の上の帯。下の辺に、ものさしの目盛り。 */
@@ -2473,7 +2508,7 @@ th[aria-sort] .sort-button {
   font-weight: 700;
   color: var(--pop-on-yellow);
   letter-spacing: 0.08em;
-  background-color: var(--pop-yellow);
+  background-color: var(--accent);
   background-image:
     repeating-linear-gradient(90deg, var(--pop-on-yellow) 0 1.5px, transparent 1.5px 40px),
     repeating-linear-gradient(90deg, var(--pop-on-yellow) 0 1px, transparent 1px 8px);
@@ -2507,7 +2542,6 @@ th[aria-sort] .sort-button {
 
 .ticket__name {
   margin-block: 0 6px;
-  padding-right: 100px;
   font-family: var(--font-pop);
   font-size: clamp(2.3rem, 9vw, 3.6rem);
   font-weight: 700;
@@ -2545,10 +2579,96 @@ th[aria-sort] .sort-button {
   color: var(--ink-3);
 }
 
+/* 名前と、位置を示す小さな地図を横に並べる。 */
+.ticket__head {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 4px 20px;
+}
+
+.ticket__map {
+  width: 200px;
+  padding: 6px;
+  background: var(--paper);
+  border: 2px solid var(--rule);
+  border-radius: 14px;
+}
+
 .ticket .stamp {
   position: absolute;
-  top: 18px;
-  right: 22px;
+  top: -6px;
+  right: 178px;
+}
+
+/* 日本地図（図鑑・まちくじ）。 */
+.area-map {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.area-map__areas path {
+  fill: var(--card);
+  stroke: var(--rule);
+  stroke-width: 0.35;
+  stroke-linejoin: round;
+}
+
+.area-map__areas path[data-state="got"] {
+  fill: var(--coral);
+}
+
+.area-map__areas path[data-state="done"] {
+  fill: var(--mint);
+}
+
+/* まだ集めていないが、同じ都道府県のまちを集めている（訪れた都道府県）。 */
+.area-map__areas path[data-state="pref"] {
+  fill: var(--butter);
+}
+
+/* まちくじ: 引いたまちの都道府県を薄く塗る。 */
+.area-map__prefectures path[data-current="true"] {
+  fill: var(--butter);
+}
+
+.area-map__prefectures path {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+
+.area-map--locator .area-map__prefectures path {
+  fill: var(--card);
+  stroke: var(--ink-3);
+  stroke-width: 1.8;
+}
+
+.area-map--locator .area-map__prefectures path[data-current="true"] {
+  fill: var(--butter);
+  stroke: var(--line);
+}
+
+.area-map__insets rect {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.area-map__target {
+  fill: var(--coral);
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.area-map__ring {
+  fill: none;
+  stroke: var(--pop-shu);
+  stroke-width: 10;
 }
 
 .ticket__traits {
@@ -2678,14 +2798,14 @@ th[aria-sort] .sort-button {
 }
 
 .kuji__log a[aria-current="true"] {
-  background: var(--pop-yellow);
+  background: var(--accent);
   color: var(--pop-on-yellow);
 }
 
 .kuji__log a small {
   font-size: 0.72rem;
+  font-weight: 500;
   color: inherit;
-  opacity: 0.75;
 }
 
 .kuji__note {
@@ -2722,9 +2842,9 @@ th[aria-sort] .sort-button {
 
 .quiz__progress li[data-state="current"] {
   color: var(--pop-on-yellow);
-  background: var(--pop-yellow);
+  background: var(--accent);
   border-color: var(--pop-line);
-  box-shadow: 2px 2px 0 var(--pop-shadow);
+  box-shadow: 0 2px 0 var(--pop-shadow);
 }
 
 .quiz__progress li[data-state="right"] {
@@ -2746,7 +2866,7 @@ th[aria-sort] .sort-button {
   background: var(--pop-card);
   border: 3px solid var(--pop-line);
   border-radius: 22px;
-  box-shadow: 7px 7px 0 var(--pop-shadow);
+  box-shadow: 0 7px 0 var(--pop-shadow);
 }
 
 .quiz-card__kicker {
@@ -2759,7 +2879,7 @@ th[aria-sort] .sort-button {
 .quiz-card__kicker span {
   padding: 1px 10px;
   color: var(--pop-on-yellow);
-  background: var(--pop-yellow);
+  background: var(--accent);
   border: 2px solid var(--pop-line);
   border-radius: 999px;
 }
@@ -2806,7 +2926,7 @@ th[aria-sort] .sort-button {
   background: var(--pop-card);
   border: 2.5px solid var(--pop-line);
   border-radius: 16px;
-  box-shadow: 4px 4px 0 var(--pop-shadow);
+  box-shadow: 0 4px 0 var(--pop-shadow);
 }
 
 .quiz-choice:hover:not(:disabled) {
@@ -2814,7 +2934,7 @@ th[aria-sort] .sort-button {
 }
 
 .quiz-choice:active:not(:disabled) {
-  box-shadow: 1px 1px 0 var(--pop-shadow);
+  box-shadow: 0 1px 0 var(--pop-shadow);
   transform: translate(3px, 3px);
 }
 
@@ -2829,7 +2949,7 @@ th[aria-sort] .sort-button {
   width: 38px;
   height: 38px;
   color: var(--pop-on-yellow);
-  background: var(--pop-yellow);
+  background: var(--accent);
   border: 2px solid var(--pop-line);
   border-radius: 50%;
 }
@@ -2857,7 +2977,7 @@ th[aria-sort] .sort-button {
 }
 
 .quiz-choice[data-state="answer"] {
-  background: var(--pop-yellow);
+  background: var(--accent);
   color: var(--pop-on-yellow);
 }
 
@@ -3029,7 +3149,7 @@ th[aria-sort] .sort-button {
   background: var(--pop-card);
   border: 3px solid var(--pop-line);
   border-radius: 22px;
-  box-shadow: 7px 7px 0 var(--pop-shadow);
+  box-shadow: 0 7px 0 var(--pop-shadow);
 }
 
 .zukan-start h3 {
@@ -3092,8 +3212,51 @@ th[aria-sort] .sort-button {
   display: block;
   min-width: 6px;
   height: 100%;
-  background: var(--pop-yellow);
+  background: var(--accent);
   border-right: 2.5px solid var(--pop-line);
+}
+
+.zukan-japan {
+  padding: 16px;
+  background: var(--card);
+  border: 3px solid var(--pop-line);
+  border-radius: 22px;
+  box-shadow: 0 7px 0 var(--pop-shadow);
+}
+
+.zukan-japan .area-map {
+  max-height: 72vh;
+}
+
+.zukan-japan figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 10px;
+  font-family: var(--font-pop);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.zukan-japan__key {
+  width: 22px;
+  height: 22px;
+  margin-left: 8px;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+}
+
+.zukan-japan__key[data-state="got"] {
+  background: var(--coral);
+}
+
+.zukan-japan__key[data-state="done"] {
+  background: var(--mint);
+}
+
+.zukan-japan__key[data-state="pref"] {
+  background: var(--butter);
 }
 
 .zukan-map {
@@ -3222,59 +3385,6 @@ th[aria-sort] .sort-button {
   font-size: 0.9rem;
 }
 
-/* ---- トップページの入口 ---- */
-
-.play-entry {
-  padding: 26px 24px 30px;
-  background: var(--pop-bg);
-  border: 3px solid var(--pop-line);
-  border-radius: 24px;
-}
-
-.play-entry h2 {
-  font-family: var(--font-pop);
-  font-size: 1.6rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-}
-
-.play-entry__cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 14px;
-}
-
-.play-entry__cards li {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  min-width: 0;
-  padding: 18px 18px 20px;
-  background: var(--pop-card);
-  border: 2.5px solid var(--pop-line);
-  border-radius: 18px;
-  box-shadow: 5px 5px 0 var(--pop-shadow);
-}
-
-.play-entry__cards h3 {
-  font-family: var(--font-pop);
-  font-size: 1.3rem;
-  font-weight: 700;
-}
-
-.play-entry__cards p {
-  flex: 1 1 auto;
-  font-size: 0.88rem;
-  color: var(--ink-2);
-}
-
-.play-entry__cards .pop-button--big {
-  min-height: 48px;
-  font-size: 1.05rem;
-}
-
 /* 上部メニューの「あそぶ」。 */
 .topbar__nav .topbar__play {
   padding-inline: 10px;
@@ -3289,7 +3399,7 @@ th[aria-sort] .sort-button {
 .topbar__nav .topbar__play[aria-current="page"] {
   color: var(--pop-on-yellow);
   border-bottom-color: var(--pop-line);
-  box-shadow: 2px 2px 0 var(--pop-shadow);
+  box-shadow: 0 2px 0 var(--pop-shadow);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -3336,10 +3446,6 @@ th[aria-sort] .sort-button {
 }
 
 @media (max-width: 720px) {
-  .play-entry__cards {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .quiz-choices {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3359,8 +3465,27 @@ th[aria-sort] .sort-button {
     height: 76px;
   }
 
-  .ticket__name {
-    padding-right: 70px;
+  .ticket__map {
+    width: 104px;
+    padding: 4px;
+    border-radius: 10px;
+  }
+
+  .ticket .stamp {
+    top: 70px;
+    right: 64px;
+    width: 64px;
+    height: 64px;
+    border-width: 3px;
+    outline-offset: -8px;
+  }
+
+  .ticket .stamp span {
+    font-size: 0.62rem;
+  }
+
+  .ticket .stamp strong {
+    font-size: 1.1rem;
   }
 
   .ticket__traits {
@@ -3660,27 +3785,27 @@ th[aria-sort] .sort-button {
 
 .view-switch {
   display: inline-flex;
-  border: 1px solid var(--ink);
-  border-radius: 2px;
+  padding: 3px;
+  background: var(--wash);
+  border: 2px solid var(--line);
+  border-radius: 999px;
 }
 
 .view-switch button {
-  min-height: 34px;
-  padding: 0 14px;
-  font-size: 0.875rem;
-  background: var(--paper);
+  min-height: 32px;
+  padding: 0 16px;
+  font-family: var(--font-pop);
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: none;
   border: 0;
+  border-radius: 999px;
   cursor: pointer;
 }
 
-.view-switch button + button {
-  border-left: 1px solid var(--ink);
-}
-
 .view-switch button[aria-pressed="true"] {
-  font-weight: 700;
-  color: var(--paper);
-  background: var(--ink);
+  color: var(--on-pastel);
+  background: var(--sky);
 }
 
 .conditions__add select {
@@ -3821,6 +3946,323 @@ th[aria-sort] .sort-button {
   margin-top: 10px;
   font-size: 0.8rem;
   color: var(--ink-3);
+}
+
+/* ---------- やさしい見た目（全体） ----------
+ * 生成りの面に、角の丸い札と大きなボタン。見出しとボタンは丸ゴシック。
+ * ここより後ろ（画面の幅に合わせる）の指定が、狭い画面では優先される。
+ */
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-pop);
+  font-weight: 700;
+}
+
+:focus-visible {
+  outline: 3px solid var(--line);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--mark);
+}
+
+.button {
+  min-height: 40px;
+  padding: 0 18px;
+  font-family: var(--font-pop);
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 3px 0 var(--shadow);
+}
+
+.button:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--shadow);
+  transform: translateY(2px);
+}
+
+.button:disabled {
+  box-shadow: none;
+}
+
+.button--primary,
+.button--primary:hover:not(:disabled) {
+  color: var(--on-pastel);
+  background: var(--coral);
+}
+
+.add-button {
+  min-height: 36px;
+  padding: 4px 14px;
+  font-family: var(--font-pop);
+  font-weight: 700;
+  background: var(--card);
+  border: 2px solid var(--rule);
+  border-radius: 999px;
+}
+
+select,
+.conditions input {
+  min-height: 40px;
+  padding-inline: 12px 8px;
+  background: var(--card);
+  border: 2px solid var(--ink-3);
+  border-radius: 12px;
+}
+
+.icon-button {
+  border-radius: 50%;
+}
+
+/* 区切りは、太い罫線ではなく角の丸い札にする。 */
+.block {
+  padding: 20px 22px 22px;
+  background: var(--card);
+  border: 2px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.block__head h2,
+.block__head h3 {
+  font-size: 1.2rem;
+}
+
+.notice {
+  background: var(--wash);
+  border-left: 0;
+  border-radius: 12px;
+}
+
+.notes {
+  font-size: 0.82rem;
+}
+
+/* 上部 */
+.topbar {
+  background: var(--paper);
+  border-bottom: 2px solid var(--rule);
+}
+
+.topbar__nav {
+  gap: 6px;
+  align-items: center;
+}
+
+.topbar__nav a {
+  padding: 5px 12px;
+  font-family: var(--font-pop);
+  font-weight: 700;
+  color: var(--ink-2);
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+
+.topbar__nav a[aria-current="page"] {
+  color: var(--ink);
+  background: var(--card);
+  border-color: var(--line);
+}
+
+.topbar__nav .topbar__play {
+  color: var(--on-pastel);
+  background: var(--coral);
+  border-color: var(--line);
+}
+
+.topbar__nav .topbar__play[aria-current="page"] {
+  color: var(--on-pastel);
+  background: var(--coral);
+  box-shadow: 0 2px 0 var(--shadow);
+}
+
+.search__input {
+  background: var(--card);
+  border: 2px solid var(--ink-3);
+  border-radius: 999px;
+}
+
+.search[data-variant="bar"] .search__input {
+  padding-left: 42px;
+  border: 2px solid var(--line);
+}
+
+.search[data-variant="bar"] .search__icon {
+  left: 16px;
+}
+
+.search__list {
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 16px;
+}
+
+/* 見出し */
+.page-head h2 {
+  font-size: clamp(1.7rem, 5vw, 2.2rem);
+}
+
+.page-head p {
+  font-size: 0.95rem;
+}
+
+/* 市区町村の画面のタブは、丸いボタンを並べる。 */
+.tabs {
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 0;
+}
+
+.tab {
+  margin-bottom: 0;
+  padding: 6px 16px;
+  font-family: var(--font-pop);
+  font-weight: 700;
+  background: var(--card);
+  border: 2px solid var(--rule);
+  border-radius: 999px;
+}
+
+.tab.is-active {
+  color: var(--on-pastel);
+  background: var(--sky);
+  border-color: var(--line);
+  box-shadow: 0 3px 0 var(--shadow);
+}
+
+/* 概要は札の中に表を収めるため、列のあいだを詰め、表の列を広く取る。 */
+.overview {
+  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr);
+  gap: 28px 24px;
+}
+
+.overview .block {
+  padding-inline: 18px;
+}
+
+.summary {
+  font-size: 0.94rem;
+}
+
+.overview .summary th:not(:last-child),
+.overview .summary td:not(:last-child) {
+  padding-right: 12px;
+}
+
+/* 表 */
+.data-table thead th,
+.summary thead th,
+.screen-table thead th {
+  border-bottom: 2px solid var(--rule-strong);
+}
+
+/* 都道府県のます目 */
+.japan-map a {
+  font-family: var(--font-pop);
+  background: var(--card);
+  border: 2px solid var(--rule);
+  border-radius: 10px;
+}
+
+.japan-map a:hover {
+  color: var(--on-pastel);
+  background: var(--sky);
+  border-color: var(--line);
+}
+
+/* 特集のカード */
+.topic {
+  padding: 18px 20px;
+  background: var(--card);
+  border: 2px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+/* トップページの入口（大きなボタンを4つ） */
+.home-start {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  padding-block: 8px 12px;
+  text-align: center;
+}
+
+.home-start h2 {
+  font-size: clamp(1.5rem, 4.6vw, 2rem);
+  line-height: 1.4;
+}
+
+.home-start p {
+  max-width: 34em;
+  font-size: 0.95rem;
+  color: var(--ink-2);
+}
+
+.home-start__buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+  width: min(100%, 720px);
+}
+
+.home-button {
+  display: grid;
+  align-content: center;
+  min-height: 84px;
+  padding: 12px 24px;
+  font-family: var(--font-pop);
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--on-pastel);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  background: var(--accent, var(--card));
+  border: 3px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 5px 0 var(--shadow);
+}
+
+.home-button small {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.home-button:active {
+  box-shadow: 0 1px 0 var(--shadow);
+  transform: translateY(4px);
+}
+
+.home-button--kuji {
+  --accent: var(--coral);
+}
+
+.home-button--quiz {
+  --accent: var(--mint);
+}
+
+.home-button--zukan {
+  --accent: var(--butter);
+}
+
+.home-button--screen {
+  --accent: var(--sky);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .button,
+  .home-button,
+  .tab {
+    transition:
+      transform 80ms ease,
+      box-shadow 80ms ease,
+      background-color 120ms ease;
+  }
 }
 
 /* ---------- 画面の幅に合わせる ---------- */
@@ -4229,5 +4671,37 @@ th[aria-sort] .sort-button {
   .is-sorted {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+}
+
+/* やさしい見た目: 狭い画面 */
+@media (max-width: 720px) {
+  .home-start__buttons {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .home-button {
+    min-height: 72px;
+    font-size: 1.2rem;
+  }
+
+  .topbar__nav {
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+
+  .topbar__nav a {
+    padding: 3px 8px;
+    font-size: 0.85rem;
+  }
+
+  .block {
+    padding: 16px 14px 18px;
+    border-radius: 16px;
+  }
+
+  .topic {
+    padding: 16px 14px;
   }
 }

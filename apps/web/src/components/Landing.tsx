@@ -18,7 +18,7 @@ import {
 import type { AsyncState } from "../lib/useAsync";
 import type { MouseEvent } from "react";
 import type { RankingRoute, Route } from "../lib/route";
-import { hrefOf, QUIZ_HOME, ZUKAN_HOME } from "../lib/route";
+import { DEFAULT_RANKING, hrefOf, QUIZ_HOME, ZUKAN_HOME } from "../lib/route";
 import type { Zukan } from "../lib/zukan";
 import { HowToRead } from "./HowToRead";
 import { JapanMap } from "./JapanMap";
@@ -62,6 +62,30 @@ export function Landing({
 
   return (
     <div className="landing">
+      <section className="home-start" aria-labelledby="home-start-title">
+        <h2 id="home-start-title">全国{formatNumber(manifest.counts.referenceAreas)}のまちを、公的統計で</h2>
+        <div className="home-start__buttons">
+          <button type="button" className="home-button home-button--kuji" onClick={onDrawKuji}>
+            まちくじを引く
+            <small>どこかのまちが1つ出ます</small>
+          </button>
+          <a className="home-button home-button--quiz" {...playLink(QUIZ_HOME)}>
+            今日のまちクイズ
+            <small>4択が5問・毎日0時に変わります</small>
+          </a>
+          <a className="home-button home-button--zukan" {...playLink(ZUKAN_HOME)}>
+            まち図鑑
+            <small>
+              {zukan.enabled ? `集めたまち ${formatNumber(zukan.codes.length)}` : "引いたまちを地図に集めます"}
+            </small>
+          </a>
+          <a className="home-button home-button--screen" {...playLink(DEFAULT_RANKING)}>
+            条件でさがす
+            <small>全部のまちから、条件に合うまちを</small>
+          </a>
+        </div>
+      </section>
+
       <section className="pref-finder" aria-labelledby="pref-index-title">
         <header className="pref-finder__head">
           <h2 id="pref-index-title">都道府県からさがす</h2>
@@ -78,40 +102,6 @@ export function Landing({
         {/* 広い画面では地図の形、狭い画面では地方ごとの一覧で示す。 */}
         <JapanMap index={index} onOpenRanking={onOpenRanking} />
         <PrefectureIndex index={index} onOpenRanking={onOpenRanking} />
-      </section>
-
-      <section className="play-entry" aria-labelledby="play-entry-title">
-        <h2 id="play-entry-title">あそぶ</h2>
-        <ul className="play-entry__cards">
-          <li>
-            <h3>まちくじ</h3>
-            <p>
-              全国{formatNumber(manifest.counts.referenceAreas)}
-              のまちから1つ。そのまちの「全国で目立つところ」が出ます。
-            </p>
-            <button type="button" className="pop-button pop-button--big" onClick={onDrawKuji}>
-              くじを引く
-            </button>
-          </li>
-          <li>
-            <h3>まちクイズ</h3>
-            <p>「空き家率が全国で最も高いまちは？」のような4択が5問。毎日0時に変わります。</p>
-            <a className="pop-button pop-button--big" {...playLink(QUIZ_HOME)}>
-              今日の5問
-            </a>
-          </li>
-          <li>
-            <h3>まち図鑑</h3>
-            <p>
-              {zukan.enabled
-                ? `集めたまち ${formatNumber(zukan.codes.length)}。47都道府県の制覇をめざします。`
-                : "引いたまちを集めて、47都道府県の制覇をめざします。"}
-            </p>
-            <a className="pop-button pop-button--big pop-button--plain" {...playLink(ZUKAN_HOME)}>
-              図鑑を見る
-            </a>
-          </li>
-        </ul>
       </section>
 
       {national.status === "ready" && (

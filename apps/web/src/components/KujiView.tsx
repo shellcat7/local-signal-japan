@@ -10,9 +10,11 @@ import {
   type Manifest,
   type NationalFile
 } from "@local-signal-japan/core";
+import type { MapData } from "../lib/data";
 import { hrefOf, ZUKAN_HOME, type KujiRoute, type Route } from "../lib/route";
 import type { AsyncState } from "../lib/useAsync";
 import type { Zukan } from "../lib/zukan";
+import { AreaMap } from "./AreaMap";
 import { Stamp } from "./PlayHeader";
 import { cardSources, ShareButtons } from "./ShareButtons";
 
@@ -24,6 +26,8 @@ type KujiViewProps = {
   manifest: Manifest;
   index: AreaIndex;
   national: AsyncState<NationalFile>;
+  /** 位置を示す日本地図。 */
+  map: AsyncState<MapData>;
   /** このページを開いてから引いた市区町村（新しい順）。 */
   drawn: readonly string[];
   zukan: Zukan;
@@ -48,6 +52,7 @@ export function KujiView({
   manifest,
   index,
   national,
+  map,
   drawn,
   zukan,
   pendingReveal,
@@ -192,20 +197,29 @@ export function KujiView({
             </p>
           ) : (
             <>
-              <p className="ticket__pref">{prefName}</p>
-              <h3 className="ticket__name" id="kuji-name">
-                {areaLocalName(entry)}
-              </h3>
-              <p className="ticket__profile">
-                {profile}
-                {populationRank && (
-                  <small>
-                    （全国{formatNumber(populationRank.total)}のうち、人口の多いほうから
-                    {formatNumber(populationRank.rank)}番目）
-                  </small>
+              <div className="ticket__head">
+                <div>
+                  <p className="ticket__pref">{prefName}</p>
+                  <h3 className="ticket__name" id="kuji-name">
+                    {areaLocalName(entry)}
+                  </h3>
+                  <p className="ticket__profile">
+                    {profile}
+                    {populationRank && (
+                      <small>
+                        （全国{formatNumber(populationRank.total)}のうち、人口の多いほうから
+                        {formatNumber(populationRank.rank)}番目）
+                      </small>
+                    )}
+                  </p>
+                </div>
+                {map.status === "ready" && entry.kind !== "ward" && (
+                  <div className="ticket__map">
+                    <AreaMap map={map.value} highlight={entry.code} label={`${fullName}の位置`} />
+                  </div>
                 )}
-              </p>
-              {nationalFirst && <Stamp top="全国" bottom="1位" />}
+                {nationalFirst && <Stamp top="全国" bottom="1位" />}
+              </div>
 
               {entry.kind === "ward" ? (
                 <p className="ticket__lead">政令指定都市の区は、市全体と重なるため全国の比較に含めていません。</p>

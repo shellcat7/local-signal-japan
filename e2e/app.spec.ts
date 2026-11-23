@@ -747,7 +747,7 @@ test.describe("まちくじ", () => {
   test("トップページから引き、もう一回引ける。引いたまちはこのページの中だけに残る", async ({ page }) => {
     const { errors, externalRequests } = watch(page);
     await page.goto("./");
-    await page.getByRole("region", { name: "あそぶ" }).getByRole("button", { name: "くじを引く" }).click();
+    await page.getByRole("button", { name: /^まちくじを引く/ }).click();
 
     await expect(page).toHaveURL(/#view=kuji&area=\d{5}$/);
     await expect(page.getByRole("status").filter({ hasText: "を引きました" })).toHaveCount(1);

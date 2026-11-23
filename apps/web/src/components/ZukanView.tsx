@@ -7,8 +7,11 @@ import {
   type AreaIndex,
   type Manifest
 } from "@local-signal-japan/core";
+import type { MapData } from "../lib/data";
 import { hrefOf, KUJI_HOME, type Route } from "../lib/route";
+import type { AsyncState } from "../lib/useAsync";
 import type { Zukan } from "../lib/zukan";
+import { AreaMap, zukanSvgString, type AreaState } from "./AreaMap";
 import { shortName, TILES } from "./JapanMap";
 import { Stamp } from "./PlayHeader";
 import { cardSources, ShareButtons } from "./ShareButtons";
@@ -16,6 +19,7 @@ import { cardSources, ShareButtons } from "./ShareButtons";
 type ZukanViewProps = {
   manifest: Manifest;
   index: AreaIndex;
+  map: AsyncState<MapData>;
   zukan: Zukan;
   /** 図鑑をはじめる前に、このページで引いたまち。 */
   drawn: readonly string[];
@@ -31,7 +35,7 @@ const isPlainClick = (event: MouseEvent) =>
  * まち図鑑。まちくじで引いたまちを、都道府県ごとに集める。
  * 記録は、利用者が「図鑑をはじめる」を押したときだけ、この端末のブラウザに保存する。
  */
-export function ZukanView({ manifest, index, zukan, drawn, onEnable, onClear, onNavigate }: ZukanViewProps) {
+export function ZukanView({ manifest, index, map, zukan, drawn, onEnable, onClear, onNavigate }: ZukanViewProps) {
   const [confirming, setConfirming] = useState(false);
   const pool = useMemo(() => kujiPool(index.areas), [index]);
   const totals = useMemo(() => {
@@ -50,6 +54,18 @@ export function ZukanView({ manifest, index, zukan, drawn, onEnable, onClear, on
     (pref) => (byPref.get(pref.code)?.length ?? 0) >= (totals.get(pref.code) ?? Number.POSITIVE_INFINITY)
   ).length;
   const share = entries.length / pool.length;
+  const doneCodes = new Set(
+    index.prefectures
+      .filter((pref) => (byPref.get(pref.code)?.length ?? 0) >= (totals.get(pref.code) ?? Number.POSITIVE_INFINITY))
+      .map((pref) => pref.code)
+  );
+  // 集めたまちは珊瑚、制覇した都道府県はミント、集めたまちがある都道府県のほかのまちはバターで塗る。
+  const states = new Map<string, AreaState>();
+  const visited = new Set(entries.map((entry) => entry.prefCode));
+  for (const area of pool) {
+    if (visited.has(area.prefCode)) states.set(area.code, doneCodes.has(area.prefCode) ? "done" : "pref");
+  }
+  for (const entry of entries) states.set(entry.code, doneCodes.has(entry.prefCode) ? "done" : "got");
 
   const link = (next: Route) => ({
     href: hrefOf(next),
@@ -98,6 +114,26 @@ export function ZukanView({ manifest, index, zukan, drawn, onEnable, onClear, on
         </div>
       </section>
 
+      <figure className="zukan-japan">
+        {map.status === "ready" ? (
+          <AreaMap
+            map={map.value}
+            states={states}
+            label={`集めたまちの地図。${formatNumber(entries.length)}まちを塗っています`}
+          />
+        ) : (
+          <p className="play-status">{map.status === "error" ? map.message : "地図を読み込んでいます…"}</p>
+        )}
+        <figcaption>
+          <span className="zukan-japan__key" data-state="got" />
+          集めたまち
+          <span className="zukan-japan__key" data-state="pref" />
+          訪れた都道府県
+          <span className="zukan-japan__key" data-state="done" />
+          制覇した都道府県
+        </figcaption>
+      </figure>
+
       <ul className="zukan-map" aria-label="都道府県ごとの集めた数">
         {index.prefectures.map((pref) => {
           const [column, row] = TILES[pref.code] ?? [1, 1];
@@ -135,12 +171,12 @@ export function ZukanView({ manifest, index, zukan, drawn, onEnable, onClear, on
               total: pool.length,
               prefectures: byPref.size,
               completed,
-              tiles: index.prefectures.map((pref) => {
-                const [column, row] = TILES[pref.code] ?? [1, 1];
-                const all = totals.get(pref.code) ?? 1;
-                return { column, row, name: shortName(pref.name), ratio: (byPref.get(pref.code)?.length ?? 0) / all };
-              }),
-              sources: cardSources(manifest)
+              mapUrl:
+                map.status === "ready"
+                  ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(zukanSvgString(map.value, states))}`
+                  : null,
+              mapAspect: map.status === "ready" ? map.value.viewBox[2] / map.value.viewBox[3] : 1,
+              sources: cardSources(manifest, { map: map.status === "ready" ? map.value.source.attribution : undefined })
             })}
           />
         )}

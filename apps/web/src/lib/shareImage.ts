@@ -9,12 +9,15 @@ export const CARD_HEIGHT = 675;
 const SCALE = 2;
 const PADDING = 56;
 
-const INK = "#14171a";
-const INK_2 = "#454b52";
-const INK_3 = "#676d75";
-const RULE = "#dcdfe3";
-const MARK = "#ffe14a";
-const MARK_WASH = "#fff6c4";
+const INK = "#2b2724";
+const INK_2 = "#4f4842";
+const INK_3 = "#6b625a";
+const RULE = "#e6dccb";
+const MARK = "#ffd36b";
+const MARK_WASH = "#fff0c7";
+/** 生成りの紙と、入口ごとの中間色（styles.css と同じ）。 */
+const PAPER = "#fbf5ea";
+const PASTEL = { kuji: "#f4a385", quiz: "#9fdcb5", zukan: "#fde39c" } as const;
 
 const SANS =
   '"IBM Plex Sans Variable", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Yu Gothic UI", "Noto Sans JP", Meiryo, sans-serif';
@@ -103,8 +106,9 @@ export type ZukanCard = {
   total: number;
   prefectures: number;
   completed: number;
-  /** 都道府県ごとの ます目の位置・短い名前・集めた割合（0〜1）。 */
-  tiles: Array<{ column: number; row: number; name: string; ratio: number }>;
+  /** 集めたまちを塗った地図（SVG の data: URL）。読み込めていなければ null。 */
+  mapUrl: string | null;
+  mapAspect: number;
   sources: CardSources;
 };
 
@@ -294,10 +298,10 @@ function roundedRect(
   context.roundRect(x, y, width, height, radius);
 }
 
-/** 墨の太い線と、右下にずらした影の札。 */
+/** 墨の太い線と、下に落とした影の札。 */
 function popPanel(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius = 26) {
   context.fillStyle = INK;
-  roundedRect(context, x + 8, y + 8, width, height, radius);
+  roundedRect(context, x, y + 8, width, height, radius);
   context.fill();
   context.fillStyle = "#ffffff";
   roundedRect(context, x, y, width, height, radius);
@@ -307,20 +311,26 @@ function popPanel(context: CanvasRenderingContext2D, x: number, y: number, width
   context.stroke();
 }
 
-/** 黄色の地に、ロゴと右上の見出し（「まちくじ No.10524」など）。 */
-function popBackground(context: CanvasRenderingContext2D, tag: string) {
-  context.fillStyle = MARK;
+/** 生成りの地に、ロゴと右上の見出し（「まちくじ No.10524」など、入口ごとの色の札）。 */
+function popBackground(context: CanvasRenderingContext2D, tag: string, accent: string) {
+  context.fillStyle = PAPER;
   context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
   drawWordmark(context, PADDING, 50);
   context.font = font(700, 24, POP);
-  const width = context.measureText(tag).width + 36;
+  const width = context.measureText(tag).width + 40;
   const x = CARD_WIDTH - PADDING - width;
   context.fillStyle = INK;
-  roundedRect(context, x, 18, width, 44, 22);
+  roundedRect(context, x, 22, width, 46, 23);
   context.fill();
-  context.fillStyle = MARK;
+  context.fillStyle = accent;
+  roundedRect(context, x, 16, width, 46, 23);
+  context.fill();
+  context.lineWidth = 3;
+  context.strokeStyle = INK;
+  context.stroke();
+  context.fillStyle = INK;
   context.textBaseline = "middle";
-  context.fillText(tag, x + 18, 41);
+  context.fillText(tag, x + 20, 40);
   context.textBaseline = "alphabetic";
 }
 
@@ -370,11 +380,11 @@ function wrap(context: CanvasRenderingContext2D, text: string, width: number, ma
 }
 
 function drawKuji(context: CanvasRenderingContext2D, card: KujiCard) {
-  popBackground(context, `まちくじ  No.${card.code}`);
+  popBackground(context, `まちくじ  No.${card.code}`, PASTEL.kuji);
   const top = 86;
   const bottom = popBottom(card.sources);
   const left = PADDING;
-  const width = CARD_WIDTH - PADDING * 2 - 8;
+  const width = CARD_WIDTH - PADDING * 2;
   popPanel(context, left, top, width, bottom - top);
 
   const inner = left + 40;
@@ -398,7 +408,7 @@ function drawKuji(context: CanvasRenderingContext2D, card: KujiCard) {
     const middle = y + rowHeight / 2 + 2;
     context.font = font(700, 22, POP);
     const pillWidth = Math.min(330, context.measureText(trait.phrase).width + 30);
-    context.fillStyle = MARK;
+    context.fillStyle = PASTEL.kuji;
     roundedRect(context, inner, middle - 22, pillWidth, 44, 22);
     context.fill();
     context.lineWidth = 2;
@@ -428,11 +438,11 @@ function drawKuji(context: CanvasRenderingContext2D, card: KujiCard) {
 const LETTERS = ["A", "B", "C", "D"];
 
 function drawQuiz(context: CanvasRenderingContext2D, card: QuizCard) {
-  popBackground(context, `まちクイズ  Q${card.number}`);
+  popBackground(context, `まちクイズ  Q${card.number}`, PASTEL.quiz);
   const top = 86;
   const bottom = popBottom(card.sources);
   const left = PADDING;
-  const width = CARD_WIDTH - PADDING * 2 - 8;
+  const width = CARD_WIDTH - PADDING * 2;
   popPanel(context, left, top, width, bottom - top);
 
   context.fillStyle = INK;
@@ -455,7 +465,7 @@ function drawQuiz(context: CanvasRenderingContext2D, card: QuizCard) {
     context.stroke();
     const cx = x + 40;
     const cy = y + boxHeight / 2;
-    context.fillStyle = MARK;
+    context.fillStyle = PASTEL.quiz;
     context.beginPath();
     context.arc(cx, cy, 22, 0, Math.PI * 2);
     context.fill();
@@ -477,11 +487,11 @@ function drawQuiz(context: CanvasRenderingContext2D, card: QuizCard) {
 }
 
 function drawQuizResult(context: CanvasRenderingContext2D, card: QuizResultCard) {
-  popBackground(context, "まちクイズ");
+  popBackground(context, "まちクイズ", PASTEL.quiz);
   const top = 86;
   const bottom = popBottom(card.sources);
   const left = PADDING;
-  const width = CARD_WIDTH - PADDING * 2 - 8;
+  const width = CARD_WIDTH - PADDING * 2;
   popPanel(context, left, top, width, bottom - top);
 
   context.fillStyle = INK_2;
@@ -504,7 +514,7 @@ function drawQuizResult(context: CanvasRenderingContext2D, card: QuizResultCard)
   card.marks.forEach((correct, index) => {
     const x = left + 40 + index * (size + 14);
     const y = bottom - size - 32;
-    context.fillStyle = correct ? MARK : "#ffffff";
+    context.fillStyle = correct ? PASTEL.quiz : "#ffffff";
     roundedRect(context, x, y, size, size, 12);
     context.fill();
     context.lineWidth = 3;
@@ -520,12 +530,12 @@ function drawQuizResult(context: CanvasRenderingContext2D, card: QuizResultCard)
   });
 }
 
-function drawZukan(context: CanvasRenderingContext2D, card: ZukanCard) {
-  popBackground(context, "まち図鑑");
+async function drawZukan(context: CanvasRenderingContext2D, card: ZukanCard) {
+  popBackground(context, "まち図鑑", PASTEL.zukan);
   const top = 86;
   const bottom = popBottom(card.sources);
   const left = PADDING;
-  const width = CARD_WIDTH - PADDING * 2 - 8;
+  const width = CARD_WIDTH - PADDING * 2;
   popPanel(context, left, top, width, bottom - top);
 
   const inner = left + 40;
@@ -544,27 +554,30 @@ function drawZukan(context: CanvasRenderingContext2D, card: ZukanCard) {
   context.fillText(`${card.prefectures} / 47 都道府県`, inner, top + 230);
   context.fillText(`制覇 ${card.completed}`, inner, top + 272);
 
-  // ます目の日本地図（集めた割合で塗る）。
-  const tile = Math.min(40, (bottom - top - 40) / 10 - 4);
-  const mapLeft = left + width - 40 - 14 * (tile + 4);
-  const mapTop = top + 20;
-  for (const item of card.tiles) {
-    const x = mapLeft + (item.column - 1) * (tile + 4);
-    const y = mapTop + (item.row - 1) * (tile + 4);
-    context.fillStyle = item.ratio >= 1 ? SHU : item.ratio > 0 ? MARK : "#ffffff";
-    roundedRect(context, x, y, tile, tile, 7);
+  // 集めたまちを塗った日本地図。
+  if (card.mapUrl) {
+    const height = bottom - top - 36;
+    const mapWidth = height * card.mapAspect;
+    const image = await loadImage(card.mapUrl);
+    context.drawImage(image, left + width - 30 - mapWidth, top + 18, mapWidth, height);
+  }
+  context.font = font(700, 20, POP);
+  const keyY = bottom - 40;
+  [
+    [PASTEL.kuji, "集めたまち"],
+    [PASTEL.zukan, "訪れた都道府県"],
+    [PASTEL.quiz, "制覇"]
+  ].forEach(([color, label], index) => {
+    const x = inner + [0, 170, 360][index]!;
+    context.fillStyle = color as string;
+    roundedRect(context, x, keyY - 18, 26, 26, 6);
     context.fill();
     context.lineWidth = 2;
-    context.strokeStyle = item.ratio > 0 ? INK : RULE;
+    context.strokeStyle = INK;
     context.stroke();
-    context.fillStyle = item.ratio >= 1 ? "#ffffff" : item.ratio > 0 ? INK : INK_3;
-    context.font = font(700, 11, POP);
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText(item.name.slice(0, 3), x + tile / 2, y + tile / 2 + 1);
-    context.textAlign = "left";
-    context.textBaseline = "alphabetic";
-  }
+    context.fillStyle = INK;
+    context.fillText(label as string, x + 36, keyY + 2);
+  });
 }
 
 function cardText(card: Card): string {
@@ -578,7 +591,7 @@ function cardText(card: Card): string {
     case "quizResult":
       return [card.heading, card.title, "称号問正解○×0123456789/"].join("");
     case "zukan":
-      return [...card.tiles.map((item) => item.name), "集めたまち都道府県制覇図鑑0123456789,/ "].join("");
+      return "集めたまち訪れた都道府県制覇した図鑑0123456789,/ ";
     default:
       return "";
   }
@@ -664,7 +677,7 @@ export async function renderCard(card: Card): Promise<Blob> {
   if (card.kind === "kuji") drawKuji(context, card);
   else if (card.kind === "quiz") drawQuiz(context, card);
   else if (card.kind === "quizResult") drawQuizResult(context, card);
-  else if (card.kind === "zukan") drawZukan(context, card);
+  else if (card.kind === "zukan") await drawZukan(context, card);
   else {
     onYellow = false;
     if (card.kind === "ranking") drawRanking(context, card);
