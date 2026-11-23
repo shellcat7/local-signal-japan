@@ -185,12 +185,14 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
     [national, conditionKey]
   );
   const visible = matched.slice(0, visibleCount);
+  const rankedCount = matched.filter(({ rank }) => rank !== null).length;
+  const missingCount = matched.length - rankedCount;
   const prefNames = useMemo(() => new Map(index.prefectures.map((pref) => [pref.code, pref.name])), [index]);
   const periodOf = (key: IndicatorKey) => metricPeriodText(key, manifest.indicators[key].year);
   const narrowed = filters.length > 0 || route.prefCode !== null || route.size !== "all";
   const usesFurusato = [route.metric, ...filters.map(([key]) => key)].some((key) => key.startsWith("furusato"));
 
-  const loadMapData = useCallback(() => loadMap(), []);
+  const loadMapData = useCallback(() => loadMap(manifest), [manifest]);
   const [mapData] = useAsync(route.display === "map" ? loadMapData : noMap);
 
   const metricValues = useMemo(
@@ -208,6 +210,13 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [matched]
   );
+  const ranks = useMemo(() => new Map(matched.map(({ row, rank }) => [row.code, rank])), [matched]);
+  const names = useMemo(
+    () =>
+      new Map(national.areas.map((row) => [row.code, `${areaLocalName(row)}（${prefNames.get(row.prefCode) ?? ""}）`])),
+    [national, prefNames]
+  );
+  const [pendingFact, setPendingFact] = useState<FactKey | "">("");
   const bins = useMemo(
     () => quantileBins([...metricValues.values()].filter((value): value is number => value !== null)),
     [metricValues]
@@ -215,7 +224,8 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
 
   const setBound = (key: MetricKey, side: "min" | "max", value: number | undefined) => {
     const { scale } = inputUnit(key);
-    const scaled = value === undefined ? undefined : value * scale;
+    // 万円で入れた金額を円に直す。小数の誤差（5699.999…）が残らないよう、円の単位に丸める。
+    const scaled = value === undefined ? undefined : scale === 1 ? value : Math.round(value * scale);
     const next = { min: route.filters[key]?.min, max: route.filters[key]?.max, [side]: scaled };
     const range: RangeFilter = {
       ...(next.min === undefined ? {} : { min: next.min }),
@@ -254,8 +264,12 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
   const conditions = describeConditions(route, prefNames);
   const top = matched[0];
   const shareText = top
-    ? `${title}${period ? `（${period}）` : ""}。1位は${areaLocalName(top.row)}（${prefNames.get(top.row.prefCode) ?? ""}）。該当${formatNumber(matched.length)}市区町村。`
+    ? `${title}${period ? `（${period}）` : ""}。1位は${areaLocalName(top.row)}（${prefNames.get(top.row.prefCode) ?? ""}）。${formatNumber(rankedCount)}市区町村の中での順位です。`
     : title;
+  const countNote =
+    missingCount > 0
+      ? `該当 ${formatNumber(matched.length)}市区町村のうち、値がある${formatNumber(rankedCount)}市区町村の順位です。`
+      : `該当 ${formatNumber(matched.length)}市区町村（全国${formatNumber(manifest.counts.referenceAreas)}市区町村のうち）。順位は値の大小の順です。`;
 
   const saveCsv = () => {
     const header = [
@@ -319,7 +333,8 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
                 ? metricValueText(route.metric, bin.min)
                 : `${metricValueText(route.metric, bin.min)}〜${metricValueText(route.metric, bin.max)}`
           })),
-          { color: "#f7f7f5", label: "条件に合わない" }
+          ...(missingCount > 0 ? [{ color: "#ffffff", label: "値なし", pattern: true }] : []),
+          { color: "#ffffff", label: "条件に合わない" }
         ],
         sources: cardSources(manifest, { furusato: usesFurusato, map: map.source.attribution })
       };
@@ -335,7 +350,7 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
         value:
           metricValues.get(row.code) == null ? "—" : metricValueText(route.metric, metricValues.get(row.code) as number)
       })),
-      note: `該当 ${formatNumber(matched.length)}市区町村（全国${formatNumber(manifest.counts.referenceAreas)}市区町村のうち）。順位は値の大小の順です。`,
+      note: countNote,
       sources: cardSources(manifest, { furusato: usesFurusato })
     };
   };
@@ -453,29 +468,38 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
               );
             })}
           </ul>
-          <label className="conditions__add">
-            <span>くらしの指標で絞り込む</span>
-            <select
-              value=""
-              onChange={(event) => {
-                const key = event.target.value as FactKey;
-                if (key) setAddedFacts((current) => [...current, key]);
+          <div className="conditions__add">
+            <label>
+              <span>くらしの指標で絞り込む</span>
+              <select value={pendingFact} onChange={(event) => setPendingFact(event.target.value as FactKey | "")}>
+                <option value="">項目を選ぶ…</option>
+                {FACT_GROUPS.map((group) => (
+                  <optgroup key={group.id} label={group.label}>
+                    {FACT_KEYS.filter((key) => FACTS[key].group === group.id && !factFilterKeys.includes(key)).map(
+                      (key) => (
+                        <option key={key} value={key}>
+                          {FACTS[key].label}
+                        </option>
+                      )
+                    )}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            {/* 選択欄は矢印キーで項目を移るたびに変わるので、追加はボタンで確定する。 */}
+            <button
+              type="button"
+              className="button"
+              disabled={pendingFact === ""}
+              onClick={() => {
+                if (pendingFact === "") return;
+                setAddedFacts((current) => [...current, pendingFact]);
+                setPendingFact("");
               }}
             >
-              <option value="">項目を選ぶ…</option>
-              {FACT_GROUPS.map((group) => (
-                <optgroup key={group.id} label={group.label}>
-                  {FACT_KEYS.filter((key) => FACTS[key].group === group.id && !factFilterKeys.includes(key)).map(
-                    (key) => (
-                      <option key={key} value={key}>
-                        {FACTS[key].label}
-                      </option>
-                    )
-                  )}
-                </optgroup>
-              ))}
-            </select>
-          </label>
+              条件に加える
+            </button>
+          </div>
         </div>
       </form>
 
@@ -484,6 +508,12 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
           <h3 id="results-title" role="status">
             該当 <strong>{formatNumber(matched.length)}</strong>市区町村
             <span>／対象 {formatNumber(manifest.counts.referenceAreas)}市区町村</span>
+            {missingCount > 0 && (
+              <span className="results__missing">
+                うち {formatNumber(missingCount)}市区町村は{metricShortName(route.metric)}
+                の値がないため、順位を付けずに末尾に並べています
+              </span>
+            )}
           </h3>
           <div className="button-row">
             <div className="view-switch" role="group" aria-label="表示">
@@ -543,15 +573,8 @@ export function ScreenerView({ route, national, index, manifest, onChange, onOpe
                 map={mapData.value}
                 metric={route.metric}
                 values={metricValues}
-                ranks={new Map(matched.map(({ row, rank }) => [row.code, rank]))}
-                names={
-                  new Map(
-                    national.areas.map((row) => [
-                      row.code,
-                      `${areaLocalName(row)}（${prefNames.get(row.prefCode) ?? ""}）`
-                    ])
-                  )
-                }
+                ranks={ranks}
+                names={names}
                 bins={bins}
                 label={`${title}の地図。値の大きさを墨の濃さで示しています。同じ値は表でも確認できます。`}
                 onOpenArea={onOpenArea}

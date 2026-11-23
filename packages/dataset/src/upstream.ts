@@ -207,7 +207,8 @@ export type PoliteClient = {
 export function createPoliteClient(log: (message: string) => void = () => {}): PoliteClient {
   let lastRequestAt = 0;
 
-  const request = async (url: string, accept: string): Promise<Response> => {
+  // 本文の読み込みも再試行の対象に含める（大きなファイルの途中で接続が切れることがあるため）。
+  const request = async <T>(url: string, accept: string, read: (response: Response) => Promise<T>): Promise<T> => {
     for (let attempt = 1; ; attempt += 1) {
       const wait = lastRequestAt + REQUEST_INTERVAL_MS - Date.now();
       if (wait > 0) await sleep(wait);
@@ -221,7 +222,7 @@ export function createPoliteClient(log: (message: string) => void = () => {}): P
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
-        return response;
+        return await read(response);
       } catch (error) {
         if (attempt >= MAX_ATTEMPTS) {
           throw new Error(`取得に失敗しました: ${url}`, { cause: error });
@@ -233,10 +234,10 @@ export function createPoliteClient(log: (message: string) => void = () => {}): P
   };
 
   return {
-    json: async (url) => (await (await request(url, "application/json")).json()) as unknown,
-    text: async (url, encoding = "utf-8") =>
-      new TextDecoder(encoding).decode(await (await request(url, "text/html")).arrayBuffer()),
-    binary: async (url) => (await request(url, "*/*")).arrayBuffer()
+    json: (url) => request(url, "application/json", async (response) => (await response.json()) as unknown),
+    text: (url, encoding = "utf-8") =>
+      request(url, "text/html", async (response) => new TextDecoder(encoding).decode(await response.arrayBuffer())),
+    binary: (url) => request(url, "*/*", (response) => response.arrayBuffer())
   };
 }
 

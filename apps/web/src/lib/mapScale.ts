@@ -2,7 +2,7 @@
 export const MAP_CLASSES = 7;
 
 /** 墨の濃淡（薄い → 濃い）。 */
-export const MAP_RAMP = ["#eef0f2", "#d6d9dd", "#b9bec4", "#959ba3", "#6f757d", "#454b52", "#14171a"];
+export const MAP_RAMP = ["#e4e7ea", "#d0d4d9", "#b9bec4", "#959ba3", "#6f757d", "#454b52", "#14171a"];
 
 /**
  * level は濃淡の段（0 = 最も薄い）。画面では配色に合わせた色（CSS の --map-0〜6）に、

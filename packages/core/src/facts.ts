@@ -498,7 +498,7 @@ export const FACTS: Record<FactKey, FactDefinition> = {
     signed: true,
     words: { high: "大きい", low: "小さい" },
     summary: "受け入れた寄附の額から、住民がほかへ寄附したことによる住民税の控除額を引いたものです。",
-    method: "受入額（令和7年度）から、市町村民税の控除額（令和8年度課税）を引きます。",
+    method: "受入額（年度）から、その翌年度課税の市町村民税の控除額を引きます。",
     notes: [
       "受入額は返礼品などの費用を差し引く前の金額で、控除額の多くは地方交付税で補われる場合があります。実際の収支とは異なる、目安の数字です。",
       "受入額と控除額は、対象の期間が少しずれています（受入額は年度、控除額は前の年の寄附）。"
@@ -519,12 +519,15 @@ export function computeFact(key: FactKey, basis: FactBasis): number | null {
   return value === null || !Number.isFinite(value) ? null : roundTo(value, FACTS[key].decimals);
 }
 
-/** 金額を「億円」「万円」で読みやすく書く。 */
+/** 金額を読みやすく書く（100万円未満は円、1億円未満は万円、それ以上は億円）。 */
 export function formatYen(value: number, signed = false): string {
   const sign = value < 0 ? "−" : signed && value > 0 ? "+" : "";
   const absolute = Math.abs(value);
-  if (absolute >= 100_000_000) return `${sign}${formatNumber(absolute / 100_000_000, 1)}億円`;
-  if (absolute >= 10_000) return `${sign}${formatNumber(Math.round(absolute / 10_000))}万円`;
+  // 100万円未満は円まで、1億円未満は万円まで、それ以上は億円で小数1桁。丸めて桁が上がるときは上の単位に移る。
+  if (absolute >= 100_000_000 || Math.round(absolute / 10_000) >= 10_000) {
+    return `${sign}${formatNumber(absolute / 100_000_000, 1)}億円`;
+  }
+  if (absolute >= 1_000_000) return `${sign}${formatNumber(Math.round(absolute / 10_000))}万円`;
   return `${sign}${formatNumber(Math.round(absolute))}円`;
 }
 

@@ -10,13 +10,15 @@ export type Topic = {
   order: "desc" | "asc";
   size: PopulationBandId;
   filters: IndicatorFilters;
+  /** 基準時点として示す値（並べる値と条件の値が違うとき）。 */
+  periodMetric?: RankingMetric;
 };
 
 export const TOPICS: readonly Topic[] = [
   {
     id: "half-by-2050",
     title: "2050年に人口が半分以下になる見込みの市区町村",
-    lead: "国立社会保障・人口問題研究所の推計（令和5年推計）で、2050年の人口が2025年の半分以下になる見込みの市区町村です。減り方が大きい順に並べています。",
+    lead: "国立社会保障・人口問題研究所の地域別将来推計人口で、2050年の人口が2025年の半分以下になる見込みの市区町村です。減り方が大きい順に並べています。",
     metric: "projection2050",
     order: "asc",
     size: "all",
@@ -61,7 +63,7 @@ export const TOPICS: readonly Topic[] = [
   {
     id: "bicycle",
     title: "通勤・通学に自転車だけを使う人の割合が高い市区町村",
-    lead: "2020年国勢調査で、自宅の外へ通勤・通学する人のうち、自転車だけを使う人の割合の順です。",
+    lead: "国勢調査で、自宅の外へ通勤・通学する人のうち、自転車だけを使う人の割合の順です。",
     metric: "commuteBike",
     order: "desc",
     size: "all",
@@ -70,7 +72,7 @@ export const TOPICS: readonly Topic[] = [
   {
     id: "car",
     title: "通勤・通学に自家用車だけを使う人の割合が高い市区町村",
-    lead: "2020年国勢調査で、自宅の外へ通勤・通学する人のうち、自家用車だけを使う人の割合の順です。",
+    lead: "国勢調査で、自宅の外へ通勤・通学する人のうち、自家用車だけを使う人の割合の順です。",
     metric: "commuteCar",
     order: "desc",
     size: "all",
@@ -79,7 +81,7 @@ export const TOPICS: readonly Topic[] = [
   {
     id: "rail",
     title: "通勤・通学に鉄道・電車だけを使う人の割合が高い市区町村",
-    lead: "2020年国勢調査で、鉄道・電車だけを使う人の割合の順です。",
+    lead: "国勢調査で、鉄道・電車だけを使う人の割合の順です。",
     metric: "commuteRail",
     order: "desc",
     size: "all",
@@ -88,7 +90,7 @@ export const TOPICS: readonly Topic[] = [
   {
     id: "life-female",
     title: "女性の平均寿命が長い市区町村",
-    lead: "厚生労働省「市区町村別生命表」（2020年）の、0歳の女性の平均余命の順です。",
+    lead: "厚生労働省「市区町村別生命表」の、0歳の女性の平均余命の順です。",
     metric: "lifeFemale",
     order: "desc",
     size: "all",
@@ -97,7 +99,7 @@ export const TOPICS: readonly Topic[] = [
   {
     id: "life-male",
     title: "男性の平均寿命が長い市区町村",
-    lead: "厚生労働省「市区町村別生命表」（2020年）の、0歳の男性の平均余命の順です。",
+    lead: "厚生労働省「市区町村別生命表」の、0歳の男性の平均余命の順です。",
     metric: "lifeMale",
     order: "desc",
     size: "all",
@@ -115,7 +117,7 @@ export const TOPICS: readonly Topic[] = [
   {
     id: "vacant-houses",
     title: "空き家率が高い市区町村",
-    lead: "2023年住宅・土地統計調査の空き家率の順です。別荘などの二次的住宅も空き家に含まれます。",
+    lead: "住宅・土地統計調査の空き家率の順です。別荘などの二次的住宅も空き家に含まれます。",
     metric: "vacancy",
     order: "desc",
     size: "all",
@@ -124,7 +126,7 @@ export const TOPICS: readonly Topic[] = [
   {
     id: "spacious-homes",
     title: "住宅が広い市区町村",
-    lead: "2023年住宅・土地統計調査の、1住宅当たりの延べ面積の順です。",
+    lead: "住宅・土地統計調査の、1住宅当たりの延べ面積の順です。",
     metric: "floorArea",
     order: "desc",
     size: "all",
@@ -137,7 +139,8 @@ export const TOPICS: readonly Topic[] = [
     metric: "residents",
     order: "desc",
     size: "all",
-    filters: { libraries: { max: 0 } }
+    filters: { libraries: { max: 0 } },
+    periodMetric: "libraries"
   },
   {
     id: "marriage",

@@ -643,7 +643,7 @@ const FACTS = {
     signed: true,
     words: { high: "大きい", low: "小さい" },
     summary: "受け入れた寄附の額から、住民がほかへ寄附したことによる住民税の控除額を引いたものです。",
-    method: "受入額（令和7年度）から、市町村民税の控除額（令和8年度課税）を引きます。",
+    method: "受入額（年度）から、その翌年度課税の市町村民税の控除額を引きます。",
     notes: [
       "受入額は返礼品などの費用を差し引く前の金額で、控除額の多くは地方交付税で補われる場合があります。実際の収支とは異なる、目安の数字です。",
       "受入額と控除額は、対象の期間が少しずれています（受入額は年度、控除額は前の年の寄附）。"
@@ -658,7 +658,7 @@ const TOPICS = [
   {
     id: "half-by-2050",
     title: "2050年に人口が半分以下になる見込みの市区町村",
-    lead: "国立社会保障・人口問題研究所の推計（令和5年推計）で、2050年の人口が2025年の半分以下になる見込みの市区町村です。減り方が大きい順に並べています。",
+    lead: "国立社会保障・人口問題研究所の地域別将来推計人口で、2050年の人口が2025年の半分以下になる見込みの市区町村です。減り方が大きい順に並べています。",
     metric: "projection2050",
     order: "asc",
     size: "all",
@@ -703,7 +703,7 @@ const TOPICS = [
   {
     id: "bicycle",
     title: "通勤・通学に自転車だけを使う人の割合が高い市区町村",
-    lead: "2020年国勢調査で、自宅の外へ通勤・通学する人のうち、自転車だけを使う人の割合の順です。",
+    lead: "国勢調査で、自宅の外へ通勤・通学する人のうち、自転車だけを使う人の割合の順です。",
     metric: "commuteBike",
     order: "desc",
     size: "all",
@@ -712,7 +712,7 @@ const TOPICS = [
   {
     id: "car",
     title: "通勤・通学に自家用車だけを使う人の割合が高い市区町村",
-    lead: "2020年国勢調査で、自宅の外へ通勤・通学する人のうち、自家用車だけを使う人の割合の順です。",
+    lead: "国勢調査で、自宅の外へ通勤・通学する人のうち、自家用車だけを使う人の割合の順です。",
     metric: "commuteCar",
     order: "desc",
     size: "all",
@@ -721,7 +721,7 @@ const TOPICS = [
   {
     id: "rail",
     title: "通勤・通学に鉄道・電車だけを使う人の割合が高い市区町村",
-    lead: "2020年国勢調査で、鉄道・電車だけを使う人の割合の順です。",
+    lead: "国勢調査で、鉄道・電車だけを使う人の割合の順です。",
     metric: "commuteRail",
     order: "desc",
     size: "all",
@@ -730,7 +730,7 @@ const TOPICS = [
   {
     id: "life-female",
     title: "女性の平均寿命が長い市区町村",
-    lead: "厚生労働省「市区町村別生命表」（2020年）の、0歳の女性の平均余命の順です。",
+    lead: "厚生労働省「市区町村別生命表」の、0歳の女性の平均余命の順です。",
     metric: "lifeFemale",
     order: "desc",
     size: "all",
@@ -739,7 +739,7 @@ const TOPICS = [
   {
     id: "life-male",
     title: "男性の平均寿命が長い市区町村",
-    lead: "厚生労働省「市区町村別生命表」（2020年）の、0歳の男性の平均余命の順です。",
+    lead: "厚生労働省「市区町村別生命表」の、0歳の男性の平均余命の順です。",
     metric: "lifeMale",
     order: "desc",
     size: "all",
@@ -757,7 +757,7 @@ const TOPICS = [
   {
     id: "vacant-houses",
     title: "空き家率が高い市区町村",
-    lead: "2023年住宅・土地統計調査の空き家率の順です。別荘などの二次的住宅も空き家に含まれます。",
+    lead: "住宅・土地統計調査の空き家率の順です。別荘などの二次的住宅も空き家に含まれます。",
     metric: "vacancy",
     order: "desc",
     size: "all",
@@ -766,7 +766,7 @@ const TOPICS = [
   {
     id: "spacious-homes",
     title: "住宅が広い市区町村",
-    lead: "2023年住宅・土地統計調査の、1住宅当たりの延べ面積の順です。",
+    lead: "住宅・土地統計調査の、1住宅当たりの延べ面積の順です。",
     metric: "floorArea",
     order: "desc",
     size: "all",
@@ -779,7 +779,8 @@ const TOPICS = [
     metric: "residents",
     order: "desc",
     size: "all",
-    filters: { libraries: { max: 0 } }
+    filters: { libraries: { max: 0 } },
+    periodMetric: "libraries"
   },
   {
     id: "marriage",
@@ -1197,8 +1198,11 @@ function formatMetric(key, value) {
 function formatYen(value, signed = false) {
   const sign = value < 0 ? "\u2212" : signed && value > 0 ? "+" : "";
   const absolute = Math.abs(value);
-  if (absolute >= 100_000_000) return `${sign}${formatNumber(absolute / 100_000_000, 1)}億円`;
-  if (absolute >= 10_000) return `${sign}${formatNumber(Math.round(absolute / 10_000))}万円`;
+  // 100万円未満は円まで、1億円未満は万円まで、それ以上は億円で小数1桁。丸めて桁が上がるときは上の単位に移る。
+  if (absolute >= 100_000_000 || Math.round(absolute / 10_000) >= 10_000) {
+    return `${sign}${formatNumber(absolute / 100_000_000, 1)}億円`;
+  }
+  if (absolute >= 1_000_000) return `${sign}${formatNumber(Math.round(absolute / 10_000))}万円`;
   return `${sign}${formatNumber(Math.round(absolute))}円`;
 }
 

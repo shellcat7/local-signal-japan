@@ -295,6 +295,7 @@ test.describe("条件でさがす", () => {
     await page.goto("./#view=ranking");
 
     await page.getByLabel("くらしの指標で絞り込む").selectOption("lifeFemale");
+    await page.getByRole("button", { name: "条件に加える" }).click();
     await page.getByLabel("平均寿命・女（年）の下限").fill("88.5");
     await expect(page).toHaveURL(/lifeFemale=88\.5\.\.$/);
 
@@ -306,6 +307,7 @@ test.describe("条件でさがす", () => {
 
     // 金額の条件は万円で入れる。
     await page.getByLabel("くらしの指標で絞り込む").selectOption("furusatoReceipts");
+    await page.getByRole("button", { name: "条件に加える" }).click();
     await page.getByLabel("受入額（万円）の下限").fill("100000");
     await expect(page).toHaveURL(/furusatoReceipts=1000000000\.\./);
     const rows = table.getByRole("row");

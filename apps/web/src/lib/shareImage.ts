@@ -231,7 +231,9 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 async function drawMap(context: CanvasRenderingContext2D, card: MapCard) {
   drawHeader(context, card.title, card.subtitle);
   const top = 176;
-  const height = CARD_HEIGHT - top - 104;
+  // 出典の行数に合わせて、地図が出典の上の線にかからない高さにする。
+  const bottom = CARD_HEIGHT - 28 - card.sources.lines.length * 19 - 14 - 10;
+  const height = bottom - top;
   const legendWidth = 200;
   const width = Math.min(height * card.mapAspect, CARD_WIDTH - PADDING * 2 - legendWidth - 40);
   // 地図と凡例をひとまとまりにして、左右の中央に置く。

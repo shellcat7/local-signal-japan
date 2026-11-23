@@ -62,10 +62,10 @@
   --data: #14171a;
   --context: #8e949c;
   --track: #e6e8eb;
-  --map-out: #f7f7f5;
+  --map-out-line: #c4c8cd;
   /* 地図の濃淡（値の小さい側 → 大きい側）。src/lib/mapScale.ts の MAP_RAMP と同じ並び。 */
-  --map-0: #eef0f2;
-  --map-1: #d6d9dd;
+  --map-0: #e4e7ea;
+  --map-1: #d0d4d9;
   --map-2: #b9bec4;
   --map-3: #959ba3;
   --map-4: #6f757d;
@@ -101,7 +101,7 @@
     --data: #eceef0;
     --context: #6f757d;
     --track: #2c3035;
-    --map-out: #1f2225;
+    --map-out-line: #4a4f56;
     /* 暗い面では、値が大きいほど明るくする。 */
     --map-0: #2a2e33;
     --map-1: #3e434a;
@@ -2530,6 +2530,21 @@ th[aria-sort] .sort-button {
   max-width: 100%;
 }
 
+.results .block__head h3 .results__missing {
+  display: block;
+  margin-left: 0;
+  font-size: 0.8rem;
+}
+
+.conditions__add label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .conditions__add {
   display: flex;
   flex-wrap: wrap;
@@ -2569,14 +2584,18 @@ th[aria-sort] .sort-button {
   cursor: pointer;
 }
 
+/* 条件に合わない市区町村は、紙の色に灰色の輪郭だけ（いちばん薄い段と見分けられるように）。 */
 .map__areas path[data-scope="out"] {
-  fill: var(--map-out);
+  fill: var(--paper);
+  stroke: var(--map-out-line);
+  stroke-width: 0.3;
 }
 
-.map__areas path[data-hover="true"] {
+.map__hover {
   fill: var(--mark);
   stroke: var(--ink);
   stroke-width: 0.8;
+  pointer-events: none;
 }
 
 .map__hatch {
@@ -2636,7 +2655,8 @@ th[aria-sort] .sort-button {
 }
 
 .map__swatch--out {
-  background: var(--map-out);
+  background: var(--paper);
+  border-color: var(--map-out-line);
 }
 
 .map__source {

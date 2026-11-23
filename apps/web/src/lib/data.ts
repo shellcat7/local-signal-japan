@@ -97,16 +97,19 @@ export type MapData = {
   insets: Array<{ label: string; box: [number, number, number, number] }>;
 };
 
-let mapCache: Promise<MapData> | null = null;
+let mapCache: { key: string; pending: Promise<MapData> } | null = null;
 
-/** 地図を表示するときにだけ読む（約1MB）。 */
-export function loadMap(): Promise<MapData> {
-  if (!mapCache) {
-    const pending = fetchJson<MapData>("map.json");
-    mapCache = pending;
+/**
+ * 地図を表示するときにだけ読む（約800KB）。
+ * 市区町村の合併などで地図を作り直したときに古い地図が残らないよう、データの取得日時をキーにする。
+ */
+export function loadMap(manifest: Manifest): Promise<MapData> {
+  if (mapCache?.key !== manifest.generatedAt) {
+    const pending = fetchJson<MapData>(`map.json?v=${versionOf(manifest)}`);
+    mapCache = { key: manifest.generatedAt, pending };
     pending.catch(() => {
-      if (mapCache === pending) mapCache = null;
+      if (mapCache?.pending === pending) mapCache = null;
     });
   }
-  return mapCache;
+  return mapCache.pending;
 }
