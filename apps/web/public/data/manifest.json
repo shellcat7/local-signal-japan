@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-23T07:30:54.969Z",
+  "source": {
+    "name": "統計ダッシュボード（総務省統計局）",
+    "url": "https://dashboard.e-stat.go.jp/",
+    "apiUrl": "https://dashboard.e-stat.go.jp/static/api",
+    "license": "公共データ利用規約（第1.0版）",
+    "licenseUrl": "https://dashboard.e-stat.go.jp/static/terms",
+    "attribution": "統計ダッシュボード（https://dashboard.e-stat.go.jp/）のデータを加工して作成",
+    "credit": "このサービスは、統計ダッシュボードのAPI機能を使用していますが、サービスの内容は国によって保証されたものではありません。"
+  },
+  "counts": {
+    "areas": 1912,
+    "referenceAreas": 1741
+  },
+  "context": {
+    "daytimeRatio": {
+      "id": "daytimeRatio",
+      "code": "0201060000000020000",
+      "name": "昼夜間人口比率",
+      "statName": "社会・人口統計体系",
+      "unit": "%",
+      "cycle": "CY",
+      "latestYear": 2020
+    }
+  },
+  "indicators": {
+    "population": {
+      "year": 2025,
+      "distribution": {
+        "count": 1741,
+        "min": -26.1,
+        "p10": -12.4,
+        "p25": -9.6,
+        "p50": -6.4,
+        "p75": -2.5,
+        "p90": 0.2,
+        "max": 17.2
+      },
+      "sources": [
+        {
+          "id": "residents",
+          "code": "0201200000000010010",
+          "name": "住民基本台帳人口（総数）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2025
+        }
+      ]
+    },
+    "aging": {
+      "year": 2025,
+      "distribution": {
+        "count": 1741,
+        "min": 14.2,
+        "p10": 26.1,
+        "p25": 30.7,
+        "p50": 37,
+        "p75": 42.6,
+        "p90": 47.6,
+        "max": 68.9
+      },
+      "sources": [
+        {
+          "id": "ratio",
+          "code": "0201010010000020030",
+          "name": "総人口に占める割合（65歳以上）",
+          "statName": "国勢調査",
+          "unit": "%",
+          "cycle": "CY",
+          "latestYear": 2025
+        }
+      ]
+    },
+    "migration": {
+      "year": 2024,
+      "distribution": {
+        "count": 1741,
+        "min": -8.49,
+        "p10": -1.09,
+        "p25": -0.66,
+        "p50": -0.3,
+        "p75": 0.02,
+        "p90": 0.38,
+        "max": 3.09
+      },
+      "sources": [
+        {
+          "id": "inflow",
+          "code": "0204010000000010020",
+          "name": "転入者数",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2024
+        },
+        {
+          "id": "outflow",
+          "code": "0204020000000010020",
+          "name": "転出者数",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2024
+        }
+      ]
+    },
+    "business": {
+      "year": 2021,
+      "distribution": {
+        "count": 1741,
+        "min": 0.7,
+        "p10": 29.5,
+        "p25": 35.6,
+        "p50": 43,
+        "p75": 51.2,
+        "p90": 61.2,
+        "max": 535.4
+      },
+      "sources": [
+        {
+          "id": "establishmentsLegacy",
+          "code": "0701010001000010010",
+          "name": "事業所数（民営）（～2016年）",
+          "statName": "経済センサス",
+          "unit": "事業所",
+          "cycle": "CY",
+          "latestYear": 2016
+        },
+        {
+          "id": "establishments",
+          "code": "0701010001000010012",
+          "name": "事業所数（民営）",
+          "statName": "経済センサス",
+          "unit": "事業所",
+          "cycle": "CY",
+          "latestYear": 2021
+        }
+      ]
+    },
+    "employment": {
+      "year": 2020,
+      "distribution": {
+        "count": 1740,
+        "min": 0,
+        "p10": 2.3,
+        "p25": 3,
+        "p50": 3.6,
+        "p75": 4.2,
+        "p90": 4.9,
+        "max": 10.6
+      },
+      "sources": [
+        {
+          "id": "unemployment",
+          "code": "0301100000020020010",
+          "name": "完全失業率（国勢調査）",
+          "statName": "社会・人口統計体系",
+          "unit": "%",
+          "cycle": "FY",
+          "latestYear": 2020
+        }
+      ]
+    },
+    "income": {
+      "year": 2024,
+      "distribution": {
+        "count": 1741,
+        "min": 244.8,
+        "p10": 278.3,
+        "p25": 293.8,
+        "p50": 318.1,
+        "p75": 349.9,
+        "p90": 387,
+        "max": 1780.8
+      },
+      "sources": [
+        {
+          "id": "taxableIncome",
+          "code": "1302070100000010010",
+          "name": "課税対象所得",
+          "statName": "社会・人口統計体系",
+          "unit": "千円",
+          "cycle": "CY",
+          "latestYear": 2024
+        },
+        {
+          "id": "taxpayers",
+          "code": "1302070100000010020",
+          "name": "納税義務者数（所得割）",
+          "statName": "社会・人口統計体系",
+          "unit": "人",
+          "cycle": "CY",
+          "latestYear": 2024
+        }
+      ]
+    },
+    "fiscal": {
+      "year": 2022,
+      "distribution": {
+        "count": 1718,
+        "min": 0.06,
+        "p10": 0.18,
+        "p25": 0.27,
+        "p50": 0.44,
+        "p75": 0.67,
+        "p90": 0.86,
+        "max": 2.02
+      },
+      "sources": [
+        {
+          "id": "index",
+          "code": "1302050000000190010",
+          "name": "財政力指数（市町村財政）",
+          "statName": "社会・人口統計体系",
+          "unit": "",
+          "cycle": "FY",
+          "latestYear": 2022
+        }
+      ]
+    }
+  }
+}
