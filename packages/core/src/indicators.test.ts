@@ -90,6 +90,34 @@ describe("computeDirection", () => {
     expect(computeDirection("fiscal", input, 2022)).toBe("down");
   });
 
+  it("しきい値ちょうどの変化は、浮動小数の誤差があっても横ばいにする", () => {
+    const input = series();
+    // 0.54 − 0.52 は 0.020000000000000018 になる。±0.02「を超える」には当たらない。
+    input.fiscal.index = [
+      [2017, 0.52],
+      [2022, 0.54]
+    ];
+    // 2.9 − 2.6 は 0.2999999999999998 になる。
+    input.employment.unemployment = [
+      [2015, 2.6],
+      [2020, 2.9]
+    ];
+    // 101,049 ÷ 100,000 は +1.049%。表示は +1.0% なので、±1%「を超える」には当たらない。
+    input.population.residents = [
+      [2020, 100000],
+      [2025, 101049]
+    ];
+    expect(computeDirection("fiscal", input, 2022)).toBe("flat");
+    expect(computeDirection("employment", input, 2020)).toBe("flat");
+    expect(computeDirection("population", input, 2025)).toBe("flat");
+
+    input.fiscal.index = [
+      [2017, 0.52],
+      [2022, 0.55]
+    ];
+    expect(computeDirection("fiscal", input, 2022)).toBe("up");
+  });
+
   it("事業所は調査方法の変更があるため判定しない", () => {
     expect(computeDirection("business", series(), 2021)).toBe("unknown");
   });

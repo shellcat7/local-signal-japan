@@ -115,7 +115,11 @@ export const SMALL_POPULATION = 5000;
  */
 export function confidence(area: Pick<AreaRecord, "indicators" | "population">): { level: Confidence; reason: string } {
   const { available, total } = coverage(area);
-  const population = area.population ?? 0;
+
+  if (area.population === null) {
+    return { level: "low", reason: "人口の値がなく、規模を確認できません。" };
+  }
+  const population = area.population;
 
   if (available === total && population >= 10000) {
     return { level: "high", reason: `${total}指標すべてがそろい、人口が1万人以上です。` };

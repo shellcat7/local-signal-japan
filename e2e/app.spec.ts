@@ -112,6 +112,34 @@ test.describe("検索", () => {
     await expect(page).toHaveURL(/#area=34208$/);
   });
 
+  test("候補はクリックで選べ、選んだあとも次の検索ができる", async ({ page }) => {
+    await page.goto("./");
+    const input = page.getByRole("combobox", { name: /市区町村をさがす/ });
+
+    await input.fill("中央区");
+    await input.press("ArrowDown");
+    await input.press("ArrowDown");
+    await page.getByRole("option", { name: /千葉市中央区/ }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "中央区" })).toBeVisible();
+    await expect(page).toHaveURL(/#area=12101$/);
+
+    // 前回の選択位置が残っていても、候補が1件ならその1件を選べる。
+    await input.fill("南砺");
+    await expect(page.getByRole("option")).toHaveCount(1);
+    await expect(page.getByRole("option", { name: /南砺市/ })).toHaveAttribute("aria-selected", "true");
+    await input.press("Enter");
+    await expect(page).toHaveURL(/#area=16210$/);
+  });
+
+  test("表記のゆれ（ヶ・ケ）があっても見つかる", async ({ page }) => {
+    await page.goto("./");
+    const input = page.getByRole("combobox", { name: /市区町村をさがす/ });
+    await input.fill("鎌ヶ谷");
+    await expect(page.getByRole("option", { name: /鎌ケ谷市/ })).toBeVisible();
+    await input.fill("茅ケ崎");
+    await expect(page.getByRole("option", { name: /茅ヶ崎市/ })).toBeVisible();
+  });
+
   test("一致しない検索語には、その旨を表示する", async ({ page }) => {
     await page.goto("./");
     await page.getByRole("combobox", { name: /市区町村をさがす/ }).fill("どこにもない町");
@@ -183,6 +211,20 @@ test.describe("市区町村の画面", () => {
     await expect(population.getByRole("row", { name: /2025年/ })).toBeVisible();
   });
 
+  test("指標: グラフをタップすると、その年の値を読める", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "タッチ操作の確認");
+    await page.goto("./#area=13101&tab=indicators");
+    const population = page.getByRole("article", { name: "人口" });
+    const chart = population.locator(".line-chart svg");
+    await chart.scrollIntoViewIfNeeded();
+    const box = await chart.boundingBox();
+    if (!box) throw new Error("グラフが表示されていません");
+
+    // 2013〜2025年のグラフの左から3割あたり。最新年ではなく、タップした付近の年が出る。
+    await page.touchscreen.tap(box.x + box.width * 0.3, box.y + box.height / 2);
+    await expect(population.locator(".chart-tooltip")).toContainText(/201[4-7]年/);
+  });
+
   test("比較: 同じ都道府県の市区町村と並べ、別の市区町村へ移動できる", async ({ page }) => {
     const { errors } = watch(page);
     await page.goto("./#area=16210&tab=comparison");
@@ -242,8 +284,25 @@ test.describe("市区町村の画面", () => {
     await expect(page.getByRole("heading", { level: 2, name: "千代田区" })).toBeHidden();
   });
 
-  test("収録していない市区町村コードには、その旨を表示する", async ({ page }) => {
-    await page.goto("./#area=13999");
-    await expect(page.getByText("市区町村コード 13999 のデータは収録されていません")).toBeVisible();
+  for (const code of ["13999", "99999"]) {
+    test(`収録していない市区町村コードには、その旨を表示する: ${code}`, async ({ page }) => {
+      const { errors } = watch(page);
+      await page.goto(`./#area=${code}`);
+      await expect(page.getByText(`市区町村コード ${code} のデータは収録されていません`)).toBeVisible();
+      expect(errors).toEqual([]);
+    });
+  }
+
+  test("「本文へ移動」を使っても、表示中の市区町村のままになる", async ({ page }) => {
+    await page.goto("./#area=13101&tab=indicators");
+    await expect(page.getByRole("heading", { level: 2, name: "千代田区" })).toBeVisible();
+
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "本文へ移動" })).toBeFocused();
+    await page.keyboard.press("Enter");
+
+    await expect(page.locator("main")).toBeFocused();
+    await expect(page.getByRole("heading", { level: 2, name: "千代田区" })).toBeVisible();
+    await expect(page).toHaveURL(/#area=13101&tab=indicators$/);
   });
 });

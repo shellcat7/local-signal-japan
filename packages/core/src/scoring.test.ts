@@ -107,6 +107,13 @@ describe("confidence", () => {
     expect(confidence(withMissing(makeArea(), ["income", "fiscal", "business"])).level).toBe("low");
   });
 
+  it("人口の値がなければ低とし、人口が少ないとは書かない", () => {
+    expect(confidence(makeArea({ population: null }))).toEqual({
+      level: "low",
+      reason: "人口の値がなく、規模を確認できません。"
+    });
+  });
+
   it("理由を文章で返す", () => {
     expect(confidence(withMissing(makeArea(), ["fiscal"])).reason).toBe("7指標中6指標のみ利用できます。");
   });

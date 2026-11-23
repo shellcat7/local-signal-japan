@@ -21,19 +21,23 @@ export function SearchBox({ index, onSelect }: SearchBoxProps) {
 
   const results = useMemo(() => searchAreas(index, query, MAX_RESULTS), [index, query]);
   const showList = open && query.trim() !== "";
+  // 候補が減っても、選択位置が範囲の外を指さないようにする。
+  const activePosition = Math.min(activeIndex, Math.max(results.length - 1, 0));
   const optionId = (position: number) => `${listId}-option-${position}`;
 
   const choose = (position: number) => {
     const result = results[position];
     if (!result) return;
     setQuery(areaLocalName(result));
+    setActiveIndex(0);
     setOpen(false);
     onSelect(result.code);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     // 日本語入力の変換確定の Enter では選択しない。
-    if (event.nativeEvent.isComposing) return;
+    // Safari は確定の keydown を変換終了の後に送るため、keyCode 229 でも見分ける。
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
 
     switch (event.key) {
       case "ArrowDown":
@@ -49,7 +53,7 @@ export function SearchBox({ index, onSelect }: SearchBoxProps) {
       case "Enter":
         if (showList && results.length > 0) {
           event.preventDefault();
-          choose(activeIndex);
+          choose(activePosition);
         }
         break;
       case "Escape":
@@ -74,7 +78,7 @@ export function SearchBox({ index, onSelect }: SearchBoxProps) {
           aria-expanded={showList}
           aria-controls={listId}
           aria-autocomplete="list"
-          aria-activedescendant={showList && results.length > 0 ? optionId(activeIndex) : undefined}
+          aria-activedescendant={showList && results.length > 0 ? optionId(activePosition) : undefined}
           autoComplete="off"
           spellCheck={false}
           enterKeyHint="search"
@@ -97,13 +101,12 @@ export function SearchBox({ index, onSelect }: SearchBoxProps) {
             key={result.code}
             id={optionId(position)}
             role="option"
-            aria-selected={position === activeIndex}
-            className={position === activeIndex ? "search__option is-active" : "search__option"}
-            // 入力欄の blur より先に選択を確定させる。
-            onPointerDown={(event) => {
-              event.preventDefault();
-              choose(position);
-            }}
+            aria-selected={position === activePosition}
+            className={position === activePosition ? "search__option is-active" : "search__option"}
+            // 押した時点で入力欄からフォーカスが外れると、候補が閉じて click が届かない。
+            onMouseDown={(event) => event.preventDefault()}
+            // 選択は click で確定する。押した時点で確定すると、スクロールのつもりの操作でも移動してしまう。
+            onClick={() => choose(position)}
             onPointerEnter={() => setActiveIndex(position)}
           >
             <span className="search__option-name">{areaLocalName(result)}</span>

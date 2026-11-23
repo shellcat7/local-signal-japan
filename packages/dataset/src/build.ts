@@ -61,6 +61,12 @@ const YEAR_PROBE: Record<IndicatorKey, string> = {
   fiscal: "index"
 };
 
+/**
+ * ある年を基準年として採用するのに必要な、収録数の割合（収録数が最も多い年に対して）。
+ * 低くしすぎると、公開途中の年を採用して基準集団が足りなくなり、更新が失敗する。
+ */
+const WELL_COVERED_SHARE = 0.9;
+
 /** 上流の取りこぼしを検知するための下限。現存する市区町村は約1,900。 */
 const MIN_AREAS = 1700;
 const MAX_AREAS = 2100;
@@ -156,7 +162,7 @@ export function latestWellCoveredYear(seriesList: readonly SeriesPoint[][]): num
     }
   }
 
-  const threshold = Math.max(...counts.values(), 0) / 2;
+  const threshold = Math.max(...counts.values(), 0) * WELL_COVERED_SHARE;
   const years = [...counts.entries()].filter(([, count]) => count >= threshold).map(([year]) => year);
   if (years.length === 0) {
     throw new Error("基準年を決められる系列データがありません");

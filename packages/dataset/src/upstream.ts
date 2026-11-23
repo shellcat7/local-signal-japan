@@ -136,6 +136,11 @@ export function parseSeriesData(json: unknown, series: UpstreamSeries): Upstream
     asArray(child(child(data, "TABLE_INF"), "STAT_NAME")).map((entry) => [text(entry["@code"]), text(entry.$)])
   );
 
+  // 続きがある応答（ページ分割）には対応していない。黙って一部だけ使うことがないよう、検知して止める。
+  if (child(child(data, "RESULT_INF"), "NEXT_KEY") !== undefined) {
+    throw new Error(`系列 ${series.id}（${series.code}）の応答が分割されています。取得範囲を見直してください`);
+  }
+
   const valuesByArea = new Map<string, SeriesPoint[]>();
   const unitCodes = new Set<string>();
   const statCodes = new Set<string>();
@@ -150,6 +155,10 @@ export function parseSeriesData(json: unknown, series: UpstreamSeries): Upstream
 
     const areaCode = text(child(cell, "@regionCode"));
     const points = valuesByArea.get(areaCode) ?? [];
+    // 同じ地域・同じ年の値が複数あるのは、定義の違う統計が混ざっている場合。どちらが正しいか決められない。
+    if (points.some(([pointYear]) => pointYear === year)) {
+      throw new Error(`系列 ${series.id}（${series.code}）に、地域 ${areaCode}・${year}年の値が重複しています`);
+    }
     points.push([year, value]);
     valuesByArea.set(areaCode, points);
     unitCodes.add(text(child(cell, "@unit")));
@@ -163,6 +172,9 @@ export function parseSeriesData(json: unknown, series: UpstreamSeries): Upstream
   const name = text(indicator?.["@name"]);
   if (name === "" || valuesByArea.size === 0) {
     throw new Error(`系列 ${series.id}（${series.code}）のデータまたは名称を取得できませんでした`);
+  }
+  if (unitCodes.size > 1) {
+    throw new Error(`系列 ${series.id}（${series.code}）に複数の単位が混ざっています`);
   }
 
   return {

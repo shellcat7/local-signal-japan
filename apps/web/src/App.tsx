@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import {
   areaFullName,
+  findAreaEntry,
   formatDate,
   type AreaRecord,
   type Manifest,
@@ -21,6 +22,9 @@ async function loadDataset() {
   const manifest = await loadManifest();
   return { manifest, index: await loadAreaIndex(manifest) };
 }
+
+const notFoundMessage = (areaCode: string) =>
+  `市区町村コード ${areaCode} のデータは収録されていません。上の検索欄からさがしてください。`;
 
 function Status({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
@@ -76,9 +80,7 @@ function AreaSection({ areaCode, tab, manifest, focusRequestRef, onTabChange, on
   }
 
   if (!loaded.area) {
-    return (
-      <Status message={`市区町村コード ${areaCode} のデータは収録されていません。上の検索欄からさがしてください。`} />
-    );
+    return <Status message={notFoundMessage(areaCode)} />;
   }
 
   return (
@@ -97,8 +99,9 @@ function AreaSection({ areaCode, tab, manifest, focusRequestRef, onTabChange, on
 
 export function App() {
   const [route, navigate] = useRoute();
-  const [dataset, retry] = useAsync(loadDataset);
+  const [dataset] = useAsync(loadDataset);
   const focusRequestRef = useRef(false);
+  const mainRef = useRef<HTMLElement>(null);
 
   const manifest = dataset.status === "ready" ? dataset.value.manifest : null;
 
@@ -111,7 +114,15 @@ export function App() {
 
   return (
     <div className="app">
-      <a className="skip-link" href="#main">
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(event) => {
+          // ハッシュは表示状態に使っているので、書き換えずにフォーカスだけ移す。
+          event.preventDefault();
+          mainRef.current?.focus();
+        }}
+      >
         本文へ移動
       </a>
 
@@ -121,6 +132,8 @@ export function App() {
             <a
               href="./"
               onClick={(event) => {
+                // 新しいタブで開く操作(修飾キーつきのクリック)は、ブラウザに任せる。
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                 event.preventDefault();
                 navigate({ areaCode: null, tab: "overview" });
               }}
@@ -137,14 +150,18 @@ export function App() {
         )}
       </header>
 
-      <main id="main" tabIndex={-1}>
+      <main id="main" tabIndex={-1} ref={mainRef}>
         {dataset.status === "loading" && <Status message="データを読み込んでいます…" />}
-        {dataset.status === "error" && <Status message={dataset.message} onRetry={retry} />}
+        {/* 全体のデータを読めなかったときは、古いスクリプトが残っている可能性もあるのでページごと読み直す。 */}
+        {dataset.status === "error" && <Status message={dataset.message} onRetry={() => window.location.reload()} />}
         {dataset.status === "ready" && (
           <>
             <SearchBox index={dataset.value.index} onSelect={selectArea} />
             {route.areaCode === null ? (
               <Landing manifest={dataset.value.manifest} index={dataset.value.index} onSelect={selectArea} />
+            ) : !findAreaEntry(dataset.value.index, route.areaCode) ? (
+              // 一覧にないコードは、存在しない都道府県のファイルを取りに行く前にここで止める。
+              <Status message={notFoundMessage(route.areaCode)} />
             ) : (
               <AreaSection
                 areaCode={route.areaCode}

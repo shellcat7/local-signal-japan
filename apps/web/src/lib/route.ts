@@ -51,6 +51,9 @@ export function useRoute(): [Route, Navigate] {
   const hash = useSyncExternalStore(subscribe, getHash);
 
   const navigate = useCallback<Navigate>((route, options) => {
+    // 同じ表示への移動で、履歴に同じ項目を重ねない。
+    if (formatHash(route) === formatHash(parseHash(window.location.hash))) return;
+
     const url = `${window.location.pathname}${window.location.search}${formatHash(route)}`;
     if (options?.replace) {
       window.history.replaceState(null, "", url);

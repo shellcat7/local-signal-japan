@@ -142,6 +142,26 @@ describe("parseSeriesData", () => {
     expect(data.valuesByArea.get("16210")).toEqual([[2022, -0.5]]);
   });
 
+  it("同じ地域・同じ年の値が重複していたら例外にする", () => {
+    expect(() =>
+      parseSeriesData(response([cell("16210", "2022FY00", "0.34"), cell("16210", "2022FY00", "0.99")]), series)
+    ).toThrow("重複");
+  });
+
+  it("単位が混ざっていたら例外にする", () => {
+    const mixed = cell("14100", "2022FY00", "65000") as { VALUE: Record<string, string> };
+    mixed.VALUE["@unit"] = "090";
+    expect(() => parseSeriesData(response([cell("16210", "2022FY00", "0.34"), mixed]), series)).toThrow("複数の単位");
+  });
+
+  it("分割された応答は例外にする", () => {
+    const paged = response([cell("16210", "2022FY00", "0.34")]) as {
+      GET_STATS: { STATISTICAL_DATA: Record<string, unknown> };
+    };
+    paged.GET_STATS.STATISTICAL_DATA.RESULT_INF = { TOTAL_NUMBER: "200000", NEXT_KEY: "100001" };
+    expect(() => parseSeriesData(paged, series)).toThrow("分割");
+  });
+
   it("データが1件もなければ例外にする", () => {
     expect(() => parseSeriesData(response([cell("13101", "2022FY00", "-")]), series)).toThrow("index");
   });

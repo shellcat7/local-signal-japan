@@ -5,6 +5,20 @@ import { fixtureIndex, makeArea } from "./testing/fixtures";
 const codes = (query: string) => searchAreas(fixtureIndex, query).map((area) => area.code);
 
 describe("normalizeQuery", () => {
+  it("小書きの「ヶ」と大きい「ケ」を区別しない", () => {
+    expect(normalizeQuery("茅ヶ崎")).toBe(normalizeQuery("茅ケ崎"));
+    const index = {
+      ...fixtureIndex,
+      areas: [
+        ...fixtureIndex.areas,
+        { code: "12224", name: "鎌ケ谷市", kana: "かまがやし", prefCode: "12", kind: "city" as const },
+        { code: "14207", name: "茅ヶ崎市", kana: "ちがさきし", prefCode: "14", kind: "city" as const }
+      ]
+    };
+    expect(searchAreas(index, "鎌ヶ谷").map((area) => area.code)).toEqual(["12224"]);
+    expect(searchAreas(index, "茅ケ崎市").map((area) => area.code)).toEqual(["14207"]);
+  });
+
   it("全角英数・カタカナ・空白の違いを吸収する", () => {
     expect(normalizeQuery("１３１０１")).toBe("13101");
     expect(normalizeQuery("チヨダク")).toBe("ちよだく");

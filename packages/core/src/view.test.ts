@@ -62,6 +62,12 @@ describe("buildAreaView", () => {
     expect(source?.url).toContain("RegionCode=99201");
   });
 
+  it("出典系列の最新時点は、指標値と同じ年・年度の表記にそろえる", () => {
+    // 所得の上流系列は「年」で登録されているが、指標値は「年度」で表記している。
+    expect(indicatorOf(viewOf(), "income").sources[0]?.latestPeriod).toBe("2024年度");
+    expect(indicatorOf(viewOf(), "population").sources[0]?.latestPeriod).toBe("2025年");
+  });
+
   it("欠損の理由を区分に応じて説明する", () => {
     const ward = withMissing(makeArea({ kind: "ward", parentName: "横浜市" }), ["income", "fiscal"]);
     expect(indicatorOf(viewOf(ward), "income").missingText).toContain("市全体（横浜市）");
@@ -106,7 +112,9 @@ describe("buildSummary", () => {
   });
 
   it("昼夜間人口比率が極端な地域に注意を添える", () => {
-    expect(summaryOf(makeArea({ daytimeRatio: 1355.4 })).cautionSignals[0]).toContain("昼間の流入が大きい");
+    expect(summaryOf(makeArea({ daytimeRatio: 1355.4 })).cautionSignals[0]).toContain(
+      "昼夜間人口比率が1,355.4%（社会・人口統計体系、2020年）で、通勤・通学による昼間の流入が大きい"
+    );
     expect(summaryOf(makeArea({ daytimeRatio: 79.8 })).cautionSignals[0]).toContain("域外へ出る人が多い");
   });
 

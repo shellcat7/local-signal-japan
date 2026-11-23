@@ -19,7 +19,13 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     throw new Error(`データを読み込めませんでした（HTTP ${response.status}）。時間をおいて再読み込みしてください。`);
   }
-  return (await response.json()) as T;
+
+  try {
+    return (await response.json()) as T;
+  } catch (cause) {
+    // 配信元が JSON 以外(エラーページなど)を返した場合。
+    throw new Error("データの形式を読み取れませんでした。時間をおいて再読み込みしてください。", { cause });
+  }
 }
 
 export async function loadManifest(): Promise<Manifest> {

@@ -197,8 +197,12 @@ describe("latestWellCoveredYear", () => {
       [2024, 1]
     ];
     const early: SeriesPoint[] = [...full, [2025, 1]];
-    expect(latestWellCoveredYear([full, full, full, early])).toBe(2024);
-    expect(latestWellCoveredYear([early, early, early, full])).toBe(2025);
+    const repeat = (points: SeriesPoint[], count: number) => Array.from({ length: count }, () => points);
+
+    // 2025年が全体の1割・8割にとどまるうちは採用せず、9割そろったら採用する。
+    expect(latestWellCoveredYear([...repeat(early, 1), ...repeat(full, 9)])).toBe(2024);
+    expect(latestWellCoveredYear([...repeat(early, 8), ...repeat(full, 2)])).toBe(2024);
+    expect(latestWellCoveredYear([...repeat(early, 9), ...repeat(full, 1)])).toBe(2025);
   });
 
   it("データが1件もなければ例外にする", () => {

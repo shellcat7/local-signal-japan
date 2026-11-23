@@ -1453,6 +1453,11 @@ table {
   .tab.is-active {
     border-bottom-color: Highlight;
   }
+
+  .search__option.is-active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
 }
 
 @media print {

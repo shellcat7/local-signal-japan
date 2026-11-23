@@ -112,13 +112,15 @@ export function ComparisonPanel({ area, prefecture, manifest, onSelect }: Compar
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ member, value }, position) => {
+            {rows.map(({ member, value }) => {
               const selected = member.code === area.code;
+              // 同じ値は同じ順位にする(1位、2位、2位、4位…)。
+              const rank = rows.findIndex((row) => row.value === value) + 1;
               const end = value === null ? zero : ((value - domainMin) / span) * 100;
 
               return (
                 <tr key={member.code} className={selected ? "is-selected" : undefined}>
-                  <td className="rank-table__rank">{value === null ? "—" : position + 1}</td>
+                  <td className="rank-table__rank">{value === null ? "—" : rank}</td>
                   <th scope="row" className="rank-table__name">
                     {selected ? (
                       <span aria-current="true">

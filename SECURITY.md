@@ -15,7 +15,7 @@
 - **Content-Security-Policy**: 本番ビルドの `index.html` に埋め込み、スクリプトと通信先を同一オリジンに限定しています（`apps/web/vite.config.ts`）。
 - **レスポンスヘッダー**: Cloudflare Pages で配信する場合、`apps/web/public/_headers` で `X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy` などを付けます。
 - **依存パッケージ**: インストール時スクリプトの実行は `pnpm-workspace.yaml` で許可したパッケージに限っています。Dependabot で更新を確認します。
-- **GitHub Actions**: アクションはコミットハッシュで固定し、ワークフローの権限は必要最小限にしています。
+- **GitHub Actions**: アクションはコミットハッシュで固定し、ワークフローの権限は必要最小限にしています。データ更新では、依存パッケージのコードを実行するジョブと、リポジトリへ書き込むジョブを分けています。
 - **秘密情報の混入検査**: `pnpm scan:secrets` で、`.env` などのファイルと認証情報らしい文字列がリポジトリに入っていないかを検査します（`pnpm preflight` に含まれます）。
 
 ## 秘密情報の扱い

@@ -78,7 +78,7 @@ export function OverviewPanel({ view, summary, manifest }: OverviewPanelProps) {
           <section className="panel" aria-labelledby="population-chart-title">
             <div className="panel__head">
               <h3 id="population-chart-title">住民基本台帳人口の推移</h3>
-              <p>各年1月1日現在。外国人住民を含みます。</p>
+              <p>各年1月1日現在（2013年のみ3月31日現在）。外国人住民を含みます。</p>
             </div>
             <LineChart
               title="住民基本台帳人口の推移"

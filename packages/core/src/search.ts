@@ -3,11 +3,16 @@ import type { AreaIndex, AreaIndexEntry, AreaRecord } from "./schema";
 
 export type AreaSearchResult = AreaIndexEntry & { prefName: string };
 
-/** 全角英数・カタカナ・空白の違いを吸収して比較用の文字列にする。 */
+/**
+ * 全角英数・カタカナ・空白の違いを吸収して比較用の文字列にする。
+ * 「鎌ケ谷」「茅ヶ崎」のように小書きかどうかが地名ごとに違う文字は、大きいほうにそろえる。
+ */
 export function normalizeQuery(text: string): string {
   return text
     .normalize("NFKC")
     .toLowerCase()
+    .replace(/ヶ/g, "ケ")
+    .replace(/ヵ/g, "カ")
     .replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0x60))
     .replace(/\s+/g, "");
 }

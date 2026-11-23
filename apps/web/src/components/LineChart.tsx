@@ -1,6 +1,6 @@
 import { useId, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { formatNumber, formatYear, type Cycle, type SeriesPoint } from "@local-signal-japan/core";
-import { niceAxis, pickStride } from "../lib/scale";
+import { axisTickFormatter, niceAxis, pickStride } from "../lib/scale";
 import { useElementWidth } from "../lib/useElementWidth";
 import { ScrollRegion } from "./ScrollRegion";
 
@@ -18,16 +18,6 @@ type LineChartProps = {
 };
 
 const MARGIN = { top: 22, right: 18, bottom: 26 };
-const compactFormatter = new Intl.NumberFormat("ja-JP", { notation: "compact", maximumFractionDigits: 1 });
-
-/** 軸の目盛りは1本の軸で書式をそろえる。1万以上に届く軸は「5万」のように短くする。 */
-function tickFormatter(ticks: readonly number[], step: number): (value: number) => string {
-  if (Math.max(...ticks.map(Math.abs)) >= 10000) {
-    return (value) => compactFormatter.format(value);
-  }
-  const decimals = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
-  return (value) => formatNumber(value, Math.min(decimals, 3));
-}
 
 /** 単一系列の折れ線グラフ。ポインターとキーボードの両方で各年の値を読める。 */
 export function LineChart({
@@ -49,8 +39,7 @@ export function LineChart({
   }
 
   const axis = niceAxis(points.map(([, value]) => value));
-  const formatTick = tickFormatter(axis.ticks, axis.step);
-  const tickLabels = axis.ticks.map(formatTick);
+  const tickLabels = axis.ticks.map(axisTickFormatter(axis));
   const marginLeft = Math.max(...tickLabels.map((label) => label.length)) * 7.5 + 14;
   const plotWidth = Math.max(width - marginLeft - MARGIN.right, 40);
   const plotHeight = height - MARGIN.top - MARGIN.bottom;
@@ -185,7 +174,10 @@ export function LineChart({
           height={height}
           onPointerMove={handlePointer}
           onPointerDown={handlePointer}
-          onPointerLeave={() => setActiveIndex(null)}
+          // タッチでは指を離した時点で leave が来る。そこで消すと、タップした年の値を読めない。
+          onPointerLeave={(event) => {
+            if (event.pointerType === "mouse") setActiveIndex(null);
+          }}
         />
       </svg>
 

@@ -89,7 +89,7 @@ async function show(query: string | undefined, asJson: boolean): Promise<void> {
   const summary = buildSummary(view, manifest);
 
   if (asJson) {
-    console.log(JSON.stringify({ ...view, summary }, null, 2));
+    console.log(JSON.stringify({ ...view, summary, source: manifest.source }, null, 2));
     return;
   }
 

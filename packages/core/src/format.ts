@@ -30,9 +30,19 @@ export function formatYear(year: number, cycle: "CY" | "FY" = "CY"): string {
   return cycle === "FY" ? `${year}年度` : `${year}年`;
 }
 
-/** ISO 8601 の日時から日付部分（YYYY-MM-DD, UTC）を取り出す。 */
+const japanDateFormatter = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" });
+
+/**
+ * ISO 8601 の日時を、日本時間の日付（YYYY-MM-DD）にする。
+ * 取得は日本時間の未明に行うことが多く、UTC のままだと1日前の日付になってしまう。
+ */
 export function formatDate(isoDateTime: string): string {
-  return isoDateTime.slice(0, 10);
+  return japanDateFormatter.format(new Date(isoDateTime));
+}
+
+/** 日本時間での年。 */
+export function yearOf(isoDateTime: string): number {
+  return Number(formatDate(isoDateTime).slice(0, 4));
 }
 
 export const AREA_KIND_LABELS: Record<AreaKind, string> = {

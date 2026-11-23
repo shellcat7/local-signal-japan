@@ -1,4 +1,4 @@
-import { formatNumber, formatYear } from "./format";
+import { formatNumber, formatYear, yearOf } from "./format";
 import { LOWER_BAND_MAX, SMALL_POPULATION, UPPER_BAND_MIN } from "./scoring";
 import type { Manifest } from "./schema";
 import type { AreaView, IndicatorView } from "./view";
@@ -49,15 +49,16 @@ function signalSentence(indicator: IndicatorView): string {
 function buildCautions(view: AreaView, manifest: Manifest): string[] {
   const { area } = view;
   const cautions: string[] = [];
-  const daytimeYear = formatYear(manifest.context.daytimeRatio.latestYear);
+  const daytime = manifest.context.daytimeRatio;
+  const daytimeSource = `${daytime.statName}、${formatYear(daytime.latestYear)}`;
 
   if (area.daytimeRatio !== null && area.daytimeRatio >= DAYTIME_INFLOW_RATIO) {
     cautions.push(
-      `昼夜間人口比率が${formatNumber(area.daytimeRatio, 1)}%（${daytimeYear}）で、通勤・通学による昼間の流入が大きい地域です。居住人口を基準にした指標だけでは活動の規模を捉えにくい点に注意してください。`
+      `昼夜間人口比率が${formatNumber(area.daytimeRatio, 1)}%（${daytimeSource}）で、通勤・通学による昼間の流入が大きい地域です。居住人口を基準にした指標だけでは活動の規模を捉えにくい点に注意してください。`
     );
   } else if (area.daytimeRatio !== null && area.daytimeRatio <= DAYTIME_OUTFLOW_RATIO) {
     cautions.push(
-      `昼夜間人口比率が${formatNumber(area.daytimeRatio, 1)}%（${daytimeYear}）で、通勤・通学で域外へ出る人が多い地域です。事業所や雇用の指標は通勤圏全体とあわせて確認してください。`
+      `昼夜間人口比率が${formatNumber(area.daytimeRatio, 1)}%（${daytimeSource}）で、通勤・通学で域外へ出る人が多い地域です。事業所や雇用の指標は通勤圏全体とあわせて確認してください。`
     );
   }
 
@@ -65,7 +66,7 @@ function buildCautions(view: AreaView, manifest: Manifest): string[] {
     cautions.push(`人口が${formatNumber(area.population)}人と少なく、率で表す指標は少数の増減で大きく変動します。`);
   }
 
-  const retrievedYear = new Date(manifest.generatedAt).getUTCFullYear();
+  const retrievedYear = yearOf(manifest.generatedAt);
   const stale = view.indicators.filter(
     (indicator) => indicator.available && retrievedYear - manifest.indicators[indicator.key].year >= STALE_AFTER_YEARS
   );

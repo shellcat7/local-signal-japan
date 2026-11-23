@@ -4,6 +4,7 @@ import {
   computeDirection,
   INDICATORS,
   MIGRATION_WINDOW_YEARS,
+  residentsAsOf,
   valueAt,
   type AreaSeries,
   type Direction,
@@ -150,8 +151,8 @@ function buildFacts(area: AreaRecord, key: IndicatorKey, year: number): Indicato
   switch (key) {
     case "population":
       return [
-        ...factAt(area, definition, "residents", year, undefined, { periodSuffix: "1月1日" }),
-        ...factAt(area, definition, "residents", past, "5年前の人口", { periodSuffix: "1月1日" })
+        ...factAt(area, definition, "residents", year, undefined, { periodSuffix: residentsAsOf(year) }),
+        ...factAt(area, definition, "residents", past, "5年前の人口", { periodSuffix: residentsAsOf(past) })
       ];
     case "aging":
       return [
@@ -208,6 +209,7 @@ function buildIndicatorView(area: AreaRecord, key: IndicatorKey, meta: ManifestI
   const indicator = area.indicators[key];
   const direction = indicator.value === null ? "unknown" : computeDirection(key, areaSeries(area), meta.year);
   const chartPoints = indicator.series[definition.chartSeriesKey] ?? [];
+  const displayCycle = seriesOf(definition, definition.chartSeriesKey).cycle;
   const breakAfterYear = SERIES_BREAKS[key];
 
   return {
@@ -237,7 +239,8 @@ function buildIndicatorView(area: AreaRecord, key: IndicatorKey, meta: ManifestI
       name: source.name,
       statName: source.statName,
       code: source.code,
-      latestPeriod: formatYear(source.latestYear, source.cycle),
+      // 上流の系列が年・年度のどちらで登録されているかではなく、指標値の表記にそろえる。
+      latestPeriod: formatYear(source.latestYear, displayCycle),
       url: sourceUrl(source.code, area.code)
     }))
   };

@@ -63,7 +63,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     summary: "住民基本台帳人口が5年前からどれだけ増減したかを見ます。",
     method: "（基準年の住民基本台帳人口 ÷ 5年前の住民基本台帳人口 − 1）× 100",
     notes: [
-      "住民基本台帳人口は各年1月1日現在で、外国人住民を含みます。国勢調査の人口とは定義と時点が異なります。",
+      "住民基本台帳人口は各年1月1日現在（2013年のみ3月31日現在）で、外国人住民を含みます。国勢調査の人口とは定義と時点が異なります。",
       "増減率は地域の良し悪しを示すものではなく、需要構造の変化を読むための手がかりです。"
     ],
     upstream: [{ id: "residents", code: "0201200000000010010", cycle: "CY", fromYear: 2013 }],
@@ -229,6 +229,11 @@ export type MetricResult = { value: number; missing?: undefined } | { value: nul
 const notPublished: MetricResult = { value: null, missing: "not-published" };
 const insufficientHistory: MetricResult = { value: null, missing: "insufficient-history" };
 
+/** 住民基本台帳人口の調査時点。2014年調査から1月1日現在に変わった。 */
+export function residentsAsOf(year: number): string {
+  return year <= 2013 ? "3月31日" : "1月1日";
+}
+
 /** 転入超過率を平均する年数。 */
 export const MIGRATION_WINDOW_YEARS = 3;
 /** 人口・所得・財政の比較に使う年数。 */
@@ -286,16 +291,20 @@ function compare(delta: number | null, threshold: number): Direction {
   return "flat";
 }
 
-function difference(points: SeriesPoint[] | undefined, year: number, lag: number): number | null {
+/**
+ * 差と増減率は、表示と同じ桁に丸めてからしきい値と比べる。
+ * 丸めないと 0.54 − 0.52 が 0.020000000000000018 になり、「±0.02を超えるか」の判定が表示と食い違う。
+ */
+function difference(points: SeriesPoint[] | undefined, year: number, lag: number, decimals: number): number | null {
   const current = valueAt(points, year);
   const past = valueAt(points, year - lag);
-  return current === null || past === null ? null : current - past;
+  return current === null || past === null ? null : roundTo(current - past, decimals);
 }
 
 function changeRate(points: SeriesPoint[] | undefined, year: number, lag: number): number | null {
   const current = valueAt(points, year);
   const past = valueAt(points, year - lag);
-  return current === null || past === null || past <= 0 ? null : (current / past - 1) * 100;
+  return current === null || past === null || past <= 0 ? null : roundTo((current / past - 1) * 100, 1);
 }
 
 /** 直近の動き。判定基準は各指標の directionBasis を参照。 */
@@ -304,16 +313,16 @@ export function computeDirection(key: IndicatorKey, series: AreaSeries, year: nu
     case "population":
       return compare(changeRate(series.population.residents, year, COMPARISON_LAG_YEARS), 1);
     case "aging":
-      return compare(difference(series.aging.ratio, year, 5), 0.5);
+      return compare(difference(series.aging.ratio, year, 5, 1), 0.5);
     case "migration":
       return compare(computeMetric("migration", series, year).value, 0.1);
     case "business":
       return "unknown";
     case "employment":
-      return compare(difference(series.employment.unemployment, year, 5), 0.3);
+      return compare(difference(series.employment.unemployment, year, 5, 1), 0.3);
     case "income":
       return compare(changeRate(series.income.perTaxpayer, year, COMPARISON_LAG_YEARS), 2);
     case "fiscal":
-      return compare(difference(series.fiscal.index, year, COMPARISON_LAG_YEARS), 0.02);
+      return compare(difference(series.fiscal.index, year, COMPARISON_LAG_YEARS, 2), 0.02);
   }
 }

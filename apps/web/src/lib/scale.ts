@@ -1,3 +1,5 @@
+import { formatNumber } from "@local-signal-japan/core";
+
 /** グラフの目盛り計算。DOMに依存しない純粋関数。 */
 
 /** 1・2・5 × 10^n のうち、range をおよそ targetCount 個に分ける刻み幅を返す。 */
@@ -47,4 +49,25 @@ export function pickStride<T>(items: readonly T[], maxCount: number): T[] {
   if (items.length <= maxCount || maxCount < 1) return [...items];
   const stride = Math.ceil(items.length / maxCount);
   return items.filter((_, index) => (items.length - 1 - index) % stride === 0);
+}
+
+/** 刻み幅を表すのに必要な小数桁。 */
+function decimalsFor(step: number): number {
+  return Math.max(0, Math.ceil(-Math.log10(step) - 1e-9));
+}
+
+/**
+ * 軸の目盛りの書式。1本の軸では書式をそろえ、隣り合う目盛りが同じ表記にならないようにする。
+ * 刻みが千以上の大きな軸は「6.5万」のように万の単位で短くし、それ以外は桁区切りの数字で書く。
+ */
+export function axisTickFormatter(axis: Axis): (value: number) => string {
+  const largest = Math.max(...axis.ticks.map(Math.abs));
+
+  if (largest >= 10000 && axis.step >= 1000) {
+    const decimals = decimalsFor(axis.step / 10000);
+    return (value) => (value === 0 ? "0" : `${formatNumber(value / 10000, decimals)}万`);
+  }
+
+  const decimals = Math.min(decimalsFor(axis.step), 3);
+  return (value) => formatNumber(value, decimals);
 }
