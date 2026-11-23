@@ -179,3 +179,18 @@ describe("まちくじ", () => {
     expect(parseHash("#view=kuji&area=abc&pref=48")).toEqual({ view: "kuji", areaCode: null, prefCode: null });
   });
 });
+
+describe("まちクイズと図鑑", () => {
+  it("シードと問題の番号を読み書きする", () => {
+    const route: Route = { view: "quiz", seed: "2026-11-23", question: 3 };
+    expect(parseHash("#view=quiz&seed=2026-11-23&q=3")).toEqual(route);
+    expect(formatHash(route)).toBe("#view=quiz&seed=2026-11-23&q=3");
+    expect(formatHash({ view: "quiz", seed: null, question: null })).toBe("#view=quiz");
+    expect(parseHash("#view=zukan")).toEqual({ view: "zukan" });
+  });
+
+  it("読めない指定は外す", () => {
+    expect(parseHash("#view=quiz&seed=<script>&q=0")).toEqual({ view: "quiz", seed: null, question: null });
+    expect(parseHash("#view=quiz&q=2.5")).toEqual({ view: "quiz", seed: null, question: null });
+  });
+});

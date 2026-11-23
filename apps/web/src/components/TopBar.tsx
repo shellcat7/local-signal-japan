@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactNode } from "react";
-import { hrefOf, DEFAULT_RANKING, KUJI_HOME, type Route } from "../lib/route";
+import { hrefOf, DEFAULT_RANKING, isPlayRoute, KUJI_HOME, type Route } from "../lib/route";
 import { SITE_NAME } from "../lib/site";
 
 type TopBarProps = {
@@ -44,8 +44,8 @@ export function TopBar({ route, onNavigate, search }: TopBarProps) {
           >
             特集
           </a>
-          <a {...link(KUJI_HOME)} aria-current={route.view === "kuji" ? "page" : undefined}>
-            まちくじ
+          <a {...link(KUJI_HOME)} aria-current={isPlayRoute(route) ? "page" : undefined} className="topbar__play">
+            あそぶ
           </a>
         </nav>
       </div>

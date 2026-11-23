@@ -24,15 +24,30 @@ type ShareButtonsProps = {
   filename: string;
   /** X に投稿するときの文（ページのアドレスは別に付く）。 */
   text: string;
+  /** 投稿に付けるアドレス。省くと、いま開いているページのアドレス。 */
+  url?: string;
+  /** ボタンの文言（「Xに出題」など）。 */
+  postLabel?: string;
+  saveLabel?: string;
+  /** あそぶ画面では、ポップなボタンにする。 */
+  pop?: boolean;
 };
 
 /**
  * 出典つきの画像を保存する、X に投稿する、の2つのボタン。
  * 画像はブラウザの中で作り、どこにも送らない。X への投稿は、利用者が押したときだけ X のページを開く。
  */
-export function ShareButtons({ card, filename, text }: ShareButtonsProps) {
+export function ShareButtons({
+  card,
+  filename,
+  text,
+  url,
+  postLabel = "Xに投稿",
+  saveLabel = "画像で保存",
+  pop = false
+}: ShareButtonsProps) {
   const [status, setStatus] = useState<"idle" | "working" | "saved" | "shared" | "failed">("idle");
-  const pageUrl = typeof window === "undefined" ? "" : window.location.href;
+  const pageUrl = url ?? (typeof window === "undefined" ? "" : window.location.href);
   const intent = `https://x.com/intent/post?${new URLSearchParams({ text, url: pageUrl }).toString()}`;
 
   const makeFile = async () => {
@@ -59,13 +74,23 @@ export function ShareButtons({ card, filename, text }: ShareButtonsProps) {
   };
 
   return (
-    <div className="share">
-      <button type="button" className="button" onClick={() => void save()} disabled={status === "working"}>
-        {status === "working" ? "画像を作っています…" : "画像で保存"}
-      </button>
-      <a className="button" href={intent} target="_blank" rel="noopener noreferrer">
-        Xに投稿
+    <div className={pop ? "share share--pop" : "share"}>
+      <a
+        className={pop ? "pop-button pop-button--ink" : "button"}
+        href={intent}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {postLabel}
       </a>
+      <button
+        type="button"
+        className={pop ? "pop-button pop-button--plain" : "button"}
+        onClick={() => void save()}
+        disabled={status === "working"}
+      >
+        {status === "working" ? "画像を作っています…" : saveLabel}
+      </button>
       <p className="share__status" role="status">
         {status === "saved" && "画像を保存しました。Xに投稿するときは、保存した画像を添付してください。"}
         {status === "shared" && "共有しました。"}

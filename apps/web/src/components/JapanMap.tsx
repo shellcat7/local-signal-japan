@@ -6,7 +6,7 @@ import { DEFAULT_RANKING, hrefOf, type RankingRoute } from "../lib/route";
  * 都道府県を、おおよその位置関係を保ったまま同じ大きさのます目に並べた地図。
  * 値は [列, 行]。左上が北西。面積や形は表さない。
  */
-const TILES: Record<string, readonly [number, number]> = {
+export const TILES: Record<string, readonly [number, number]> = {
   "01": [14, 1],
   "02": [14, 2],
   "03": [14, 3],
@@ -57,7 +57,7 @@ const TILES: Record<string, readonly [number, number]> = {
 };
 
 /** ます目に入る短い名前（北海道はそのまま、ほかは「都・府・県」を取る）。 */
-const shortName = (name: string) => (name === "北海道" ? name : name.replace(/[都府県]$/, ""));
+export const shortName = (name: string) => (name === "北海道" ? name : name.replace(/[都府県]$/, ""));
 
 type JapanMapProps = {
   index: AreaIndex;

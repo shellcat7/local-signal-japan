@@ -35,9 +35,19 @@ export type RankingRoute = {
 };
 /** まちくじ。引いた市区町村と、引く範囲（都道府県）を持つ。 */
 export type KujiRoute = { view: "kuji"; areaCode: string | null; prefCode: string | null };
-export type Route = HomeRoute | TopicsRoute | AreaRoute | RankingRoute | KujiRoute;
+/** まちクイズ。シード（日替わりなら日付）と、開いている問題の番号（1から）を持つ。 */
+export type QuizRoute = { view: "quiz"; seed: string | null; question: number | null };
+/** まち図鑑。 */
+export type ZukanRoute = { view: "zukan" };
+export type PlayRoute = KujiRoute | QuizRoute | ZukanRoute;
+export type Route = HomeRoute | TopicsRoute | AreaRoute | RankingRoute | PlayRoute;
 
 export const KUJI_HOME: KujiRoute = { view: "kuji", areaCode: null, prefCode: null };
+export const QUIZ_HOME: QuizRoute = { view: "quiz", seed: null, question: null };
+export const ZUKAN_HOME: ZukanRoute = { view: "zukan" };
+
+export const isPlayRoute = (route: Route): route is PlayRoute =>
+  route.view === "kuji" || route.view === "quiz" || route.view === "zukan";
 
 export const DEFAULT_RANKING: RankingRoute = {
   view: "ranking",
@@ -88,12 +98,26 @@ function parseRange(text: string | null): { min?: number; max?: number } | null 
  *   #view=ranking&topic=bicycle&metric=commuteBike
  *   #view=topics
  *   #view=kuji&area=10524&pref=10
+ *   #view=quiz&seed=2026-11-23&q=3
+ *   #view=zukan
  * ハッシュはサーバーに送られないため、どの市区町村を見たかが配信元のログに残らない。
  */
 export function parseHash(hash: string): Route {
   const params = new URLSearchParams(hash.replace(/^#/, ""));
 
   if (params.get("view") === "topics") return { view: "topics" };
+
+  if (params.get("view") === "zukan") return { view: "zukan" };
+
+  if (params.get("view") === "quiz") {
+    const seed = params.get("seed");
+    const question = Number(params.get("q"));
+    return {
+      view: "quiz",
+      seed: seed !== null && /^[\w-]{1,32}$/.test(seed) ? seed : null,
+      question: Number.isInteger(question) && question >= 1 && question <= 20 ? question : null
+    };
+  }
 
   if (params.get("view") === "kuji") {
     const area = params.get("area");
@@ -137,6 +161,13 @@ export function parseHash(hash: string): Route {
 export function formatHash(route: Route): string {
   if (route.view === "home") return "";
   if (route.view === "topics") return "#view=topics";
+  if (route.view === "zukan") return "#view=zukan";
+  if (route.view === "quiz") {
+    const params = new URLSearchParams({ view: "quiz" });
+    if (route.seed !== null) params.set("seed", route.seed);
+    if (route.question !== null) params.set("q", String(route.question));
+    return `#${params.toString()}`;
+  }
   if (route.view === "kuji") {
     const params = new URLSearchParams({ view: "kuji" });
     if (route.areaCode !== null) params.set("area", route.areaCode);

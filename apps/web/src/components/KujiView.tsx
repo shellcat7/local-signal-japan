@@ -10,8 +10,10 @@ import {
   type Manifest,
   type NationalFile
 } from "@local-signal-japan/core";
-import { hrefOf, type KujiRoute, type Route } from "../lib/route";
+import { hrefOf, ZUKAN_HOME, type KujiRoute, type Route } from "../lib/route";
 import type { AsyncState } from "../lib/useAsync";
+import type { Zukan } from "../lib/zukan";
+import { Stamp } from "./PlayHeader";
 import { cardSources, ShareButtons } from "./ShareButtons";
 
 /** 名前が切り替わる間隔（ミリ秒）。だんだん遅くして止める。 */
@@ -22,13 +24,15 @@ type KujiViewProps = {
   manifest: Manifest;
   index: AreaIndex;
   national: AsyncState<NationalFile>;
-  /** このページを開いてから引いた市区町村（新しい順）。ブラウザには保存しない。 */
+  /** このページを開いてから引いた市区町村（新しい順）。 */
   drawn: readonly string[];
+  zukan: Zukan;
   /** 引いた直後で、名前が切り替わる演出を見せる市区町村。 */
   pendingReveal: string | null;
   onRevealed: () => void;
   onDraw: (prefCode: string | null) => void;
   onChangePref: (prefCode: string | null) => void;
+  onEnableZukan: () => void;
   onNavigate: (route: Route) => void;
 };
 
@@ -45,10 +49,12 @@ export function KujiView({
   index,
   national,
   drawn,
+  zukan,
   pendingReveal,
   onRevealed,
   onDraw,
   onChangePref,
+  onEnableZukan,
   onNavigate
 }: KujiViewProps) {
   const prefNames = useMemo(() => new Map(index.prefectures.map((pref) => [pref.code, pref.name])), [index]);
@@ -98,15 +104,20 @@ export function KujiView({
   }, [target, rows]);
 
   const total = kujiPool(index.areas, route.prefCode).length;
+  const referenceTotal = kujiPool(index.areas).length;
   const scopeName = route.prefCode ? (prefNames.get(route.prefCode) ?? "") : "全国";
   const fullName = entry ? `${prefName} ${areaLocalName(entry)}` : "";
   const first = traits[0];
+  const nationalFirst = traits.some((trait) => trait.scope === "national" && trait.rank === 1);
   // 名前が切り替わっている間は、引いた結果を一覧に先に出さない。
   const drawnEntries = drawn
     .filter((code) => rolling === null || code !== pendingReveal)
     .map((code) => findAreaEntry(index, code))
     .filter((item) => item !== undefined);
   const drawnPrefs = new Set(drawnEntries.map((item) => item.prefCode)).size;
+  const zukanCount = zukan.enabled
+    ? zukan.codes.filter((code) => rolling === null || code !== pendingReveal).length
+    : 0;
 
   const link = (next: Route) => ({
     href: hrefOf(next),
@@ -118,13 +129,24 @@ export function KujiView({
   });
 
   const shareText = first
-    ? `まちくじで「${fullName}」を引きました。${first.label}が${first.phrase}（${first.valueText}、${first.period}）。 #まちくじ`
+    ? `まちくじで「${fullName}」を引きました。${first.label}が${first.phrase}（${first.valueText}）。 #まちくじ`
     : `まちくじで「${fullName}」を引きました。 #まちくじ`;
+  const profile = entry
+    ? `${AREA_KIND_LABELS[entry.kind]}${target?.population != null ? `・人口 ${formatNumber(target.population)}人` : ""}`
+    : "";
 
   return (
     <div className="kuji">
       <div className="kuji__controls">
-        <label>
+        <button
+          type="button"
+          className="pop-button pop-button--big"
+          onClick={() => onDraw(route.prefCode)}
+          disabled={rolling !== null}
+        >
+          {route.areaCode ? "もう一回引く" : "くじを引く"}
+        </button>
+        <label className="kuji__range">
           引く範囲
           <select
             value={route.prefCode ?? ""}
@@ -138,116 +160,131 @@ export function KujiView({
             ))}
           </select>
         </label>
-        <button
-          type="button"
-          className="button button--primary kuji__draw"
-          onClick={() => onDraw(route.prefCode)}
-          disabled={rolling !== null}
-        >
-          {route.areaCode ? "もう一回引く" : "くじを引く"}
-        </button>
         <p className="kuji__count">
           {scopeName}の{formatNumber(total)}市区町村から1つ
         </p>
       </div>
 
-      <article className={`kuji__ticket${rolling !== null ? " is-rolling" : ""}`} aria-labelledby="kuji-name">
-        <header className="kuji__head">
-          <span className="kuji__label">まちくじ</span>
-          {entry && rolling === null && <span className="kuji__no">No. {entry.code}</span>}
+      <article
+        className={`ticket${rolling !== null ? " is-rolling" : ""}${entry && rolling === null ? " is-revealed" : ""}`}
+        aria-labelledby="kuji-name"
+      >
+        <header className="ticket__band">
+          <span>まちくじ</span>
+          {entry && rolling === null && <span className="ticket__no">No.{entry.code}</span>}
         </header>
 
-        {rolling !== null ? (
-          <p className="kuji__name kuji__name--rolling" id="kuji-name" aria-hidden="true">
-            {rolling}
-          </p>
-        ) : !route.areaCode ? (
-          <>
-            <h3 className="kuji__name kuji__name--empty" id="kuji-name">
-              どこのまちが出るか
-            </h3>
-            <p className="kuji__lead">引くと、ここにまちの名前と、全国や都道府県の中で目立つ項目が3つまで出ます。</p>
-          </>
-        ) : !entry ? (
-          <p className="kuji__lead" id="kuji-name">
-            市区町村コード {route.areaCode} のデータは収録されていません。
-          </p>
-        ) : (
-          <>
-            <p className="kuji__pref">{prefName}</p>
-            <h3 className="kuji__name" id="kuji-name">
-              {areaLocalName(entry)}
-            </h3>
-            <p className="kuji__profile">
-              {AREA_KIND_LABELS[entry.kind]}
-              {target?.population != null && <>・人口 {formatNumber(target.population)}人</>}
-              {populationRank && (
-                <small>
-                  （全国{formatNumber(populationRank.total)}のうち、人口の多いほうから
-                  {formatNumber(populationRank.rank)}番目）
-                </small>
-              )}
+        <div className="ticket__body">
+          {rolling !== null ? (
+            <p className="ticket__name ticket__name--rolling" id="kuji-name" aria-hidden="true">
+              {rolling}
             </p>
+          ) : !route.areaCode ? (
+            <>
+              <h3 className="ticket__name ticket__name--empty" id="kuji-name">
+                どこのまちが出るかな
+              </h3>
+              <p className="ticket__lead">引くと、まちの名前と、全国や都道府県の中で目立つところが3つまで出ます。</p>
+            </>
+          ) : !entry ? (
+            <p className="ticket__lead" id="kuji-name">
+              市区町村コード {route.areaCode} のデータは収録されていません。
+            </p>
+          ) : (
+            <>
+              <p className="ticket__pref">{prefName}</p>
+              <h3 className="ticket__name" id="kuji-name">
+                {areaLocalName(entry)}
+              </h3>
+              <p className="ticket__profile">
+                {profile}
+                {populationRank && (
+                  <small>
+                    （全国{formatNumber(populationRank.total)}のうち、人口の多いほうから
+                    {formatNumber(populationRank.rank)}番目）
+                  </small>
+                )}
+              </p>
+              {nationalFirst && <Stamp top="全国" bottom="1位" />}
 
-            {entry.kind === "ward" ? (
-              <p className="kuji__lead">政令指定都市の区は、市全体と重なるため全国の比較に含めていません。</p>
-            ) : national.status === "loading" ? (
-              <p className="kuji__lead">全国のデータを読み込んでいます…</p>
-            ) : national.status === "error" ? (
-              <p className="kuji__lead">{national.message}</p>
-            ) : (
-              <ol className="highlights__list kuji__traits" aria-label="このまちの目立つところ">
-                {traits.map((trait) => (
-                  <li key={trait.key} data-top={trait.rank === 1 && trait.scope === "national"}>
-                    <span className="highlights__phrase">{trait.phrase}</span>
-                    <span className="highlights__label">
-                      {trait.label}
-                      <small>{trait.period}</small>
-                    </span>
-                    <strong className="highlights__value">{trait.valueText}</strong>
-                  </li>
-                ))}
-              </ol>
-            )}
-
-            <footer className="kuji__actions">
-              <a className="button" {...link({ view: "area", areaCode: entry.code, tab: "overview", compare: [] })}>
-                このまちをくわしく見る
-              </a>
-              {rows && entry.kind !== "ward" && (
-                <ShareButtons
-                  filename={`machikuji-${entry.code}.png`}
-                  text={shareText}
-                  card={() => ({
-                    kind: "highlights",
-                    tag: `まちくじ  No. ${entry.code}`,
-                    name: areaLocalName(entry),
-                    sub: `${prefName}・${AREA_KIND_LABELS[entry.kind]}${
-                      target?.population != null ? `・人口 ${formatNumber(target.population)}人` : ""
-                    }`,
-                    items: traits.map((trait) => ({
-                      phrase: trait.phrase,
-                      label: trait.label,
-                      value: trait.valueText,
-                      period: trait.period,
-                      top: trait.rank === 1 && trait.scope === "national"
-                    })),
-                    empty: "目立つ項目はありません。",
-                    sources: cardSources(manifest, {
-                      furusato: traits.some((trait) => trait.key.startsWith("furusato"))
-                    })
-                  })}
-                />
+              {entry.kind === "ward" ? (
+                <p className="ticket__lead">政令指定都市の区は、市全体と重なるため全国の比較に含めていません。</p>
+              ) : national.status === "loading" ? (
+                <p className="ticket__lead">全国のデータを読み込んでいます…</p>
+              ) : national.status === "error" ? (
+                <p className="ticket__lead">{national.message}</p>
+              ) : (
+                <ol className="ticket__traits" aria-label="このまちの目立つところ">
+                  {traits.map((trait) => (
+                    <li key={trait.key} data-top={trait.rank === 1 && trait.scope === "national"}>
+                      <span className="ticket__phrase">{trait.phrase}</span>
+                      <span className="ticket__label">
+                        {trait.label}
+                        <small>{trait.period}</small>
+                      </span>
+                      <strong className="ticket__value">{trait.valueText}</strong>
+                    </li>
+                  ))}
+                </ol>
               )}
-            </footer>
-          </>
-        )}
+
+              <footer className="ticket__actions">
+                <a
+                  className="pop-button pop-button--plain"
+                  {...link({ view: "area", areaCode: entry.code, tab: "overview", compare: [] })}
+                >
+                  このまちをくわしく見る
+                </a>
+                {rows && entry.kind !== "ward" && (
+                  <ShareButtons
+                    pop
+                    filename={`machikuji-${entry.code}.png`}
+                    text={shareText}
+                    card={() => ({
+                      kind: "kuji",
+                      code: entry.code,
+                      prefName,
+                      name: areaLocalName(entry),
+                      profile,
+                      traits: traits.map((trait) => ({
+                        phrase: trait.phrase,
+                        label: trait.label,
+                        value: trait.valueText,
+                        period: trait.period
+                      })),
+                      stamp: nationalFirst,
+                      sources: cardSources(manifest, {
+                        furusato: traits.some((trait) => trait.key.startsWith("furusato"))
+                      })
+                    })}
+                  />
+                )}
+              </footer>
+            </>
+          )}
+        </div>
       </article>
       <p className="visually-hidden" role="status">
         {rolling === null && entry ? `${fullName}を引きました。` : ""}
       </p>
 
-      {drawnEntries.length > 0 && (
+      {zukan.enabled ? (
+        <p className="kuji__zukan">
+          <a {...link(ZUKAN_HOME)}>
+            まち図鑑 <strong>{formatNumber(zukanCount)}</strong> / {formatNumber(referenceTotal)}
+          </a>
+          引いたまちは、この端末の図鑑に記録しています。
+        </p>
+      ) : (
+        <div className="kuji__zukan">
+          <p>図鑑をはじめると、引いたまちをこの端末に記録して、47都道府県の制覇をめざせます。</p>
+          <button type="button" className="pop-button pop-button--plain" onClick={onEnableZukan}>
+            図鑑をはじめる
+          </button>
+        </div>
+      )}
+
+      {!zukan.enabled && drawnEntries.length > 0 && (
         <section className="kuji__log" aria-labelledby="kuji-log-title">
           <h3 id="kuji-log-title">
             このページで引いたまち <span>{formatNumber(drawnEntries.length)}</span>
@@ -266,7 +303,9 @@ export function KujiView({
               </li>
             ))}
           </ol>
-          <p className="kuji__note">このページを閉じると消えます。ブラウザにも保存しません。</p>
+          <p className="kuji__note">
+            図鑑をはじめないかぎり、このページを閉じると消えます（ブラウザにも保存しません）。
+          </p>
         </section>
       )}
 
@@ -276,7 +315,7 @@ export function KujiView({
           以降）に入り、どこにも送信しません。
         </li>
         <li>
-          目立つ項目は、決まった規則で選びます。全国で上位・下位10位以内、都道府県の中で最も大きい・小さい、全国で上位・下位5%以内、都道府県の中で3位以内の順に、同じ値の市区町村も数えて選びます。良し悪しを表すものではありません。
+          目立つところは、決まった規則で選びます。全国で上位・下位10位以内、都道府県の中で最も大きい・小さい、全国で上位・下位5%以内、都道府県の中で3位以内の順に、同じ値の市区町村も数えて選びます。良し悪しを表すものではありません。
         </li>
         <li>
           人口の少ない市区町村で大きく動く項目（婚姻率など）は、人口1万人以上の市区町村の中で比べています。ふるさと納税の受入額のような総額の項目は、多い側だけを示します。

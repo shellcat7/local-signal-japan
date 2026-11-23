@@ -72,6 +72,20 @@
   --map-5: #454b52;
   --map-6: #14171a;
 
+  /* あそぶ（まちくじ・まちクイズ・まち図鑑）だけの、ポップな色。朱はハンコと正解の印だけに使う。 */
+  --pop-bg: #fff6cc;
+  --pop-card: #ffffff;
+  --pop-line: #14171a;
+  --pop-shadow: #14171a;
+  --pop-yellow: #ffe14a;
+  --pop-on-yellow: #14171a;
+  --pop-shu: #c93a20;
+  --pop-on-shu: #ffffff;
+  /* 黄色の上に置く朱（正解の印）。 */
+  --pop-shu-on-yellow: #c93a20;
+  --pop-soft: #fffbe6;
+  --font-pop: "Zen Maru Gothic", var(--font-sans);
+
   --gutter: 24px;
   --font-sans:
     "IBM Plex Sans Variable", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Yu Gothic UI",
@@ -110,6 +124,16 @@
     --map-4: #9aa0a7;
     --map-5: #c3c7cc;
     --map-6: #eef0f2;
+    --pop-bg: #18170f;
+    --pop-card: #1d2023;
+    --pop-line: #eceef0;
+    --pop-shadow: #000000;
+    --pop-yellow: #ffd84a;
+    --pop-on-yellow: #14171a;
+    --pop-shu: #ff8a6e;
+    --pop-on-shu: #14171a;
+    --pop-shu-on-yellow: #b3301a;
+    --pop-soft: #2a2614;
   }
 }
 
@@ -2234,150 +2258,400 @@ th[aria-sort] .sort-button {
   white-space: nowrap;
 }
 
-/* ---------- まちくじ ---------- */
+/* ---------- あそぶ（まちくじ・まちクイズ・まち図鑑） ----------
+ * 統計の画面とは分けて、丸ゴシック・太い墨線・ずらした影・黄色の面で、手に取りたくなる見た目にする。
+ * 色は黄と墨、正解とハンコの朱だけ。動きは「動きを減らす」設定では止める。
+ */
+
+.play {
+  padding-bottom: 72px;
+  background: var(--pop-bg);
+  border-bottom: 2px solid var(--pop-line);
+}
+
+.play-head {
+  padding-block: 28px 22px;
+}
+
+.play-head h2 {
+  margin-top: 18px;
+  font-family: var(--font-pop);
+  font-size: clamp(1.9rem, 6vw, 2.6rem);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+}
+
+.play-head p {
+  max-width: 40em;
+  margin-top: 6px;
+  font-size: 0.95rem;
+  color: var(--ink-2);
+}
+
+.play-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.play-tabs a {
+  padding: 6px 16px;
+  font-family: var(--font-pop);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--pop-card);
+  border: 2px solid var(--pop-line);
+  border-radius: 999px;
+}
+
+.play-tabs a[aria-current="page"] {
+  color: var(--pop-on-yellow);
+  background: var(--pop-yellow);
+  box-shadow: 3px 3px 0 var(--pop-shadow);
+}
+
+.play-status {
+  padding-block: 40px;
+  font-family: var(--font-pop);
+  font-size: 1.1rem;
+}
+
+/* ボタン。押すと影の分だけ沈む。 */
+.pop-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  font-family: var(--font-pop);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--pop-on-yellow);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  background: var(--pop-yellow);
+  border: 2.5px solid var(--pop-line);
+  border-radius: 999px;
+  box-shadow: 4px 4px 0 var(--pop-shadow);
+}
+
+.pop-button:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+.pop-button:active:not(:disabled) {
+  box-shadow: 1px 1px 0 var(--pop-shadow);
+  transform: translate(3px, 3px);
+}
+
+.pop-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.pop-button--big {
+  min-height: 56px;
+  padding: 0 30px;
+  font-size: 1.2rem;
+  letter-spacing: 0.04em;
+}
+
+.pop-button--plain {
+  color: var(--ink);
+  background: var(--pop-card);
+}
+
+.pop-button--ink {
+  color: var(--pop-card);
+  background: var(--pop-line);
+}
+
+.share--pop {
+  gap: 10px;
+}
+
+.share--pop .pop-button {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 0.9rem;
+  box-shadow: 3px 3px 0 var(--pop-shadow);
+}
+
+.share--pop .share__status {
+  font-family: var(--font-pop);
+}
+
+/* 朱のハンコ。 */
+.stamp {
+  display: inline-grid;
+  place-content: center;
+  width: 92px;
+  height: 92px;
+  font-family: var(--font-pop);
+  line-height: 1.05;
+  color: var(--pop-shu);
+  text-align: center;
+  border: 4px solid var(--pop-shu);
+  border-radius: 50%;
+  outline: 1.5px solid var(--pop-shu);
+  outline-offset: -10px;
+  transform: rotate(-12deg);
+}
+
+.stamp span {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.stamp strong {
+  font-size: 1.55rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ---- まちくじ ---- */
 
 .kuji {
   display: grid;
-  gap: 28px;
-  max-width: 880px;
-  padding-bottom: 72px;
+  gap: 24px;
+  max-width: 900px;
 }
 
 .kuji__controls {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px 16px;
+  align-items: center;
+  gap: 14px 18px;
 }
 
-.kuji__controls label {
-  display: grid;
-  gap: 4px;
+.kuji__range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   max-width: 100%;
-  font-size: 0.8rem;
-  color: var(--ink-2);
+  font-family: var(--font-pop);
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
-.kuji__draw {
-  min-height: 44px;
-  padding: 0 24px;
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+.kuji__range select {
+  min-height: 40px;
+  padding: 0 10px;
+  font-family: var(--font-pop);
+  background: var(--pop-card);
+  border: 2px solid var(--pop-line);
+  border-radius: 10px;
 }
 
 .kuji__count {
-  align-self: center;
-  font-size: 0.8rem;
-  color: var(--ink-3);
-}
-
-/* くじの札。上の辺に、ものさしの目盛りを引く（5つごとに長い目盛り）。 */
-.kuji__ticket {
-  min-width: 0;
-  min-height: 300px;
-  padding: 30px 28px 22px;
-  background-color: var(--paper);
-  background-image:
-    repeating-linear-gradient(90deg, var(--ink) 0 1px, transparent 1px 40px),
-    repeating-linear-gradient(90deg, var(--ink) 0 1px, transparent 1px 8px);
-  background-repeat: no-repeat;
-  background-position:
-    left top,
-    left top;
-  background-size:
-    100% 11px,
-    100% 6px;
-  border: 1px solid var(--ink);
-}
-
-.kuji__head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 18px;
-  font-size: 0.8rem;
-  color: var(--ink-3);
-}
-
-.kuji__label {
-  font-family: "Machi Wordmark", var(--font-sans);
-  font-weight: 700;
-  color: var(--ink);
-  letter-spacing: 0.06em;
-}
-
-.kuji__no {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.kuji__pref {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: var(--ink-2);
 }
 
-.kuji__name {
-  margin-block: 2px 6px;
-  font-size: clamp(2rem, 7vw, 2.9rem);
+.ticket {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--pop-card);
+  border: 3px solid var(--pop-line);
+  border-radius: 22px;
+  box-shadow: 7px 7px 0 var(--pop-shadow);
+}
+
+/* 札の上の帯。下の辺に、ものさしの目盛り。 */
+.ticket__band {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 24px 16px;
+  font-family: var(--font-pop);
+  font-weight: 700;
+  color: var(--pop-on-yellow);
+  letter-spacing: 0.08em;
+  background-color: var(--pop-yellow);
+  background-image:
+    repeating-linear-gradient(90deg, var(--pop-on-yellow) 0 1.5px, transparent 1.5px 40px),
+    repeating-linear-gradient(90deg, var(--pop-on-yellow) 0 1px, transparent 1px 8px);
+  background-repeat: no-repeat;
+  background-position:
+    left bottom,
+    left bottom;
+  background-size:
+    100% 10px,
+    100% 5px;
+  border-bottom: 3px solid var(--pop-line);
+}
+
+.ticket__no {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+
+.ticket__body {
+  position: relative;
+  min-height: 330px;
+  padding: 24px 28px 26px;
+}
+
+.ticket__pref {
+  font-family: var(--font-pop);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.ticket__name {
+  margin-block: 0 6px;
+  padding-right: 100px;
+  font-family: var(--font-pop);
+  font-size: clamp(2.3rem, 9vw, 3.6rem);
   font-weight: 700;
   line-height: 1.15;
-  font-feature-settings: "palt";
   letter-spacing: 0.02em;
   overflow-wrap: anywhere;
 }
 
-.kuji__name--rolling {
-  margin-top: 26px;
+.ticket__name--rolling {
+  margin-top: 34px;
+  padding-right: 0;
   color: var(--ink-3);
 }
 
-.kuji__name--empty {
+.ticket__name--empty {
+  margin-top: 30px;
+  padding-right: 0;
   color: var(--ink-3);
 }
 
-.kuji__profile {
-  margin-bottom: 20px;
-  font-size: 0.875rem;
+.ticket__lead {
+  max-width: 34em;
+  font-size: 0.95rem;
   color: var(--ink-2);
 }
 
-.kuji__profile small {
-  font-size: 0.8rem;
-  color: var(--ink-3);
-}
-
-.kuji__lead {
-  max-width: 34em;
+.ticket__profile {
+  margin-bottom: 18px;
   font-size: 0.9rem;
   color: var(--ink-2);
 }
 
-.kuji__actions {
+.ticket__profile small {
+  font-size: 0.8rem;
+  color: var(--ink-3);
+}
+
+.ticket .stamp {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+}
+
+.ticket__traits {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: 18px;
+}
+
+.ticket__traits li {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  padding-block: 14px;
+  border-top: 2px dashed var(--rule);
+}
+
+.ticket__phrase {
+  justify-self: start;
+  padding: 4px 14px;
+  font-family: var(--font-pop);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--pop-on-yellow);
+  white-space: nowrap;
+  background: var(--pop-yellow);
+  border: 2px solid var(--pop-line);
+  border-radius: 999px;
+}
+
+.ticket__traits li[data-top="true"] .ticket__phrase {
+  color: var(--pop-on-shu);
+  background: var(--pop-shu);
+  border-color: var(--pop-shu);
+}
+
+.ticket__label {
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.ticket__label small {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.ticket__value {
+  font-family: var(--font-pop);
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ticket__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 20px;
+  gap: 14px;
+  padding-top: 18px;
+  border-top: 2px dashed var(--rule);
 }
 
-.kuji__actions > .button {
-  text-decoration: none;
+.kuji__zukan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 14px 18px;
+  font-size: 0.9rem;
+  background: var(--pop-soft);
+  border: 2px solid var(--pop-line);
+  border-radius: 14px;
+}
+
+.kuji__zukan p {
+  flex: 1 1 20em;
+  min-width: 0;
+}
+
+.kuji__zukan a {
+  font-family: var(--font-pop);
+  font-weight: 700;
+}
+
+.kuji__zukan a strong {
+  font-size: 1.2rem;
 }
 
 .kuji__log h3 {
   margin-bottom: 10px;
-  font-size: 0.95rem;
+  font-family: var(--font-pop);
+  font-size: 1rem;
   font-weight: 700;
-}
-
-.kuji__log h3 span {
-  font-variant-numeric: tabular-nums;
 }
 
 .kuji__log h3 small {
   margin-left: 4px;
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   font-weight: 400;
   color: var(--ink-3);
@@ -2386,77 +2660,731 @@ th[aria-sort] .sort-button {
 .kuji__log ol {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .kuji__log a {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  padding: 4px 10px;
-  font-size: 0.875rem;
+  padding: 4px 12px;
+  font-family: var(--font-pop);
+  font-size: 0.9rem;
+  font-weight: 700;
   text-decoration: none;
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-}
-
-.kuji__log a:hover {
-  border-color: var(--ink);
+  background: var(--pop-card);
+  border: 2px solid var(--pop-line);
+  border-radius: 999px;
 }
 
 .kuji__log a[aria-current="true"] {
-  font-weight: 700;
-  border-color: var(--ink);
-  box-shadow: inset 0 -3px 0 var(--mark);
+  background: var(--pop-yellow);
+  color: var(--pop-on-yellow);
 }
 
 .kuji__log a small {
-  font-size: 0.75rem;
-  font-weight: 400;
-  color: var(--ink-3);
+  font-size: 0.72rem;
+  color: inherit;
+  opacity: 0.75;
 }
 
 .kuji__note {
   margin-top: 8px;
   font-size: 0.8rem;
+  color: var(--ink-2);
+}
+
+/* ---- まちクイズ ---- */
+
+.quiz {
+  display: grid;
+  gap: 22px;
+  max-width: 900px;
+}
+
+.quiz__progress {
+  display: flex;
+  gap: 10px;
+}
+
+.quiz__progress li {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  font-family: var(--font-pop);
+  font-weight: 700;
+  color: var(--ink-3);
+  background: var(--pop-card);
+  border: 2px solid var(--rule);
+  border-radius: 50%;
+}
+
+.quiz__progress li[data-state="current"] {
+  color: var(--pop-on-yellow);
+  background: var(--pop-yellow);
+  border-color: var(--pop-line);
+  box-shadow: 2px 2px 0 var(--pop-shadow);
+}
+
+.quiz__progress li[data-state="right"] {
+  font-size: 1.2rem;
+  color: var(--pop-shu);
+  border-color: var(--pop-shu);
+}
+
+.quiz__progress li[data-state="wrong"] {
+  font-size: 1.2rem;
+  color: var(--ink-2);
+  border-color: var(--ink-3);
+}
+
+.quiz-card {
+  position: relative;
+  min-width: 0;
+  padding: 26px 28px 28px;
+  background: var(--pop-card);
+  border: 3px solid var(--pop-line);
+  border-radius: 22px;
+  box-shadow: 7px 7px 0 var(--pop-shadow);
+}
+
+.quiz-card__kicker {
+  font-family: var(--font-pop);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.quiz-card__kicker span {
+  padding: 1px 10px;
+  color: var(--pop-on-yellow);
+  background: var(--pop-yellow);
+  border: 2px solid var(--pop-line);
+  border-radius: 999px;
+}
+
+.quiz-card__prompt {
+  margin-block: 14px 6px;
+  font-family: var(--font-pop);
+  font-size: clamp(1.35rem, 4.6vw, 1.85rem);
+  font-weight: 700;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.quiz-card__prompt:focus {
+  outline: none;
+}
+
+.quiz-card__meta {
+  font-size: 0.82rem;
   color: var(--ink-3);
 }
 
-/* トップページの入口。 */
-.kuji-entry {
+.quiz-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.quiz-choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 72px;
+  padding: 12px 16px;
+  font-family: var(--font-pop);
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  background: var(--pop-card);
+  border: 2.5px solid var(--pop-line);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--pop-shadow);
+}
+
+.quiz-choice:hover:not(:disabled) {
+  background: var(--pop-soft);
+}
+
+.quiz-choice:active:not(:disabled) {
+  box-shadow: 1px 1px 0 var(--pop-shadow);
+  transform: translate(3px, 3px);
+}
+
+.quiz-choice:disabled {
+  cursor: default;
+}
+
+.quiz-choice__letter {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--pop-on-yellow);
+  background: var(--pop-yellow);
+  border: 2px solid var(--pop-line);
+  border-radius: 50%;
+}
+
+.quiz-choice__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.quiz-choice__text small {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.quiz-choice__mark {
+  flex: none;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--pop-shu);
+}
+
+.quiz-choice[data-state="answer"] {
+  background: var(--pop-yellow);
+  color: var(--pop-on-yellow);
+}
+
+.quiz-choice[data-state="answer"] small {
+  color: var(--pop-on-yellow);
+}
+
+.quiz-choice[data-state="answer"] .quiz-choice__mark {
+  color: var(--pop-shu-on-yellow);
+}
+
+.quiz-choice[data-state="picked"] {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.quiz-choice[data-state="other"] {
+  box-shadow: none;
+  opacity: 0.75;
+}
+
+.quiz-verdict {
+  margin-top: 22px;
+  padding: 18px 20px;
+  background: var(--pop-soft);
+  border: 2px solid var(--pop-line);
+  border-radius: 16px;
+}
+
+.quiz-verdict__head {
+  margin-bottom: 4px;
+  font-family: var(--font-pop);
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.quiz-verdict__head:focus {
+  outline: none;
+}
+
+.quiz-verdict[data-right="true"] .quiz-verdict__head {
+  color: var(--pop-shu);
+}
+
+.quiz-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.quiz-card__share {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 14px 28px;
-  padding: 26px 24px 20px;
-  background-image:
-    repeating-linear-gradient(90deg, var(--ink) 0 1px, transparent 1px 40px),
-    repeating-linear-gradient(90deg, var(--ink) 0 1px, transparent 1px 8px);
-  background-repeat: no-repeat;
-  background-position:
-    left top,
-    left top;
-  background-size:
-    100% 11px,
-    100% 6px;
-  border: 1px solid var(--ink);
+  gap: 10px 16px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 2px dashed var(--rule);
 }
 
-.kuji-entry > div {
-  min-width: 0;
+.quiz-card__share > p {
+  font-size: 0.85rem;
+  color: var(--ink-2);
 }
 
-.kuji-entry h2 {
-  font-family: "Machi Wordmark", var(--font-sans);
+.quiz__other {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-size: 0.9rem;
+}
+
+.quiz-result {
+  text-align: left;
+}
+
+.quiz-result__score {
+  margin-top: 8px;
+  font-family: var(--font-pop);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.quiz-result__score:focus {
+  outline: none;
+}
+
+.quiz-result__score strong {
+  font-size: clamp(4.5rem, 18vw, 7rem);
+}
+
+.quiz-result__score span {
+  margin-left: 6px;
+  font-size: 1.6rem;
+}
+
+.quiz-result__title {
+  margin-top: 10px;
+  font-family: var(--font-pop);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.quiz-result .stamp {
+  position: absolute;
+  top: 24px;
+  right: 26px;
+  width: 112px;
+  height: 112px;
+}
+
+.quiz-review h3 {
+  margin-bottom: 10px;
+  font-family: var(--font-pop);
   font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.quiz-review ol {
+  display: grid;
+  gap: 10px;
+}
+
+.quiz-review li {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--pop-card);
+  border: 2px solid var(--pop-line);
+  border-radius: 14px;
+}
+
+.quiz-review li > div {
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+.quiz-review__mark {
+  flex: none;
+  font-family: var(--font-pop);
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink-3);
+}
+
+.quiz-review li[data-right="true"] .quiz-review__mark {
+  color: var(--pop-shu);
+}
+
+.quiz-review__prompt {
+  font-family: var(--font-pop);
+  font-weight: 700;
+}
+
+/* ---- まち図鑑 ---- */
+
+.zukan {
+  display: grid;
+  gap: 24px;
+  max-width: 980px;
+}
+
+.zukan-start {
+  padding: 22px 24px;
+  background: var(--pop-card);
+  border: 3px solid var(--pop-line);
+  border-radius: 22px;
+  box-shadow: 7px 7px 0 var(--pop-shadow);
+}
+
+.zukan-start h3 {
+  font-family: var(--font-pop);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.zukan-start p {
+  max-width: 40em;
+  margin-block: 6px 16px;
+  font-size: 0.92rem;
+  color: var(--ink-2);
+}
+
+.zukan-start__note {
+  margin-bottom: 0;
+}
+
+.zukan-score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 36px;
+  align-items: flex-end;
+}
+
+.zukan-score p {
+  display: grid;
+  font-family: var(--font-pop);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.zukan-score p span {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
+.zukan-score p strong {
+  font-size: clamp(2.4rem, 9vw, 3.4rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.zukan-score p small {
+  font-size: 0.95rem;
+  color: var(--ink-2);
+}
+
+.zukan-score__bar {
+  flex-basis: 100%;
+  height: 18px;
+  overflow: hidden;
+  background-color: var(--pop-card);
+  background-image: repeating-linear-gradient(90deg, var(--rule) 0 1px, transparent 1px 10%);
+  border: 2.5px solid var(--pop-line);
+  border-radius: 999px;
+}
+
+.zukan-score__bar span {
+  display: block;
+  min-width: 6px;
+  height: 100%;
+  background: var(--pop-yellow);
+  border-right: 2.5px solid var(--pop-line);
+}
+
+.zukan-map {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  grid-auto-rows: 52px;
+  gap: 5px;
+}
+
+.zukan-map li {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding-left: 8px;
+  font-family: var(--font-pop);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--ink-3);
+  background: var(--pop-card);
+  border: 2px solid var(--rule);
+  border-radius: 10px;
+}
+
+.zukan-map li small {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.zukan-map li[data-state="some"] {
+  color: var(--pop-on-yellow);
+  background: var(--pop-yellow);
+  border-color: var(--pop-line);
+}
+
+.zukan-map li[data-state="done"] {
+  color: var(--pop-on-shu);
+  background: var(--pop-shu);
+  border-color: var(--pop-line);
+}
+
+.zukan__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+}
+
+.zukan-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 0 24px;
+}
+
+.zukan-list h3 {
+  grid-column: 1 / -1;
+  margin-bottom: 12px;
+  font-family: var(--font-pop);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.zukan-list__pref {
+  padding-block: 12px;
+  border-top: 2px dashed var(--rule);
+}
+
+.zukan-list__pref h4 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-family: var(--font-pop);
+  font-weight: 700;
+}
+
+.zukan-list__pref h4 small {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+.zukan-list__pref .stamp {
+  width: 56px;
+  height: 56px;
+  border-width: 3px;
+  outline-offset: -7px;
+}
+
+.zukan-list__pref .stamp span {
+  font-size: 0.6rem;
+}
+
+.zukan-list__pref .stamp strong {
+  font-size: 0.85rem;
+}
+
+.zukan-list__pref ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.zukan-list__pref a {
+  display: inline-block;
+  padding: 3px 12px;
+  font-family: var(--font-pop);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--pop-card);
+  border: 2px solid var(--pop-line);
+  border-radius: 999px;
+}
+
+.zukan__clear {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  font-size: 0.9rem;
+}
+
+/* ---- トップページの入口 ---- */
+
+.play-entry {
+  padding: 26px 24px 30px;
+  background: var(--pop-bg);
+  border: 3px solid var(--pop-line);
+  border-radius: 24px;
+}
+
+.play-entry h2 {
+  font-family: var(--font-pop);
+  font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: 0.06em;
 }
 
-.kuji-entry p {
-  font-size: 0.875rem;
+.play-entry__cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.play-entry__cards li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 18px 18px 20px;
+  background: var(--pop-card);
+  border: 2.5px solid var(--pop-line);
+  border-radius: 18px;
+  box-shadow: 5px 5px 0 var(--pop-shadow);
+}
+
+.play-entry__cards h3 {
+  font-family: var(--font-pop);
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.play-entry__cards p {
+  flex: 1 1 auto;
+  font-size: 0.88rem;
   color: var(--ink-2);
+}
+
+.play-entry__cards .pop-button--big {
+  min-height: 48px;
+  font-size: 1.05rem;
+}
+
+/* 上部メニューの「あそぶ」。 */
+.topbar__nav .topbar__play {
+  padding-inline: 10px;
+  font-family: var(--font-pop);
+  font-weight: 700;
+  color: var(--pop-on-yellow);
+  background: var(--pop-yellow);
+  border: 2px solid var(--pop-line);
+  border-radius: 999px;
+}
+
+.topbar__nav .topbar__play[aria-current="page"] {
+  color: var(--pop-on-yellow);
+  border-bottom-color: var(--pop-line);
+  box-shadow: 2px 2px 0 var(--pop-shadow);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ticket.is-revealed .ticket__body {
+    animation: pop-in 260ms cubic-bezier(0.2, 1.4, 0.4, 1);
+  }
+
+  .ticket.is-revealed .stamp {
+    animation: stamp-in 360ms 180ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  }
+
+  .quiz-verdict {
+    animation: pop-in 240ms cubic-bezier(0.2, 1.4, 0.4, 1);
+  }
+
+  .pop-button,
+  .quiz-choice {
+    transition:
+      transform 80ms ease,
+      box-shadow 80ms ease;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(-12deg) scale(1.6);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-12deg) scale(1);
+  }
+}
+
+@media (max-width: 720px) {
+  .play-entry__cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quiz-choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quiz-card,
+  .ticket__body {
+    padding-inline: 18px;
+  }
+
+  .ticket__band {
+    padding-inline: 18px;
+  }
+
+  .ticket .stamp,
+  .quiz-result .stamp {
+    width: 76px;
+    height: 76px;
+  }
+
+  .ticket__name {
+    padding-right: 70px;
+  }
+
+  .ticket__traits {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .ticket__phrase {
+    grid-column: 1 / -1;
+    margin-bottom: 6px;
+  }
+
+  .zukan-map {
+    grid-auto-rows: 40px;
+    gap: 3px;
+  }
+
+  .zukan-map li {
+    padding-left: 3px;
+    font-size: 0.62rem;
+  }
+
+  .zukan-map li small {
+    font-size: 0.58rem;
+  }
 }
 
 /* ---------- 共有 ---------- */

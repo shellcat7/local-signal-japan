@@ -54,7 +54,9 @@ test.describe("ダークモード", () => {
     "#view=ranking",
     "#view=topics",
     "#view=ranking&topic=bicycle&metric=commuteBike&show=map",
-    "#view=kuji&area=01668"
+    "#view=kuji&area=01668",
+    "#view=quiz&seed=2026-11-23",
+    "#view=zukan"
   ]) {
     test(`文字のコントラストなどの基準を満たす: ${hash || "トップページ"}`, async ({ page }) => {
       await page.goto(`./${hash}`);
@@ -715,7 +717,7 @@ test.describe("まちくじ", () => {
 
     const ticket = page.getByRole("article", { name: "大泉町" });
     await expect(ticket).toContainText("群馬県");
-    await expect(ticket).toContainText("No. 10524");
+    await expect(ticket).toContainText("No.10524");
     await expect(ticket).toContainText(/人口 [\d,]+人/);
     const foreign = ticket.getByRole("listitem").filter({ hasText: "外国人住民の割合" });
     await expect(foreign).toContainText(/全国で\d+番目に高い|全国で最も高い/);
@@ -745,7 +747,7 @@ test.describe("まちくじ", () => {
   test("トップページから引き、もう一回引ける。引いたまちはこのページの中だけに残る", async ({ page }) => {
     const { errors, externalRequests } = watch(page);
     await page.goto("./");
-    await page.getByRole("region", { name: "まちくじ" }).getByRole("button", { name: "くじを引く" }).click();
+    await page.getByRole("region", { name: "あそぶ" }).getByRole("button", { name: "くじを引く" }).click();
 
     await expect(page).toHaveURL(/#view=kuji&area=\d{5}$/);
     await expect(page.getByRole("status").filter({ hasText: "を引きました" })).toHaveCount(1);
@@ -769,7 +771,7 @@ test.describe("まちくじ", () => {
   test("引く範囲を都道府県で絞れ、動きを減らす設定では名前を切り替えずに結果を出す", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("./#view=kuji");
-    await expect(page.getByRole("heading", { name: "どこのまちが出るか" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "どこのまちが出るかな" })).toBeVisible();
 
     await page.getByLabel("引く範囲").selectOption({ label: "沖縄県" });
     await expect(page).toHaveURL(/#view=kuji&pref=47$/);
@@ -777,8 +779,108 @@ test.describe("まちくじ", () => {
 
     await page.getByRole("button", { name: "くじを引く" }).click();
     await expect(page).toHaveURL(/#view=kuji&area=47\d{3}&pref=47$/);
-    await expect(page.locator(".kuji__name--rolling")).toHaveCount(0);
-    await expect(page.locator(".kuji__pref")).toHaveText("沖縄県");
+    await expect(page.locator(".ticket__name--rolling")).toHaveCount(0);
+    await expect(page.locator(".ticket__pref")).toHaveText("沖縄県");
     await expect(page.getByRole("button", { name: "もう一回引く" })).toBeEnabled();
+  });
+});
+
+test.describe("まちクイズ", () => {
+  test("同じシードなら同じ問題。答えると正誤と説明が出て、5問で結果と投稿の文ができる", async ({ page, browser }) => {
+    const { errors, externalRequests } = watch(page);
+    await page.goto("./#view=quiz&seed=2026-11-23");
+
+    const prompt = page.locator("#quiz-question");
+    await expect(prompt).toHaveText(/は？$/);
+    const firstPrompt = await prompt.innerText();
+    const choices = page.locator(".quiz-choice");
+    await expect(choices).toHaveCount(4);
+
+    // 答える前に出題できる。リンクは同じ問題を開く。
+    const ask = page.getByRole("link", { name: "Xに出題" });
+    const askUrl = new URL((await ask.getAttribute("href")) ?? "");
+    expect(askUrl.searchParams.get("text")).toMatch(/^Q\. .+は？\nA .+\nB .+\nC .+\nD .+\n#まちクイズ$/);
+    expect(askUrl.searchParams.get("url")).toMatch(/#view=quiz&seed=2026-11-23&q=1$/);
+
+    // 別の画面で開いても、同じ問題になる。
+    const other = await browser.newPage();
+    await other.goto(`${page.url()}`);
+    await expect(other.locator("#quiz-question")).toHaveText(firstPrompt);
+    await other.close();
+
+    for (let number = 1; number <= 5; number += 1) {
+      await expect(page.locator(".quiz-card__kicker")).toContainText(`Q${number}`);
+      await choices.first().click();
+      await expect(page.locator(".quiz-verdict__head")).toHaveText(/^(正解！|ざんねん… 正解は [ABCD])$/);
+      await expect(choices.first()).toBeDisabled();
+      await expect(page.locator(".quiz-choice small").first()).toBeVisible();
+      await page.getByRole("button", { name: number < 5 ? "次の問題へ" : "結果を見る" }).click();
+      if (number < 5) await expect(page).toHaveURL(new RegExp(`#view=quiz&seed=2026-11-23&q=${number + 1}$`));
+    }
+
+    await expect(page.getByRole("heading", { name: /\/5問正解/ })).toBeVisible();
+    await expect(page.locator(".quiz-review li")).toHaveCount(5);
+    const post = new URL((await page.getByRole("link", { name: "結果をXに投稿" }).getAttribute("href")) ?? "");
+    expect(post.searchParams.get("text")).toMatch(/^まちクイズ 11月23日の5問\n[🟨⬜]{5} \d\/5 まち.+\n#まちクイズ$/u);
+    expect(post.searchParams.get("url")).toMatch(/#view=quiz&seed=2026-11-23$/);
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.locator(".quiz-result").getByRole("button", { name: "画像で保存" }).click();
+    expect((await readFile(await (await downloadPromise).path())).subarray(1, 4).toString()).toBe("PNG");
+
+    expect(await page.evaluate(() => localStorage.length + sessionStorage.length)).toBe(0);
+    await expectNoHorizontalOverflow(page);
+    await expectAccessible(page);
+    expect(errors).toEqual([]);
+    expect(externalRequests).toEqual([]);
+  });
+
+  test("問題の画面もアクセシビリティの基準を満たす", async ({ page }) => {
+    await page.goto("./#view=quiz&seed=2026-11-23&q=2");
+    await expect(page.locator(".quiz-card__kicker")).toContainText("Q2");
+    await expectNoHorizontalOverflow(page);
+    await expectAccessible(page);
+    await page.locator(".quiz-choice").nth(2).click();
+    await expect(page.locator(".quiz-verdict__head")).toBeFocused();
+    await expectAccessible(page);
+  });
+});
+
+test.describe("まち図鑑", () => {
+  test("はじめるまでは何も保存せず、はじめると引いたまちを端末に記録し、消せる", async ({ page }) => {
+    const { errors, externalRequests } = watch(page);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("./#view=zukan");
+    const stored = () => page.evaluate(() => localStorage.getItem("machinomonosashi:zukan:v1"));
+    expect(await stored()).toBeNull();
+
+    // はじめる前に引いたまちも、はじめたときに図鑑に入る。
+    await page.goto("./#view=kuji");
+    await page.getByRole("button", { name: "くじを引く" }).click();
+    await expect(page).toHaveURL(/#view=kuji&area=\d{5}$/);
+    expect(await stored()).toBeNull();
+    await page.getByRole("button", { name: "図鑑をはじめる" }).click();
+    expect(JSON.parse((await stored()) ?? "{}")).toMatchObject({
+      version: 1,
+      codes: [expect.stringMatching(/^\d{5}$/)]
+    });
+
+    await page.getByRole("button", { name: "もう一回引く" }).click();
+    await expect.poll(async () => (JSON.parse((await stored()) ?? "{}") as { codes: string[] }).codes.length).toBe(2);
+
+    // 開き直しても残る。
+    await page.goto("./#view=zukan");
+    await page.reload();
+    await expect(page.getByRole("region", { name: "集めたまちの数" })).toContainText("2");
+    await expect(page.locator(".zukan-list__pref a")).toHaveCount(2);
+    await expectNoHorizontalOverflow(page);
+    await expectAccessible(page);
+
+    await page.getByRole("button", { name: "図鑑の記録を消す" }).click();
+    await page.getByRole("button", { name: "消してやめる" }).click();
+    expect(await stored()).toBeNull();
+    await expect(page.getByRole("button", { name: "図鑑をはじめる" })).toBeVisible();
+    expect(errors).toEqual([]);
+    expect(externalRequests).toEqual([]);
   });
 });

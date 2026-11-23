@@ -16,8 +16,10 @@ import {
   type NationalFile
 } from "@local-signal-japan/core";
 import type { AsyncState } from "../lib/useAsync";
-import type { RankingRoute } from "../lib/route";
-import { hrefOf } from "../lib/route";
+import type { MouseEvent } from "react";
+import type { RankingRoute, Route } from "../lib/route";
+import { hrefOf, QUIZ_HOME, ZUKAN_HOME } from "../lib/route";
+import type { Zukan } from "../lib/zukan";
 import { HowToRead } from "./HowToRead";
 import { JapanMap } from "./JapanMap";
 import { TopicCard } from "./TopicCard";
@@ -32,6 +34,8 @@ type LandingProps = {
   onOpenRanking: (route: RankingRoute) => void;
   onOpenTopics: () => void;
   onDrawKuji: () => void;
+  onNavigate: (route: Route) => void;
+  zukan: Zukan;
 };
 
 /** トップページの、検索欄より下の部分。 */
@@ -42,9 +46,19 @@ export function Landing({
   onOpenArea,
   onOpenRanking,
   onOpenTopics,
-  onDrawKuji
+  onDrawKuji,
+  onNavigate,
+  zukan
 }: LandingProps) {
   const prefNames = new Map(index.prefectures.map((pref) => [pref.code, pref.name]));
+  const playLink = (route: Route) => ({
+    href: hrefOf(route),
+    onClick: (event: MouseEvent) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      onNavigate(route);
+    }
+  });
 
   return (
     <div className="landing">
@@ -66,17 +80,38 @@ export function Landing({
         <PrefectureIndex index={index} onOpenRanking={onOpenRanking} />
       </section>
 
-      <section className="kuji-entry" aria-labelledby="kuji-entry-title">
-        <div>
-          <h2 id="kuji-entry-title">まちくじ</h2>
-          <p>
-            全国{formatNumber(manifest.counts.referenceAreas)}
-            市区町村から1つを引いて、そのまちが全国や都道府県の中で目立つところを読む。
-          </p>
-        </div>
-        <button type="button" className="button button--primary kuji__draw" onClick={onDrawKuji}>
-          くじを引く
-        </button>
+      <section className="play-entry" aria-labelledby="play-entry-title">
+        <h2 id="play-entry-title">あそぶ</h2>
+        <ul className="play-entry__cards">
+          <li>
+            <h3>まちくじ</h3>
+            <p>
+              全国{formatNumber(manifest.counts.referenceAreas)}
+              のまちから1つ。そのまちの「全国で目立つところ」が出ます。
+            </p>
+            <button type="button" className="pop-button pop-button--big" onClick={onDrawKuji}>
+              くじを引く
+            </button>
+          </li>
+          <li>
+            <h3>まちクイズ</h3>
+            <p>「空き家率が全国で最も高いまちは？」のような4択が5問。毎日0時に変わります。</p>
+            <a className="pop-button pop-button--big" {...playLink(QUIZ_HOME)}>
+              今日の5問
+            </a>
+          </li>
+          <li>
+            <h3>まち図鑑</h3>
+            <p>
+              {zukan.enabled
+                ? `集めたまち ${formatNumber(zukan.codes.length)}。47都道府県の制覇をめざします。`
+                : "引いたまちを集めて、47都道府県の制覇をめざします。"}
+            </p>
+            <a className="pop-button pop-button--big pop-button--plain" {...playLink(ZUKAN_HOME)}>
+              図鑑を見る
+            </a>
+          </li>
+        </ul>
       </section>
 
       {national.status === "ready" && (

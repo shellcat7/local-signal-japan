@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   areaFullName,
   drawArea,
@@ -14,6 +14,9 @@ import { AreaDashboard } from "./components/AreaDashboard";
 import { Footer } from "./components/Footer";
 import { KujiView } from "./components/KujiView";
 import { Landing } from "./components/Landing";
+import { PlayHeader } from "./components/PlayHeader";
+import { QuizView } from "./components/QuizView";
+import { ZukanView } from "./components/ZukanView";
 import { ScreenerView } from "./components/ScreenerView";
 import { TopicsView } from "./components/TopicsView";
 import { SearchBox } from "./components/SearchBox";
@@ -24,12 +27,14 @@ import {
   useRoute,
   type AreaRoute,
   type KujiRoute,
+  type QuizRoute,
   type RankingRoute,
   type Route,
   type TabId
 } from "./lib/route";
 import { SITE_NAME } from "./lib/site";
 import { useAsync } from "./lib/useAsync";
+import { addCode, clearZukan, EMPTY_ZUKAN, readZukan, writeZukan, type Zukan } from "./lib/zukan";
 
 type LoadedArea = { area: AreaRecord | null; prefecture: PrefectureFile };
 
@@ -238,15 +243,50 @@ function TopicsSection({ manifest, index, onOpenArea, onOpenRanking }: TopicsSec
   );
 }
 
+/** あそぶ画面の共通の枠（黄色の地と、まちくじ・まちクイズ・まち図鑑の切り替え）。 */
+function PlayFrame({
+  current,
+  title,
+  lead,
+  onNavigate,
+  children
+}: {
+  current: "kuji" | "quiz" | "zukan";
+  title: string;
+  lead: string;
+  onNavigate: (route: Route) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="play">
+      <div className="container">
+        <PlayHeader current={current} title={title} lead={lead} onNavigate={onNavigate} />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function usePageTitle(title: string) {
+  useEffect(() => {
+    document.title = `${title} | ${SITE_NAME}`;
+    return () => {
+      document.title = SITE_NAME;
+    };
+  }, [title]);
+}
+
 type KujiSectionProps = {
   route: KujiRoute;
   manifest: Manifest;
   index: AreaIndex;
   drawn: readonly string[];
+  zukan: Zukan;
   pendingReveal: string | null;
   onRevealed: () => void;
   onDraw: (prefCode: string | null) => void;
   onChangePref: (prefCode: string | null) => void;
+  onEnableZukan: () => void;
   onNavigate: (route: Route) => void;
 };
 
@@ -255,25 +295,67 @@ function KujiSection({ manifest, ...props }: KujiSectionProps) {
   const [national] = useAsync(load);
   const entry = props.route.areaCode ? findAreaEntry(props.index, props.route.areaCode) : undefined;
   const revealed = entry && props.pendingReveal !== entry.code;
-  const name = revealed ? `${entry.prefName} ${entry.parentName ?? ""}${entry.name}` : null;
-
-  useEffect(() => {
-    document.title = name ? `まちくじ：${name} | ${SITE_NAME}` : `まちくじ | ${SITE_NAME}`;
-    return () => {
-      document.title = SITE_NAME;
-    };
-  }, [name]);
+  usePageTitle(revealed ? `まちくじ：${entry.prefName} ${entry.parentName ?? ""}${entry.name}` : "まちくじ");
 
   return (
-    <>
-      <header className="container page-head">
-        <h2>まちくじ</h2>
-        <p>どこかのまちを1つ引いて、そのまちが全国や都道府県の中で目立つところを読みます。</p>
-      </header>
-      <div className="container">
-        <KujiView manifest={manifest} national={national} {...props} />
-      </div>
-    </>
+    <PlayFrame
+      current="kuji"
+      title="まちくじ"
+      lead="ボタンを押すと、全国のどこかのまちが出ます。そのまちが全国や都道府県の中で目立つところを読んでみましょう。"
+      onNavigate={props.onNavigate}
+    >
+      <KujiView manifest={manifest} national={national} {...props} />
+    </PlayFrame>
+  );
+}
+
+type QuizSectionProps = {
+  route: QuizRoute;
+  manifest: Manifest;
+  index: AreaIndex;
+  answers: Readonly<Record<string, ReadonlyArray<number | null>>>;
+  onAnswer: (seed: string, question: number, choice: number) => void;
+  onNavigate: (route: Route, options?: { replace?: boolean }) => void;
+};
+
+function QuizSection({ manifest, ...props }: QuizSectionProps) {
+  const load = useCallback(() => loadNational(manifest), [manifest]);
+  const [national] = useAsync(load);
+  usePageTitle("まちクイズ");
+
+  return (
+    <PlayFrame
+      current="quiz"
+      title="まちクイズ"
+      lead="公的統計から作った4択の5問。日替わりの問題は、同じ日ならだれでも同じです。"
+      onNavigate={props.onNavigate}
+    >
+      <QuizView manifest={manifest} national={national} {...props} />
+    </PlayFrame>
+  );
+}
+
+type ZukanSectionProps = {
+  manifest: Manifest;
+  index: AreaIndex;
+  zukan: Zukan;
+  drawn: readonly string[];
+  onEnable: () => void;
+  onClear: () => void;
+  onNavigate: (route: Route) => void;
+};
+
+function ZukanSection(props: ZukanSectionProps) {
+  usePageTitle("まち図鑑");
+  return (
+    <PlayFrame
+      current="zukan"
+      title="まち図鑑"
+      lead="まちくじで引いたまちを集めます。47都道府県の、全部のまちを集めたら制覇です。"
+      onNavigate={props.onNavigate}
+    >
+      <ZukanView {...props} />
+    </PlayFrame>
   );
 }
 
@@ -284,9 +366,20 @@ type HomeSectionProps = {
   onOpenRanking: (route: RankingRoute) => void;
   onOpenTopics: () => void;
   onDrawKuji: () => void;
+  onNavigate: (route: Route) => void;
+  zukan: Zukan;
 };
 
-function HomeSection({ manifest, index, onOpenArea, onOpenRanking, onOpenTopics, onDrawKuji }: HomeSectionProps) {
+function HomeSection({
+  manifest,
+  index,
+  onOpenArea,
+  onOpenRanking,
+  onOpenTopics,
+  onDrawKuji,
+  onNavigate,
+  zukan
+}: HomeSectionProps) {
   const load = useCallback(() => loadNational(manifest), [manifest]);
   const [national] = useAsync(load);
 
@@ -300,6 +393,8 @@ function HomeSection({ manifest, index, onOpenArea, onOpenRanking, onOpenTopics,
         onOpenRanking={onOpenRanking}
         onOpenTopics={onOpenTopics}
         onDrawKuji={onDrawKuji}
+        onNavigate={onNavigate}
+        zukan={zukan}
       />
     </div>
   );
@@ -312,10 +407,32 @@ export function App() {
   const mainRef = useRef<HTMLElement>(null);
 
   const ready = dataset.status === "ready" ? dataset.value : null;
-  // まちくじで引いた市区町村（新しい順）。このページを開いている間だけ持ち、ブラウザには保存しない。
+  // まちくじで引いた市区町村（新しい順）。このページを開いている間だけ持つ。
   const [drawn, setDrawn] = useState<string[]>([]);
+  // まち図鑑。利用者が「図鑑をはじめる」を押したときだけ、この端末のブラウザに保存する。
+  const [zukan, setZukan] = useState<Zukan>(readZukan);
   const [pendingReveal, setPendingReveal] = useState<string | null>(null);
   const clearReveal = useCallback(() => setPendingReveal(null), []);
+  // まちクイズの答え（シードごと）。このページを開いている間だけ持ち、保存しない。
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, Array<number | null>>>({});
+
+  const enableZukan = () => {
+    const codes = [...new Set([...drawn, ...zukan.codes])];
+    writeZukan(codes);
+    setZukan({ enabled: true, codes });
+  };
+  const stopZukan = () => {
+    clearZukan();
+    setZukan(EMPTY_ZUKAN);
+  };
+  const answerQuiz = (seed: string, question: number, choice: number) => {
+    setQuizAnswers((previous) => {
+      const picks = [...(previous[seed] ?? [])];
+      if (picks[question] !== undefined && picks[question] !== null) return previous;
+      picks[question] = choice;
+      return { ...previous, [seed]: picks };
+    });
+  };
 
   // 検索・例のボタン・比較表・ランキングのどこから選んでも、切り替え後は見出しへフォーカスを移す。
   const selectArea = (areaCode: string) => {
@@ -353,7 +470,12 @@ export function App() {
       exclude: route.view === "kuji" ? route.areaCode : null
     });
     if (!picked) return;
-    setDrawn((previous) => [picked.code, ...previous.filter((code) => code !== picked.code)]);
+    setDrawn((previous) => addCode(previous, picked.code));
+    if (zukan.enabled) {
+      const codes = addCode(zukan.codes, picked.code);
+      writeZukan(codes);
+      setZukan({ enabled: true, codes });
+    }
     setPendingReveal(picked.code);
     if (route.view === "kuji") {
       navigate({ view: "kuji", areaCode: picked.code, prefCode });
@@ -407,6 +529,8 @@ export function App() {
             onOpenRanking={openRanking}
             onOpenTopics={() => goTo({ view: "topics" })}
             onDrawKuji={() => drawKuji(null)}
+            onNavigate={goTo}
+            zukan={zukan}
           />
         )}
         {ready && route.view === "kuji" && (
@@ -415,10 +539,33 @@ export function App() {
             manifest={ready.manifest}
             index={ready.index}
             drawn={drawn}
+            zukan={zukan}
             pendingReveal={pendingReveal}
             onRevealed={clearReveal}
             onDraw={drawKuji}
             onChangePref={(prefCode) => navigate({ ...route, prefCode }, { replace: true })}
+            onEnableZukan={enableZukan}
+            onNavigate={goTo}
+          />
+        )}
+        {ready && route.view === "quiz" && (
+          <QuizSection
+            route={route}
+            manifest={ready.manifest}
+            index={ready.index}
+            answers={quizAnswers}
+            onAnswer={answerQuiz}
+            onNavigate={(next, options) => (options?.replace ? navigate(next, options) : goTo(next))}
+          />
+        )}
+        {ready && route.view === "zukan" && (
+          <ZukanSection
+            manifest={ready.manifest}
+            index={ready.index}
+            zukan={zukan}
+            drawn={drawn}
+            onEnable={enableZukan}
+            onClear={stopZukan}
             onNavigate={goTo}
           />
         )}

@@ -3,6 +3,7 @@ export * from "./format";
 export * from "./highlights";
 export * from "./indicators";
 export * from "./kuji";
+export * from "./quiz";
 export * from "./model";
 export * from "./national";
 export * from "./report";
