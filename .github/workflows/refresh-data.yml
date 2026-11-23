@@ -1,0 +1,70 @@
+name: データ更新
+
+# 統計ダッシュボードAPIから最新の統計を取得し、変更があればプルリクエストを作る。
+# APIキーは不要。プルリクエストの作成には、リポジトリ設定
+# Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests" を有効にしておく。
+on:
+  schedule:
+    # 毎月3日 03:17 (日本時間)。上流の負荷を避けるため、深夜の中途半端な時刻にしている。
+    - cron: "17 18 2 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: 最新データを取得してデータセットを作り直す
+        run: pnpm data:refresh
+
+      - name: 作り直したデータセットを検査する
+        run: pnpm test && pnpm build
+
+      - name: 統計値に変更があればプルリクエストを作る
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # manifest.json は取得日時が毎回変わるため、統計値そのものの変更だけを見る。
+          if git diff --quiet -- apps/web/public/data ':(exclude)apps/web/public/data/manifest.json'; then
+            echo "統計値に変更はありませんでした。"
+            exit 0
+          fi
+
+          branch="data/refresh-$(date -u +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add apps/web/public/data
+          git commit -m "Refresh dataset from the Statistics Dashboard API"
+          git push --force origin "$branch"
+
+          {
+            echo "統計ダッシュボードAPIから取得した最新データで、同梱データセットを作り直しました。"
+            echo
+            echo "- このワークフロー内で \`pnpm test\`（データセットの検査を含む）と \`pnpm build\` が通ることを確認済みです。"
+            echo "- GitHub Actions が作成したプルリクエストでは CI が自動実行されません。内容を確認してからマージしてください。"
+            echo
+            echo '```'
+            git diff --stat HEAD~1 | tail -n 5
+            echo '```'
+          } > "$RUNNER_TEMP/pr-body.md"
+
+          gh pr create --head "$branch" \
+            --title "データ更新 $(date -u +%Y-%m-%d)" --body-file "$RUNNER_TEMP/pr-body.md" \
+            || echo "::warning::ブランチ $branch は push 済みですが、プルリクエストを作成できませんでした。リポジトリ設定で GitHub Actions によるプルリクエスト作成を許可するか、手動で作成してください。"
