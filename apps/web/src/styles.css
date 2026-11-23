@@ -1,11 +1,11 @@
 /*
  * まちのものさし（Local Signal Japan）のデザイン
  *
- * 考え方: 生成りの紙に、丸いボタンと中間色。だれが見ても読みやすく、手に取りたくなる見た目にする。
- * - 面は生成り、文字は温かみのある墨。区切りは角の丸い札と余白で付ける。
- * - 色は4つの中間色（珊瑚・ミント・バター・空）を入口ごとに使い分ける。値の良し悪しには色を当てない。
+ * 考え方: 白い紙と、和色と、ものさし。だれが見ても読みやすく、手に取りたくなる見た目にする。
+ * - 面は白、文字は墨。区切りは薄い灰の線と、角の丸い札で付ける。
+ * - 色は和色の4色（朱・若竹・山吹・藍）を入口ごとに使い分ける。値の良し悪しには色を当てない。
  * - 見出しとボタンは丸ゴシック（Zen Maru Gothic）。数字と欧文の本文は IBM Plex Sans、コードは IBM Plex Mono。
- * - 注記は、統計表と同じように表の下へまとめる。
+ * - 注記は、統計表と同じように表の下へまとめる。明るい表示だけを用意する。
  */
 
 @font-face {
@@ -43,69 +43,80 @@
 }
 
 /*
- * 色と形の考え方（やさしい見た目）
- * - 面は生成りの紙、文字は温かみのある墨。罫線は薄い茶。
- * - アクセントは4つの中間色（珊瑚・ミント・バター・空）。上に載せる文字は常に墨。
- *   まちくじ = 珊瑚、まちクイズ = ミント、まち図鑑 = バター、条件でさがす = 空、のように入口ごとに色を決める。
- * - 良し悪しを連想させる使い方はしない。地図の濃淡は珊瑚の1色だけで、値の大小を表す。
- * - ボタンは丸く大きく、下にだけ影を落として「押せる」ことを示す。見出しとボタンは丸ゴシック。
+ * 色と形の考え方
+ * - 面は白い紙、文字は墨。区切りは薄い灰の線と、角の丸い札。
+ * - アクセントは和色の4色（朱・若竹・山吹・藍）。入口ごとに決める:
+ *   まちくじ = 朱、まちクイズ = 若竹、まち図鑑 = 山吹、条件でさがす = 藍。
+ * - 値の良し悪しには色を当てない。地図の濃淡は藍の1色だけで、値の大小を表す。
+ * - ボタンは角の丸い四角。下の縁を同じ色の濃い色にして、押せることを示す。名前のとおり、ものさしの目盛りを飾りに使う。
+ * - 明るい表示だけを用意する（暗い配色の設定でも、この明るい表示で見せる）。
  */
 :root {
   color-scheme: light;
 
-  --paper: #fbf5ea;
-  --card: #fffdf8;
-  --wash: #f4ecde;
-  --ink: #2b2724;
-  --ink-2: #4f4842;
-  --ink-3: #6b625a;
-  --rule: #e6dccb;
-  --rule-strong: #2b2724;
-  --line: #2b2724;
-  /* ボタンの下の影。暗い面では黒にする。 */
-  --shadow: #2b2724;
+  --paper: #ffffff;
+  --card: #ffffff;
+  --wash: #f4f6f8;
+  --ink: #1f2328;
+  --ink-2: #434a52;
+  --ink-3: #5f666e;
+  --rule: #e2e5e9;
+  --rule-strong: #1f2328;
+  /* 入力欄や白いボタンの枠。 */
+  --line: #b9c0c8;
+  --shadow: #b9c0c8;
 
-  /* 蛍光ペン（表示中・並べ替え中の印）。上に載せる文字は常に墨。 */
-  --mark: #ffd36b;
-  --mark-wash: #fff0c7;
-  --on-mark: #2b2724;
+  /* 表示中・並べ替え中の印（山吹の淡い色）。上に載せる文字は常に墨。 */
+  --mark: #ffd95a;
+  --mark-wash: #ffe9a3;
+  --on-mark: #1f2328;
 
-  /* 入口ごとの中間色。 */
-  --coral: #f4a385;
-  --mint: #9fdcb5;
-  --butter: #fde39c;
-  --sky: #aad7ee;
-  --pink: #f7c2cf;
-  --on-pastel: #2b2724;
+  /* 和色。--x は塗り、--x-edge は下の縁、--on-x は上に載せる文字。 */
+  --shu: #c8401e;
+  --shu-edge: #8f2a10;
+  --shu-tint: #fde9e2;
+  --on-shu: #ffffff;
+  --wakatake: #23794a;
+  --wakatake-edge: #15532f;
+  --wakatake-tint: #e2f2e8;
+  --on-wakatake: #ffffff;
+  --yamabuki: #f2b705;
+  --yamabuki-edge: #a87e00;
+  --yamabuki-tint: #ffe9a3;
+  --on-yamabuki: #1f2328;
+  --ai: #2f5597;
+  --ai-edge: #1d3866;
+  --ai-tint: #e6edf8;
+  --on-ai: #ffffff;
 
   /* 図の印。表示中の市区町村は墨、それ以外は灰。 */
-  --data: #2b2724;
-  --context: #998e83;
-  --track: #ebe2d3;
-  --map-out-line: #d5c9b7;
+  --data: #1f2328;
+  --context: #8f969e;
+  --track: #e6e9ed;
+  --map-out-line: #c9ced4;
   /* 地図の濃淡（値の小さい側 → 大きい側）。src/lib/mapScale.ts の MAP_RAMP と同じ並び。 */
-  --map-0: #fbe9df;
-  --map-1: #f6cdb8;
-  --map-2: #f0ab8c;
-  --map-3: #e58763;
-  --map-4: #cc6540;
-  --map-5: #a2472a;
-  --map-6: #6e2c18;
+  --map-0: #eef2f9;
+  --map-1: #d3dff0;
+  --map-2: #a9c0e2;
+  --map-3: #7b9bcf;
+  --map-4: #5276b6;
+  --map-5: #34558f;
+  --map-6: #1f3561;
 
-  /* あそぶ（まちくじ・まちクイズ・まち図鑑）。朱はハンコと正解の印だけに使う。 */
+  /* あそぶ（まちくじ・まちクイズ・まち図鑑）。画面ごとに --accent を入れ替える。 */
   --pop-bg: var(--paper);
   --pop-card: var(--card);
-  --pop-line: var(--line);
+  --pop-line: var(--rule);
   --pop-shadow: var(--shadow);
-  --pop-yellow: var(--butter);
-  --pop-on-yellow: var(--on-pastel);
-  --pop-shu: #c23b21;
-  --pop-on-shu: #ffffff;
-  --pop-shu-on-yellow: #b3301a;
-  --pop-soft: #fff8ea;
+  --pop-yellow: var(--yamabuki);
+  --pop-on-yellow: var(--on-yamabuki);
+  --pop-shu: var(--shu);
+  --pop-on-shu: var(--on-shu);
+  --pop-shu-on-yellow: #8f2a10;
+  --pop-soft: var(--wash);
   --font-pop: "Zen Maru Gothic", var(--font-sans);
 
-  --radius: 18px;
+  --radius: 14px;
   --gutter: 24px;
   --font-sans:
     "IBM Plex Sans Variable", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Yu Gothic UI",
@@ -118,46 +129,6 @@
   color: var(--ink);
   background: var(--paper);
   -webkit-text-size-adjust: 100%;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --paper: #1c1916;
-    --card: #26221e;
-    --wash: #2e2924;
-    --ink: #f3ece3;
-    --ink-2: #d2c8bc;
-    --ink-3: #ab9f93;
-    --rule: #3d362f;
-    --rule-strong: #f3ece3;
-    --line: #f3ece3;
-    --shadow: #000000;
-    --mark: #ffd36b;
-    --mark-wash: #3d3216;
-    --coral: #f4a385;
-    --mint: #9fdcb5;
-    --butter: #fde39c;
-    --sky: #aad7ee;
-    --pink: #f7c2cf;
-    --data: #f3ece3;
-    --context: #7d7368;
-    --track: #3d362f;
-    --map-out-line: #4b433b;
-    /* 暗い面では、値が大きいほど明るくする。 */
-    --map-0: #3a2a22;
-    --map-1: #5a3727;
-    --map-2: #7f4731;
-    --map-3: #a85b3d;
-    --map-4: #d07753;
-    --map-5: #ee9d79;
-    --map-6: #fbd2bd;
-    --pop-shadow: #000000;
-    --pop-shu: #ff8a6e;
-    --pop-on-shu: #2b2724;
-    --pop-shu-on-yellow: #a8301a;
-    --pop-soft: #2c2620;
-  }
 }
 
 *,
@@ -2287,21 +2258,33 @@ th[aria-sort] .sort-button {
  */
 
 .play {
-  --accent: var(--pop-yellow);
+  --accent: var(--yamabuki);
+  --accent-edge: var(--yamabuki-edge);
+  --accent-tint: var(--yamabuki-tint);
+  --on-accent: var(--on-yamabuki);
   padding-bottom: 72px;
   background: var(--pop-bg);
 }
 
 .play[data-play="kuji"] {
-  --accent: var(--coral);
+  --accent: var(--shu);
+  --accent-edge: var(--shu-edge);
+  --accent-tint: var(--shu-tint);
+  --on-accent: var(--on-shu);
 }
 
 .play[data-play="quiz"] {
-  --accent: var(--mint);
+  --accent: var(--wakatake);
+  --accent-edge: var(--wakatake-edge);
+  --accent-tint: var(--wakatake-tint);
+  --on-accent: var(--on-wakatake);
 }
 
 .play[data-play="zukan"] {
-  --accent: var(--butter);
+  --accent: var(--yamabuki);
+  --accent-edge: var(--yamabuki-edge);
+  --accent-tint: var(--yamabuki-tint);
+  --on-accent: var(--on-yamabuki);
 }
 
 .play-head {
@@ -2336,15 +2319,16 @@ th[aria-sort] .sort-button {
   font-size: 0.95rem;
   font-weight: 700;
   text-decoration: none;
-  background: var(--pop-card);
-  border: 2px solid var(--pop-line);
-  border-radius: 999px;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 10px;
 }
 
 .play-tabs a[aria-current="page"] {
-  color: var(--pop-on-yellow);
+  color: var(--on-accent);
   background: var(--accent);
-  box-shadow: 0 3px 0 var(--pop-shadow);
+  border-color: var(--accent-edge);
+  box-shadow: 0 3px 0 var(--accent-edge);
 }
 
 .play-status {
@@ -2364,15 +2348,15 @@ th[aria-sort] .sort-button {
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.3;
-  color: var(--pop-on-yellow);
+  color: var(--on-accent);
   text-align: center;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
   background: var(--accent);
-  border: 2.5px solid var(--pop-line);
-  border-radius: 999px;
-  box-shadow: 0 4px 0 var(--pop-shadow);
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 4px 0 var(--accent-edge);
 }
 
 .pop-button:hover:not(:disabled) {
@@ -2380,8 +2364,8 @@ th[aria-sort] .sort-button {
 }
 
 .pop-button:active:not(:disabled) {
-  box-shadow: 0 1px 0 var(--pop-shadow);
-  transform: translate(3px, 3px);
+  box-shadow: 0 1px 0 var(--accent-edge);
+  transform: translateY(3px);
 }
 
 .pop-button:disabled {
@@ -2398,12 +2382,15 @@ th[aria-sort] .sort-button {
 
 .pop-button--plain {
   color: var(--ink);
-  background: var(--pop-card);
+  background: var(--card);
+  border: 2px solid var(--line);
+  box-shadow: 0 3px 0 var(--line);
 }
 
 .pop-button--ink {
-  color: var(--pop-card);
-  background: var(--pop-line);
+  color: #ffffff;
+  background: var(--ink);
+  box-shadow: 0 3px 0 #000000;
 }
 
 .share--pop {
@@ -2414,7 +2401,6 @@ th[aria-sort] .sort-button {
   min-height: 40px;
   padding: 0 16px;
   font-size: 0.9rem;
-  box-shadow: 0 3px 0 var(--pop-shadow);
 }
 
 .share--pop .share__status {
@@ -2478,8 +2464,8 @@ th[aria-sort] .sort-button {
   min-height: 40px;
   padding: 0 10px;
   font-family: var(--font-pop);
-  background: var(--pop-card);
-  border: 2px solid var(--pop-line);
+  background: var(--card);
+  border: 2px solid var(--line);
   border-radius: 10px;
 }
 
@@ -2493,9 +2479,8 @@ th[aria-sort] .sort-button {
   min-width: 0;
   overflow: hidden;
   background: var(--pop-card);
-  border: 3px solid var(--pop-line);
-  border-radius: 22px;
-  box-shadow: 0 7px 0 var(--pop-shadow);
+  border: 2px solid var(--rule);
+  border-radius: 16px;
 }
 
 /* 札の上の帯。下の辺に、ものさしの目盛り。 */
@@ -2506,12 +2491,12 @@ th[aria-sort] .sort-button {
   padding: 10px 24px 16px;
   font-family: var(--font-pop);
   font-weight: 700;
-  color: var(--pop-on-yellow);
+  color: var(--on-accent);
   letter-spacing: 0.08em;
   background-color: var(--accent);
   background-image:
-    repeating-linear-gradient(90deg, var(--pop-on-yellow) 0 1.5px, transparent 1.5px 40px),
-    repeating-linear-gradient(90deg, var(--pop-on-yellow) 0 1px, transparent 1px 8px);
+    repeating-linear-gradient(90deg, var(--on-accent) 0 1.5px, transparent 1.5px 40px),
+    repeating-linear-gradient(90deg, var(--on-accent) 0 1px, transparent 1px 8px);
   background-repeat: no-repeat;
   background-position:
     left bottom,
@@ -2519,7 +2504,6 @@ th[aria-sort] .sort-button {
   background-size:
     100% 10px,
     100% 5px;
-  border-bottom: 3px solid var(--pop-line);
 }
 
 .ticket__no {
@@ -2591,9 +2575,8 @@ th[aria-sort] .sort-button {
 .ticket__map {
   width: 200px;
   padding: 6px;
-  background: var(--paper);
-  border: 2px solid var(--rule);
-  border-radius: 14px;
+  background: var(--wash);
+  border-radius: 12px;
 }
 
 .ticket .stamp {
@@ -2617,26 +2600,21 @@ th[aria-sort] .sort-button {
 }
 
 .area-map__areas path[data-state="got"] {
-  fill: var(--coral);
+  fill: var(--shu);
 }
 
 .area-map__areas path[data-state="done"] {
-  fill: var(--mint);
+  fill: var(--wakatake);
 }
 
 /* まだ集めていないが、同じ都道府県のまちを集めている（訪れた都道府県）。 */
 .area-map__areas path[data-state="pref"] {
-  fill: var(--butter);
-}
-
-/* まちくじ: 引いたまちの都道府県を薄く塗る。 */
-.area-map__prefectures path[data-current="true"] {
-  fill: var(--butter);
+  fill: var(--yamabuki-tint);
 }
 
 .area-map__prefectures path {
   fill: none;
-  stroke: var(--line);
+  stroke: var(--ink);
   stroke-width: 0.8;
   stroke-linejoin: round;
 }
@@ -2648,8 +2626,8 @@ th[aria-sort] .sort-button {
 }
 
 .area-map--locator .area-map__prefectures path[data-current="true"] {
-  fill: var(--butter);
-  stroke: var(--line);
+  fill: var(--shu-tint);
+  stroke: var(--ink);
 }
 
 .area-map__insets rect {
@@ -2660,8 +2638,8 @@ th[aria-sort] .sort-button {
 }
 
 .area-map__target {
-  fill: var(--coral);
-  stroke: var(--line);
+  fill: var(--shu);
+  stroke: var(--ink);
   stroke-width: 1;
 }
 
@@ -2692,17 +2670,15 @@ th[aria-sort] .sort-button {
   font-family: var(--font-pop);
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--pop-on-yellow);
+  color: var(--ink);
   white-space: nowrap;
-  background: var(--pop-yellow);
-  border: 2px solid var(--pop-line);
-  border-radius: 999px;
+  background: var(--yamabuki-tint);
+  border-radius: 8px;
 }
 
 .ticket__traits li[data-top="true"] .ticket__phrase {
-  color: var(--pop-on-shu);
-  background: var(--pop-shu);
-  border-color: var(--pop-shu);
+  color: var(--on-shu);
+  background: var(--shu);
 }
 
 .ticket__label {
@@ -2743,9 +2719,8 @@ th[aria-sort] .sort-button {
   gap: 10px 16px;
   padding: 14px 18px;
   font-size: 0.9rem;
-  background: var(--pop-soft);
-  border: 2px solid var(--pop-line);
-  border-radius: 14px;
+  background: var(--wash);
+  border-radius: 12px;
 }
 
 .kuji__zukan p {
@@ -2792,14 +2767,15 @@ th[aria-sort] .sort-button {
   font-size: 0.9rem;
   font-weight: 700;
   text-decoration: none;
-  background: var(--pop-card);
-  border: 2px solid var(--pop-line);
-  border-radius: 999px;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 10px;
 }
 
 .kuji__log a[aria-current="true"] {
-  background: var(--accent);
-  color: var(--pop-on-yellow);
+  color: var(--ink);
+  background: var(--accent-tint);
+  border-color: var(--accent);
 }
 
 .kuji__log a small {
@@ -2841,16 +2817,15 @@ th[aria-sort] .sort-button {
 }
 
 .quiz__progress li[data-state="current"] {
-  color: var(--pop-on-yellow);
+  color: var(--on-accent);
   background: var(--accent);
-  border-color: var(--pop-line);
-  box-shadow: 0 2px 0 var(--pop-shadow);
+  border-color: var(--accent-edge);
 }
 
 .quiz__progress li[data-state="right"] {
   font-size: 1.2rem;
-  color: var(--pop-shu);
-  border-color: var(--pop-shu);
+  color: var(--shu);
+  border-color: var(--shu);
 }
 
 .quiz__progress li[data-state="wrong"] {
@@ -2864,9 +2839,8 @@ th[aria-sort] .sort-button {
   min-width: 0;
   padding: 26px 28px 28px;
   background: var(--pop-card);
-  border: 3px solid var(--pop-line);
-  border-radius: 22px;
-  box-shadow: 0 7px 0 var(--pop-shadow);
+  border: 2px solid var(--rule);
+  border-radius: 16px;
 }
 
 .quiz-card__kicker {
@@ -2878,10 +2852,9 @@ th[aria-sort] .sort-button {
 
 .quiz-card__kicker span {
   padding: 1px 10px;
-  color: var(--pop-on-yellow);
+  color: var(--on-accent);
   background: var(--accent);
-  border: 2px solid var(--pop-line);
-  border-radius: 999px;
+  border-radius: 8px;
 }
 
 .quiz-card__prompt {
@@ -2923,19 +2896,19 @@ th[aria-sort] .sort-button {
   color: var(--ink);
   text-align: left;
   cursor: pointer;
-  background: var(--pop-card);
-  border: 2.5px solid var(--pop-line);
-  border-radius: 16px;
-  box-shadow: 0 4px 0 var(--pop-shadow);
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 3px 0 var(--line);
 }
 
 .quiz-choice:hover:not(:disabled) {
-  background: var(--pop-soft);
+  background: var(--accent-tint);
 }
 
 .quiz-choice:active:not(:disabled) {
-  box-shadow: 0 1px 0 var(--pop-shadow);
-  transform: translate(3px, 3px);
+  box-shadow: 0 1px 0 var(--line);
+  transform: translateY(2px);
 }
 
 .quiz-choice:disabled {
@@ -2948,9 +2921,8 @@ th[aria-sort] .sort-button {
   place-items: center;
   width: 38px;
   height: 38px;
-  color: var(--pop-on-yellow);
+  color: var(--on-accent);
   background: var(--accent);
-  border: 2px solid var(--pop-line);
   border-radius: 50%;
 }
 
@@ -2977,16 +2949,17 @@ th[aria-sort] .sort-button {
 }
 
 .quiz-choice[data-state="answer"] {
-  background: var(--accent);
-  color: var(--pop-on-yellow);
+  color: var(--ink);
+  background: var(--accent-tint);
+  border-color: var(--accent);
 }
 
 .quiz-choice[data-state="answer"] small {
-  color: var(--pop-on-yellow);
+  color: var(--ink-2);
 }
 
 .quiz-choice[data-state="answer"] .quiz-choice__mark {
-  color: var(--pop-shu-on-yellow);
+  color: var(--shu);
 }
 
 .quiz-choice[data-state="picked"] {
@@ -3002,9 +2975,8 @@ th[aria-sort] .sort-button {
 .quiz-verdict {
   margin-top: 22px;
   padding: 18px 20px;
-  background: var(--pop-soft);
-  border: 2px solid var(--pop-line);
-  border-radius: 16px;
+  background: var(--wash);
+  border-radius: 14px;
 }
 
 .quiz-verdict__head {
@@ -3019,7 +2991,7 @@ th[aria-sort] .sort-button {
 }
 
 .quiz-verdict[data-right="true"] .quiz-verdict__head {
-  color: var(--pop-shu);
+  color: var(--shu);
 }
 
 .quiz-card__actions {
@@ -3108,9 +3080,9 @@ th[aria-sort] .sort-button {
   display: flex;
   gap: 14px;
   padding: 14px 16px;
-  background: var(--pop-card);
-  border: 2px solid var(--pop-line);
-  border-radius: 14px;
+  background: var(--card);
+  border: 2px solid var(--rule);
+  border-radius: 12px;
 }
 
 .quiz-review li > div {
@@ -3128,7 +3100,7 @@ th[aria-sort] .sort-button {
 }
 
 .quiz-review li[data-right="true"] .quiz-review__mark {
-  color: var(--pop-shu);
+  color: var(--shu);
 }
 
 .quiz-review__prompt {
@@ -3147,9 +3119,8 @@ th[aria-sort] .sort-button {
 .zukan-start {
   padding: 22px 24px;
   background: var(--pop-card);
-  border: 3px solid var(--pop-line);
-  border-radius: 22px;
-  box-shadow: 0 7px 0 var(--pop-shadow);
+  border: 2px solid var(--rule);
+  border-radius: 16px;
 }
 
 .zukan-start h3 {
@@ -3200,12 +3171,11 @@ th[aria-sort] .sort-button {
 
 .zukan-score__bar {
   flex-basis: 100%;
-  height: 18px;
+  height: 16px;
   overflow: hidden;
-  background-color: var(--pop-card);
-  background-image: repeating-linear-gradient(90deg, var(--rule) 0 1px, transparent 1px 10%);
-  border: 2.5px solid var(--pop-line);
-  border-radius: 999px;
+  background-color: var(--wash);
+  background-image: repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 10%);
+  border-radius: 8px;
 }
 
 .zukan-score__bar span {
@@ -3213,15 +3183,13 @@ th[aria-sort] .sort-button {
   min-width: 6px;
   height: 100%;
   background: var(--accent);
-  border-right: 2.5px solid var(--pop-line);
 }
 
 .zukan-japan {
   padding: 16px;
   background: var(--card);
-  border: 3px solid var(--pop-line);
-  border-radius: 22px;
-  box-shadow: 0 7px 0 var(--pop-shadow);
+  border: 2px solid var(--rule);
+  border-radius: 16px;
 }
 
 .zukan-japan .area-map {
@@ -3243,20 +3211,20 @@ th[aria-sort] .sort-button {
   width: 22px;
   height: 22px;
   margin-left: 8px;
-  border: 2px solid var(--line);
+  border: 2px solid var(--ink-3);
   border-radius: 6px;
 }
 
 .zukan-japan__key[data-state="got"] {
-  background: var(--coral);
+  background: var(--shu);
 }
 
 .zukan-japan__key[data-state="done"] {
-  background: var(--mint);
+  background: var(--wakatake);
 }
 
 .zukan-japan__key[data-state="pref"] {
-  background: var(--butter);
+  background: var(--yamabuki-tint);
 }
 
 .zukan-map {
@@ -3279,9 +3247,9 @@ th[aria-sort] .sort-button {
   white-space: nowrap;
   overflow: hidden;
   color: var(--ink-3);
-  background: var(--pop-card);
+  background: var(--card);
   border: 2px solid var(--rule);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .zukan-map li small {
@@ -3291,15 +3259,15 @@ th[aria-sort] .sort-button {
 }
 
 .zukan-map li[data-state="some"] {
-  color: var(--pop-on-yellow);
-  background: var(--pop-yellow);
-  border-color: var(--pop-line);
+  color: var(--ink);
+  background: var(--yamabuki-tint);
+  border-color: var(--yamabuki);
 }
 
 .zukan-map li[data-state="done"] {
-  color: var(--pop-on-shu);
-  background: var(--pop-shu);
-  border-color: var(--pop-line);
+  color: var(--on-wakatake);
+  background: var(--wakatake);
+  border-color: var(--wakatake-edge);
 }
 
 .zukan__actions {
@@ -3372,9 +3340,9 @@ th[aria-sort] .sort-button {
   font-size: 0.9rem;
   font-weight: 700;
   text-decoration: none;
-  background: var(--pop-card);
-  border: 2px solid var(--pop-line);
-  border-radius: 999px;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 10px;
 }
 
 .zukan__clear {
@@ -3383,23 +3351,6 @@ th[aria-sort] .sort-button {
   align-items: center;
   gap: 10px 14px;
   font-size: 0.9rem;
-}
-
-/* 上部メニューの「あそぶ」。 */
-.topbar__nav .topbar__play {
-  padding-inline: 10px;
-  font-family: var(--font-pop);
-  font-weight: 700;
-  color: var(--pop-on-yellow);
-  background: var(--pop-yellow);
-  border: 2px solid var(--pop-line);
-  border-radius: 999px;
-}
-
-.topbar__nav .topbar__play[aria-current="page"] {
-  color: var(--pop-on-yellow);
-  border-bottom-color: var(--pop-line);
-  box-shadow: 0 2px 0 var(--pop-shadow);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -3788,7 +3739,7 @@ th[aria-sort] .sort-button {
   padding: 3px;
   background: var(--wash);
   border: 2px solid var(--line);
-  border-radius: 999px;
+  border-radius: 12px;
 }
 
 .view-switch button {
@@ -3799,13 +3750,13 @@ th[aria-sort] .sort-button {
   font-weight: 700;
   background: none;
   border: 0;
-  border-radius: 999px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
 .view-switch button[aria-pressed="true"] {
-  color: var(--on-pastel);
-  background: var(--sky);
+  color: var(--on-ai);
+  background: var(--ai);
 }
 
 .conditions__add select {
@@ -3948,8 +3899,8 @@ th[aria-sort] .sort-button {
   color: var(--ink-3);
 }
 
-/* ---------- やさしい見た目（全体） ----------
- * 生成りの面に、角の丸い札と大きなボタン。見出しとボタンは丸ゴシック。
+/* ---------- 全体の部品 ----------
+ * 白い紙に、角の丸い札とボタン。見出しとボタンは丸ゴシック。
  * ここより後ろ（画面の幅に合わせる）の指定が、狭い画面では優先される。
  */
 
@@ -3962,26 +3913,26 @@ h4 {
 }
 
 :focus-visible {
-  outline: 3px solid var(--line);
+  outline: 3px solid var(--ai);
   outline-offset: 2px;
-  box-shadow: 0 0 0 6px var(--mark);
+  box-shadow: none;
 }
 
 .button {
   min-height: 40px;
-  padding: 0 18px;
+  padding: 0 16px;
   font-family: var(--font-pop);
   font-size: 0.92rem;
   font-weight: 700;
   text-decoration: none;
   background: var(--card);
   border: 2px solid var(--line);
-  border-radius: 999px;
-  box-shadow: 0 3px 0 var(--shadow);
+  border-radius: 10px;
+  box-shadow: 0 2px 0 var(--line);
 }
 
 .button:active:not(:disabled) {
-  box-shadow: 0 1px 0 var(--shadow);
+  box-shadow: none;
   transform: translateY(2px);
 }
 
@@ -3991,8 +3942,10 @@ h4 {
 
 .button--primary,
 .button--primary:hover:not(:disabled) {
-  color: var(--on-pastel);
-  background: var(--coral);
+  color: var(--on-ai);
+  background: var(--ai);
+  border-color: var(--ai-edge);
+  box-shadow: 0 3px 0 var(--ai-edge);
 }
 
 .add-button {
@@ -4001,8 +3954,8 @@ h4 {
   font-family: var(--font-pop);
   font-weight: 700;
   background: var(--card);
-  border: 2px solid var(--rule);
-  border-radius: 999px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
 }
 
 select,
@@ -4010,15 +3963,15 @@ select,
   min-height: 40px;
   padding-inline: 12px 8px;
   background: var(--card);
-  border: 2px solid var(--ink-3);
-  border-radius: 12px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
 }
 
 .icon-button {
   border-radius: 50%;
 }
 
-/* 区切りは、太い罫線ではなく角の丸い札にする。 */
+/* 区切りは、角の丸い札にする。 */
 .block {
   padding: 20px 22px 22px;
   background: var(--card);
@@ -4034,7 +3987,7 @@ select,
 .notice {
   background: var(--wash);
   border-left: 0;
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .notes {
@@ -4058,36 +4011,32 @@ select,
   font-weight: 700;
   color: var(--ink-2);
   border: 2px solid transparent;
-  border-radius: 999px;
+  border-radius: 10px;
 }
 
 .topbar__nav a[aria-current="page"] {
   color: var(--ink);
-  background: var(--card);
-  border-color: var(--line);
+  background: var(--ai-tint);
+  border-color: var(--ai);
 }
 
-.topbar__nav .topbar__play {
-  color: var(--on-pastel);
-  background: var(--coral);
-  border-color: var(--line);
-}
-
+.topbar__nav .topbar__play,
 .topbar__nav .topbar__play[aria-current="page"] {
-  color: var(--on-pastel);
-  background: var(--coral);
-  box-shadow: 0 2px 0 var(--shadow);
+  color: var(--on-shu);
+  background: var(--shu);
+  border-color: var(--shu-edge);
+  box-shadow: 0 2px 0 var(--shu-edge);
 }
 
 .search__input {
   background: var(--card);
-  border: 2px solid var(--ink-3);
-  border-radius: 999px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
 }
 
 .search[data-variant="bar"] .search__input {
   padding-left: 42px;
-  border: 2px solid var(--line);
+  border: 2px solid var(--ink-3);
 }
 
 .search[data-variant="bar"] .search__icon {
@@ -4097,7 +4046,7 @@ select,
 .search__list {
   background: var(--card);
   border: 2px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
 }
 
 /* 見出し */
@@ -4109,7 +4058,7 @@ select,
   font-size: 0.95rem;
 }
 
-/* 市区町村の画面のタブは、丸いボタンを並べる。 */
+/* 市区町村の画面のタブ */
 .tabs {
   flex-wrap: wrap;
   gap: 8px;
@@ -4122,15 +4071,15 @@ select,
   font-family: var(--font-pop);
   font-weight: 700;
   background: var(--card);
-  border: 2px solid var(--rule);
-  border-radius: 999px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
 }
 
 .tab.is-active {
-  color: var(--on-pastel);
-  background: var(--sky);
-  border-color: var(--line);
-  box-shadow: 0 3px 0 var(--shadow);
+  color: var(--on-ai);
+  background: var(--ai);
+  border-color: var(--ai-edge);
+  box-shadow: 0 3px 0 var(--ai-edge);
 }
 
 /* 概要は札の中に表を収めるため、列のあいだを詰め、表の列を広く取る。 */
@@ -4164,13 +4113,17 @@ select,
   font-family: var(--font-pop);
   background: var(--card);
   border: 2px solid var(--rule);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .japan-map a:hover {
-  color: var(--on-pastel);
-  background: var(--sky);
-  border-color: var(--line);
+  color: var(--ink);
+  background: var(--ai-tint);
+  border-color: var(--ai);
+}
+
+.japan-map a:hover small {
+  color: var(--ink-2);
 }
 
 /* 特集のカード */
@@ -4181,7 +4134,7 @@ select,
   border-radius: var(--radius);
 }
 
-/* トップページの入口（大きなボタンを4つ） */
+/* トップページの入口（大きなボタンを4つ）。上の辺に、ものさしの目盛り。 */
 .home-start {
   display: grid;
   justify-items: center;
@@ -4195,63 +4148,80 @@ select,
   line-height: 1.4;
 }
 
-.home-start p {
-  max-width: 34em;
-  font-size: 0.95rem;
-  color: var(--ink-2);
-}
-
 .home-start__buttons {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px 18px;
-  width: min(100%, 720px);
+  width: min(100%, 760px);
 }
 
 .home-button {
   display: grid;
   align-content: center;
-  min-height: 84px;
-  padding: 12px 24px;
+  min-height: 92px;
+  padding: 20px 24px 14px;
   font-family: var(--font-pop);
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   font-weight: 700;
   line-height: 1.3;
-  color: var(--on-pastel);
+  color: var(--on-accent);
   text-align: center;
   text-decoration: none;
   cursor: pointer;
-  background: var(--accent, var(--card));
-  border: 3px solid var(--line);
-  border-radius: 999px;
-  box-shadow: 0 5px 0 var(--shadow);
+  background-color: var(--accent);
+  background-image:
+    repeating-linear-gradient(90deg, var(--tick) 0 2px, transparent 2px 40px),
+    repeating-linear-gradient(90deg, var(--tick) 0 1px, transparent 1px 8px);
+  background-repeat: no-repeat;
+  background-position:
+    20px 0,
+    20px 0;
+  background-size:
+    calc(100% - 40px) 12px,
+    calc(100% - 40px) 7px;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 5px 0 var(--accent-edge);
 }
 
 .home-button small {
+  margin-top: 2px;
   font-family: var(--font-sans);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 500;
 }
 
 .home-button:active {
-  box-shadow: 0 1px 0 var(--shadow);
+  box-shadow: 0 1px 0 var(--accent-edge);
   transform: translateY(4px);
 }
 
 .home-button--kuji {
-  --accent: var(--coral);
+  --accent: var(--shu);
+  --accent-edge: var(--shu-edge);
+  --on-accent: var(--on-shu);
+  --tick: rgb(255 255 255 / 0.55);
 }
 
 .home-button--quiz {
-  --accent: var(--mint);
+  --accent: var(--wakatake);
+  --accent-edge: var(--wakatake-edge);
+  --on-accent: var(--on-wakatake);
+  --tick: rgb(255 255 255 / 0.55);
 }
 
 .home-button--zukan {
-  --accent: var(--butter);
+  --accent: var(--yamabuki);
+  --accent-edge: var(--yamabuki-edge);
+  --on-accent: var(--on-yamabuki);
+  --tick: rgb(31 35 40 / 0.4);
 }
 
 .home-button--screen {
-  --accent: var(--sky);
+  --accent: var(--ai);
+  --accent-edge: var(--ai-edge);
+  --on-accent: var(--on-ai);
+  --tick: rgb(255 255 255 / 0.55);
 }
 
 @media (prefers-reduced-motion: no-preference) {

@@ -8,7 +8,7 @@
 
 _A dashboard for Japanese municipalities that shows official public statistics together with their sources, reference periods, and missing-data notes. All data comes from the Statistics Dashboard API of the Statistics Bureau of Japan (no API key required) and ships as a static dataset, so the site runs without any backend. The UI and documentation are in Japanese._
 
-![大阪府門真市の概要画面。生成りの面に、上部に「まちのものさし」の名前と丸い検索欄とメニュー。市区町村名と人口の下に丸いタブが並び、角の丸い札に「全国で目立つところ」として、通勤・通学に自転車だけを使う人の割合が全国で最も高いことが示され、その下に7つの指標の表と補助スコアの内訳が並ぶ](docs/images/overview.png)
+![大阪府門真市の概要画面。白い面に、上部に「まちのものさし」の名前と検索欄とメニュー。市区町村名と人口の下に藍色の「概要」タブなどが並び、角の丸い札に「全国で目立つところ」として、通勤・通学に自転車だけを使う人の割合が全国で最も高いことが示され、その下に7つの指標の表と補助スコアの内訳が並ぶ](docs/images/overview.png)
 
 ## できること
 

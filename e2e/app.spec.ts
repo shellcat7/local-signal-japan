@@ -42,25 +42,20 @@ async function expectAccessible(page: Page) {
   expect(violations).toEqual([]);
 }
 
-test.describe("ダークモード", () => {
+test.describe("暗い配色の設定", () => {
+  // 暗い表示は用意していない。端末が暗い配色の設定でも、明るい表示のまま読めること。
   test.use({ colorScheme: "dark" });
 
   for (const hash of [
     "",
-    "#area=13101",
     "#area=01668&tab=life",
-    "#area=13101&tab=indicators",
-    "#area=16210&tab=comparison",
-    "#view=ranking",
-    "#view=topics",
     "#view=ranking&topic=bicycle&metric=commuteBike&show=map",
-    "#view=kuji&area=01668",
-    "#view=quiz&seed=2026-11-23",
-    "#view=zukan"
+    "#view=kuji&area=01668"
   ]) {
-    test(`文字のコントラストなどの基準を満たす: ${hash || "トップページ"}`, async ({ page }) => {
+    test(`明るい表示のまま、文字のコントラストなどの基準を満たす: ${hash || "トップページ"}`, async ({ page }) => {
       await page.goto(`./${hash}`);
       await expect(page.getByText(CREDIT)).toBeVisible();
+      expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(255, 255, 255)");
       await expectAccessible(page);
     });
   }

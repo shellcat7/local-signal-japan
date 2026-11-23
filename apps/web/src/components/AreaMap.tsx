@@ -57,12 +57,12 @@ export const AreaMap = memo(function AreaMap({ map, states, highlight, label }: 
 });
 
 const IMAGE_COLORS = {
-  got: "#f4a385",
-  done: "#9fdcb5",
-  pref: "#fde39c",
+  got: "#c8401e",
+  done: "#23794a",
+  pref: "#ffe9a3",
   none: "#ffffff",
-  line: "#2b2724",
-  rule: "#d8ccba"
+  line: "#1f2328",
+  rule: "#d0d5db"
 };
 
 /** 図鑑の地図を、保存する画像用の SVG の文字列にする（色を直接書き込む）。 */
@@ -78,5 +78,5 @@ export function zukanSvgString(map: MapData, states: ReadonlyMap<string, AreaSta
   const insets = map.insets
     .map(({ box: [bx, by, bw, bh] }) => `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="6"/>`)
     .join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${width} ${height}" width="${width * 2}" height="${height * 2}"><g stroke="${IMAGE_COLORS.rule}" stroke-width="0.3" stroke-linejoin="round">${areas}</g><g fill="none" stroke="${IMAGE_COLORS.line}" stroke-width="0.9" stroke-linejoin="round">${prefectures}</g><g fill="none" stroke="#8a7f74" stroke-width="1" stroke-dasharray="4 3">${insets}</g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${width} ${height}" width="${width * 2}" height="${height * 2}"><g stroke="${IMAGE_COLORS.rule}" stroke-width="0.3" stroke-linejoin="round">${areas}</g><g fill="none" stroke="${IMAGE_COLORS.line}" stroke-width="0.9" stroke-linejoin="round">${prefectures}</g><g fill="none" stroke="#8f969e" stroke-width="1" stroke-dasharray="4 3">${insets}</g></svg>`;
 }
