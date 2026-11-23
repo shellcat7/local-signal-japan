@@ -6,8 +6,6 @@ type SparklineProps = {
   breakAfterYear?: number;
   width?: number;
   height?: number;
-  /** night = 濃紺の帯の上に置く。 */
-  tone?: "default" | "night";
 };
 
 const PAD = 3;
@@ -16,7 +14,7 @@ const PAD = 3;
  * 一覧の行に置く小さな折れ線。値は同じ行に文字で出ているので、形だけを見せる。
  * 横軸は実際の年の間隔に合わせる（5年ごとの調査と毎年の統計で詰まり方が変わる）。
  */
-export function Sparkline({ points, breakAfterYear, width = 104, height = 30, tone = "default" }: SparklineProps) {
+export function Sparkline({ points, breakAfterYear, width = 96, height = 28 }: SparklineProps) {
   if (points.length < 2) {
     return <span className="sparkline sparkline--empty" aria-hidden="true" />;
   }
@@ -37,29 +35,15 @@ export function Sparkline({ points, breakAfterYear, width = 104, height = 30, to
       : [points.filter(([year]) => year <= breakAfterYear), points.filter(([year]) => year > breakAfterYear)];
   const last = points.at(-1) as SeriesPoint;
   const path = (segment: SeriesPoint[]) => segment.map(([year, value]) => `${x(year)},${y(value)}`).join(" ");
-  const lead = segments[0] ?? [];
 
   return (
-    <svg
-      className="sparkline"
-      data-tone={tone}
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      aria-hidden="true"
-    >
-      {lead.length > 1 && breakAfterYear === undefined && !(min < 0 && max > 0) && (
-        <polygon
-          className="sparkline__area"
-          points={`${x((lead[0] as SeriesPoint)[0])},${height} ${path(lead)} ${x(last[0])},${height}`}
-        />
-      )}
+    <svg className="sparkline" width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
       {segments.map((segment) =>
         segment.length > 1 ? (
           <polyline className="sparkline__line" key={segment[0]?.[0]} points={path(segment)} />
         ) : null
       )}
-      <circle className="sparkline__dot" cx={x(last[0])} cy={y(last[1])} r={2.75} />
+      <circle className="sparkline__dot" cx={x(last[0])} cy={y(last[1])} r={2.25} />
     </svg>
   );
 }

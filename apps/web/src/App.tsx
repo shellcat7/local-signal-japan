@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import {
   areaFullName,
-  areaLocalName,
   findAreaEntry,
-  formatDate,
+  formatDateLong,
   formatNumber,
+  INDICATOR_KEYS,
   type AreaIndex,
   type AreaRecord,
   type Manifest,
@@ -12,14 +12,13 @@ import {
 } from "@local-signal-japan/core";
 import { AreaDashboard } from "./components/AreaDashboard";
 import { Footer } from "./components/Footer";
-import { HeroPreview } from "./components/HeroPreview";
 import { Landing } from "./components/Landing";
-import { RankingView } from "./components/RankingView";
+import { ScreenerView } from "./components/ScreenerView";
 import { SearchBox } from "./components/SearchBox";
 import { TopBar } from "./components/TopBar";
 import { loadAreaIndex, loadManifest, loadNational, loadPrefecture } from "./lib/data";
 import { useRoute, type AreaRoute, type RankingRoute, type Route, type TabId } from "./lib/route";
-import { EXAMPLE_AREA_CODES, PREVIEW_AREA_CODE, SITE_NAME } from "./lib/site";
+import { SITE_NAME } from "./lib/site";
 import { useAsync } from "./lib/useAsync";
 
 type LoadedArea = { area: AreaRecord | null; prefecture: PrefectureFile };
@@ -110,7 +109,8 @@ function AreaSection({
       manifest={manifest}
       index={index}
       tab={route.tab}
-      compare={route.compare}
+      // 共有されたURLに収録外のコードが混ざっていても、比較の枠を使わせない。
+      compare={route.compare.filter((code) => findAreaEntry(index, code) !== undefined)}
       busy={state.status === "loading"}
       focusRequestRef={focusRequestRef}
       onTabChange={onTabChange}
@@ -134,7 +134,7 @@ function RankingSection({ route, manifest, index, onChange, onOpenArea }: Rankin
   const [national, retry] = useAsync(load);
 
   useEffect(() => {
-    document.title = `全国ランキング | ${SITE_NAME}`;
+    document.title = `条件でさがす | ${SITE_NAME}`;
     return () => {
       document.title = SITE_NAME;
     };
@@ -142,16 +142,17 @@ function RankingSection({ route, manifest, index, onChange, onOpenArea }: Rankin
 
   return (
     <>
-      <section className="band band--page">
-        <div className="container page-head">
-          <h2>全国ランキング</h2>
-          <p>全国の市区町村を、指標値の順に並べます。都道府県と人口規模で絞り込めます。</p>
-        </div>
-      </section>
+      <header className="container page-head">
+        <h2>条件でさがす</h2>
+        <p>
+          政令指定都市の区を除く{formatNumber(manifest.counts.referenceAreas)}
+          市区町村から、条件に合うものをすべて並べます。
+        </p>
+      </header>
       {national.status === "error" && <Status message={national.message} onRetry={retry} />}
       {national.status === "loading" && <Status message="全国のデータを読み込んでいます…" />}
       {national.status === "ready" && (
-        <RankingView
+        <ScreenerView
           route={route}
           national={national.value}
           index={index}
@@ -174,59 +175,28 @@ type HomeSectionProps = {
 function HomeSection({ manifest, index, onOpenArea, onOpenRanking }: HomeSectionProps) {
   const load = useCallback(() => loadNational(manifest), [manifest]);
   const [national] = useAsync(load);
-  const examples = EXAMPLE_AREA_CODES.map((code) => findAreaEntry(index, code)).filter((entry) => entry !== undefined);
-  const preview =
-    national.status === "ready" ? national.value.areas.find((row) => row.code === PREVIEW_AREA_CODE) : undefined;
-  const previewPref = preview ? index.prefectures.find((pref) => pref.code === preview.prefCode)?.name : undefined;
 
   return (
-    <>
-      <section className="band band--hero">
-        <div className="container hero">
-          <div className="hero__main">
-            <p className="hero__eyebrow">
-              全国{formatNumber(manifest.counts.areas)}市区町村
-              <span>公的統計・7指標</span>
-              <span>データ取得日 {formatDate(manifest.generatedAt)}</span>
-            </p>
-            <h2>
-              {/* 文節の途中で折り返さないよう、まとまりごとに区切る。 */}
-              <span>数字で読む、</span>
-              <span>日本の市区町村。</span>
-            </h2>
-            <p className="hero__lead">
-              人口・高齢化・転入転出・事業所・雇用・所得・財政。総務省統計局が公開している統計を、出典と基準時点ごと確かめられます。
-            </p>
-            <SearchBox index={index} onSelect={onOpenArea} variant="hero" shortcut />
-            {examples.length > 0 && (
-              <p className="examples">
-                <span className="examples__label">例から見る</span>
-                {examples.map((example) => (
-                  <button
-                    type="button"
-                    className="chip-button"
-                    key={example.code}
-                    onClick={() => onOpenArea(example.code)}
-                  >
-                    {example.prefName} {areaLocalName(example)}
-                  </button>
-                ))}
-              </p>
-            )}
-          </div>
-          {preview && previewPref && <HeroPreview row={preview} prefName={previewPref} onOpen={onOpenArea} />}
-        </div>
+    <div className="container home">
+      <section className="home__search" aria-labelledby="home-title">
+        <h2 id="home-title">市区町村をさがす</h2>
+        <SearchBox index={index} onSelect={onOpenArea} variant="hero" shortcut />
+        <p className="home__facts">
+          <span>
+            全国{formatNumber(manifest.counts.areas)}市区町村・{INDICATOR_KEYS.length}指標
+          </span>
+          <span>出典 {manifest.source.name}</span>
+          <span>{formatDateLong(manifest.generatedAt)}取得</span>
+        </p>
       </section>
-      <div className="container">
-        <Landing
-          manifest={manifest}
-          index={index}
-          national={national}
-          onOpenArea={onOpenArea}
-          onOpenRanking={onOpenRanking}
-        />
-      </div>
-    </>
+      <Landing
+        manifest={manifest}
+        index={index}
+        national={national}
+        onOpenArea={onOpenArea}
+        onOpenRanking={onOpenRanking}
+      />
+    </div>
   );
 }
 
@@ -258,6 +228,8 @@ export function App() {
   const openRanking = (target: RankingRoute) => {
     navigate(target);
     window.scrollTo({ top: 0 });
+    // 押したリンクは画面から消えるので、読み上げ位置を本文の先頭へ移す。
+    mainRef.current?.focus({ preventScroll: true });
   };
 
   const goTo = (target: Route) => {
@@ -288,7 +260,7 @@ export function App() {
               index={ready.index}
               onSelect={selectArea}
               variant="bar"
-              placeholder="市区町村をさがす"
+              placeholder="市区町村名・よみがな・コード"
               clearOnSelect
               shortcut
             />

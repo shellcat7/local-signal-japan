@@ -15,9 +15,25 @@ type SearchBoxProps = {
   shortcut?: boolean;
   /** 候補から除く市区町村コード。 */
   exclude?: readonly string[];
+  disabled?: boolean;
 };
 
 const MAX_RESULTS = 8;
+
+/** 候補の名前のうち、入力した文字と一致する部分に印を付ける（よみがなやコードで一致したときは付かない）。 */
+function Highlighted({ text, query }: { text: string; query: string }) {
+  const needle = query.trim();
+  const start = needle === "" ? -1 : text.indexOf(needle);
+  if (start < 0) return text;
+
+  return (
+    <>
+      {text.slice(0, start)}
+      <mark>{needle}</mark>
+      {text.slice(start + needle.length)}
+    </>
+  );
+}
 
 /**
  * 市区町村の検索欄。候補の絞り込みはブラウザ内で完結し、入力した文字はどこにも送信・保存しない。
@@ -27,10 +43,11 @@ export function SearchBox({
   onSelect,
   variant = "hero",
   label = "市区町村をさがす",
-  placeholder = "例: 千代田区、なんと、14117",
+  placeholder = "市区町村名・よみがな・5桁のコード（例: 千代田区、なんと、14117）",
   clearOnSelect = false,
   shortcut = false,
-  exclude
+  exclude,
+  disabled = false
 }: SearchBoxProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -101,11 +118,11 @@ export function SearchBox({
 
   return (
     <div className="search" data-variant={variant}>
-      <label className={variant === "hero" ? "search__label" : "visually-hidden"} htmlFor={inputId}>
+      <label className="visually-hidden" htmlFor={inputId}>
         {label}
       </label>
       <div className="search__field">
-        <Search className="search__icon" size={variant === "hero" ? 20 : 16} aria-hidden="true" />
+        <Search className="search__icon" size={variant === "hero" ? 20 : 16} strokeWidth={1.75} aria-hidden="true" />
         <input
           ref={inputRef}
           id={inputId}
@@ -120,6 +137,7 @@ export function SearchBox({
           spellCheck={false}
           enterKeyHint="search"
           placeholder={placeholder}
+          disabled={disabled}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -130,11 +148,6 @@ export function SearchBox({
           onBlur={() => setOpen(false)}
           onKeyDown={handleKeyDown}
         />
-        {shortcut && (
-          <kbd className="search__kbd" aria-hidden="true">
-            /
-          </kbd>
-        )}
       </div>
 
       <ul className="search__list" id={listId} role="listbox" aria-label="市区町村の候補" hidden={!showList}>
@@ -151,7 +164,9 @@ export function SearchBox({
             onClick={() => choose(position)}
             onPointerEnter={() => setActiveIndex(position)}
           >
-            <span className="search__option-name">{areaLocalName(result)}</span>
+            <span className="search__option-name">
+              <Highlighted text={areaLocalName(result)} query={query} />
+            </span>
             <span className="search__option-meta">
               {result.prefName}・{AREA_KIND_LABELS[result.kind]}
               <code>{result.code}</code>

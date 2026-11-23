@@ -1,9 +1,10 @@
+import { INDICATORS } from "./indicators";
 import { INDICATOR_KEYS, type IndicatorKey } from "./model";
 import { averageScore } from "./scoring";
 import type { AreaRecord, NationalRow } from "./schema";
 
-/** ランキングや比較で選べる値。総合補助スコアか、指標ごとの指標値。 */
-export type RankingMetric = "overall" | IndicatorKey;
+/** 一覧で並べ替えに使える値。人口、総合補助スコア、指標ごとの指標値。 */
+export type RankingMetric = "residents" | "overall" | IndicatorKey;
 
 const KEY_INDEX = new Map(INDICATOR_KEYS.map((key, index) => [key, index]));
 
@@ -32,9 +33,19 @@ export function rowOverallScore(row: NationalRow): number | null {
   return averageScore(row.scores);
 }
 
-/** ランキングで並べる値。総合は補助スコアの平均、指標は指標値そのもの。 */
+/** 一覧で並べる値。人口は住民基本台帳人口、総合は補助スコアの平均、指標は指標値そのもの。 */
 export function rowMetric(row: NationalRow, metric: RankingMetric): number | null {
+  if (metric === "residents") return row.population;
   return metric === "overall" ? rowOverallScore(row) : rowValue(row, metric);
+}
+
+/**
+ * 指標値が全国の中でどの位置にあるかを、値の大小の向きで表す（0 = 最も小さい側、100 = 最も大きい側）。
+ * 補助スコアは「値が小さいほど高い」指標で向きを反転しているので、ここで元に戻す。
+ */
+export function valuePosition(key: IndicatorKey, score: number | null): number | null {
+  if (score === null) return null;
+  return INDICATORS[key].orientation === "lower" ? 100 - score : score;
 }
 
 export const POPULATION_BANDS = [
@@ -46,6 +57,10 @@ export const POPULATION_BANDS = [
 ] as const;
 export type PopulationBandId = (typeof POPULATION_BANDS)[number]["id"];
 
+/** 指標値の範囲（両端を含む）。単位は指標値と同じ。 */
+export type RangeFilter = { min?: number; max?: number };
+export type IndicatorFilters = Partial<Record<IndicatorKey, RangeFilter>>;
+
 export type RankingOptions = {
   metric: RankingMetric;
   /** desc = 値が大きい順。 */
@@ -53,25 +68,57 @@ export type RankingOptions = {
   /** 都道府県コード。指定しなければ全国。 */
   prefCode?: string | null;
   populationBand?: PopulationBandId;
+  /** 指標値の条件。条件を付けた指標の値がない市区町村は、対象から外れる。 */
+  filters?: IndicatorFilters;
 };
+
+/** 条件として意味のある範囲だけを残す（数値でないもの、空の指定を捨てる）。 */
+export function activeFilters(filters: IndicatorFilters | undefined): Array<[IndicatorKey, RangeFilter]> {
+  const active: Array<[IndicatorKey, RangeFilter]> = [];
+  for (const key of INDICATOR_KEYS) {
+    const range = filters?.[key];
+    const min = Number.isFinite(range?.min) ? (range?.min as number) : undefined;
+    const max = Number.isFinite(range?.max) ? (range?.max as number) : undefined;
+    if (min === undefined && max === undefined) continue;
+    active.push([key, { ...(min === undefined ? {} : { min }), ...(max === undefined ? {} : { max }) }]);
+  }
+  return active;
+}
+
+/** すべての条件を満たすか。値は同梱データセットの値（画面に出る桁に丸めたもの）と比べる。 */
+export function matchesFilters(row: NationalRow, filters: ReadonlyArray<[IndicatorKey, RangeFilter]>): boolean {
+  return filters.every(([key, range]) => {
+    const value = rowValue(row, key);
+    if (value === null) return false;
+    return (range.min === undefined || value >= range.min) && (range.max === undefined || value <= range.max);
+  });
+}
 
 export type RankedRow = { row: NationalRow; value: number; rank: number };
 
 /**
- * 条件に合う市区町村を並べ、順位を付ける（同じ値は同順位）。
+ * 条件に合う市区町村を並べ、順位を付ける（同じ値は同順位）。順位は、条件で絞り込んだ中で付ける。
  * 政令指定都市の区は市全体と重複するため対象外。値のない市区町村も除く。
  */
-export function rankNational(rows: readonly NationalRow[], options: RankingOptions): RankedRow[] {
+/** 並べ替え以外の条件（対象・都道府県・人口規模・指標値の範囲）に合う市区町村。 */
+function inScope(rows: readonly NationalRow[], options: Omit<RankingOptions, "metric" | "order">): NationalRow[] {
   const band = POPULATION_BANDS.find((candidate) => candidate.id === (options.populationBand ?? "all"));
-  const direction = options.order === "desc" ? -1 : 1;
+  const filters = activeFilters(options.filters);
 
-  const ranked = rows
+  return rows
     .filter((row) => row.kind !== "ward")
+    .filter((row) => matchesFilters(row, filters))
     .filter((row) => !options.prefCode || row.prefCode === options.prefCode)
     .filter((row) => {
       if (!band || band.id === "all") return true;
       return row.population !== null && row.population >= band.min && row.population < band.max;
-    })
+    });
+}
+
+export function rankNational(rows: readonly NationalRow[], options: RankingOptions): RankedRow[] {
+  const direction = options.order === "desc" ? -1 : 1;
+
+  const ranked = inScope(rows, options)
     .map((row) => ({ row, value: rowMetric(row, options.metric) }))
     .filter((entry): entry is { row: NationalRow; value: number } => entry.value !== null)
     .sort((a, b) => (a.value - b.value) * direction || a.row.code.localeCompare(b.row.code));
@@ -119,4 +166,14 @@ export function findSimilarAreas(rows: readonly NationalRow[], target: NationalR
   }
 
   return similar.sort((a, b) => a.distance - b.distance || a.row.code.localeCompare(b.row.code)).slice(0, count);
+}
+
+/**
+ * 条件には合うが、並べる値がないために順位を付けられない市区町村（市区町村コード順）。
+ * 一覧からこれを落とすと「条件に合うものをすべて」にならないので、順位なしで末尾に並べるために使う。
+ */
+export function unrankedNational(rows: readonly NationalRow[], options: Omit<RankingOptions, "order">): NationalRow[] {
+  return inScope(rows, options)
+    .filter((row) => rowMetric(row, options.metric) === null)
+    .sort((a, b) => a.code.localeCompare(b.code));
 }

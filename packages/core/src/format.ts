@@ -17,7 +17,8 @@ export function formatNumber(value: number, decimals = 0, signed = false): strin
     formatters.set(cacheKey, formatter);
   }
 
-  return formatter.format(value);
+  // 負の数にはハイフンではなく負号（U+2212）を使う。数字と同じ幅で、桁がそろう。
+  return formatter.format(value).replace("-", "\u2212");
 }
 
 export function roundTo(value: number, decimals: number): number {
@@ -38,6 +39,12 @@ const japanDateFormatter = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/To
  */
 export function formatDate(isoDateTime: string): string {
   return japanDateFormatter.format(new Date(isoDateTime));
+}
+
+/** 画面に出す日付（日本時間）。例: 2026年11月23日 */
+export function formatDateLong(iso: string): string {
+  const [year, month, day] = formatDate(iso).split("-").map(Number);
+  return `${year}年${month}月${day}日`;
 }
 
 /** 日本時間での年。 */

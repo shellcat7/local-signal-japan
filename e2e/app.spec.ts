@@ -74,21 +74,16 @@ test.describe("トップページ", () => {
     expect(externalRequests, "外部への通信をしないこと").toEqual([]);
   });
 
-  test("実際のデータからの抜粋と、見本のカードを表示する", async ({ page, isMobile }) => {
+  test("実際のデータからの抜粋を表示し、続きの一覧へ進める", async ({ page }) => {
     const { errors, externalRequests } = watch(page);
     await page.goto("./");
 
-    await expect(page.getByRole("heading", { name: "いまのデータから" })).toBeVisible();
     const leaderboard = page.locator(".leaderboard").filter({ hasText: "人口の増減率が大きい" });
     await expect(leaderboard.getByRole("listitem")).toHaveCount(5);
+    await leaderboard.getByRole("link", { name: "6位以下を見る" }).click();
 
-    if (!isMobile) {
-      const preview = page.getByRole("complementary", { name: "表示の例" });
-      await expect(preview.getByRole("heading", { name: "横浜市" })).toBeVisible();
-      await preview.getByRole("button", { name: "横浜市を開く" }).click();
-      await expect(page.getByRole("heading", { level: 2, name: "横浜市" })).toBeVisible();
-      await expect(page).toHaveURL(/#area=14100$/);
-    }
+    await expect(page).toHaveURL(/#view=ranking&metric=population&size=over-200k$/);
+    await expect(page.getByRole("heading", { level: 2, name: "条件でさがす" })).toBeVisible();
 
     expect(errors).toEqual([]);
     expect(externalRequests).toEqual([]);
@@ -104,12 +99,20 @@ test.describe("トップページ", () => {
     }).toPass();
   });
 
-  test("例のボタンから市区町村を開ける", async ({ page }) => {
+  test("都道府県の索引から、その都道府県の市区町村の一覧を開ける", async ({ page }) => {
     await page.goto("./");
-    await page.getByRole("button", { name: "富山県 南砺市" }).click();
+    const index = page.getByRole("region", { name: "都道府県からさがす" });
+    await expect(index.getByRole("link")).toHaveCount(47);
+    await index.getByRole("link", { name: "富山県" }).click();
 
-    await expect(page.getByRole("heading", { level: 2, name: "南砺市" })).toBeVisible();
-    await expect(page).toHaveURL(/#area=16210$/);
+    await expect(page).toHaveURL(/#view=ranking&pref=16$/);
+    const rows = page.getByRole("table").getByRole("row");
+    // 富山県は15市町村。人口の多い順に並ぶ。
+    await expect(rows).toHaveCount(16);
+    await expect(rows.nth(1)).toContainText("富山市");
+
+    await rows.nth(1).getByRole("button", { name: "富山市" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "富山市" })).toBeFocused();
   });
 });
 
@@ -182,36 +185,65 @@ test.describe("検索", () => {
   });
 });
 
-test.describe("全国ランキング", () => {
-  test("指標値の順に並べ、条件で絞り込める", async ({ page }) => {
+test.describe("条件でさがす", () => {
+  test("指標値の範囲で絞り込み、並べ替え、URLで共有できる", async ({ page }) => {
     const { errors, externalRequests } = watch(page);
     await page.goto("./");
-    await page.getByRole("navigation", { name: "メインメニュー" }).getByRole("link", { name: "ランキング" }).click();
+    await page.getByRole("navigation", { name: "メインメニュー" }).getByRole("link", { name: "条件でさがす" }).click();
 
-    await expect(page.getByRole("heading", { level: 2, name: "全国ランキング" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "条件でさがす" })).toBeVisible();
     await expect(page).toHaveURL(/#view=ranking$/);
-    await expect(page).toHaveTitle("全国ランキング | Local Signal Japan");
+    await expect(page).toHaveTitle("条件でさがす | Local Signal Japan");
 
+    // 条件がなければ、対象の全市区町村が人口の多い順に並ぶ。
     const table = page.getByRole("table");
-    await expect(table.getByRole("row")).toHaveCount(51);
-    await expect(page.getByText(/条件に合う1,7\d\d団体を、値が大きい順に並べています/)).toBeVisible();
-
-    // 並べる値を変えると、URLと見出しが変わる。
-    await page.getByLabel("並べる値").selectOption("income");
-    await expect(page).toHaveURL(/#view=ranking&metric=income$/);
-    await expect(page.getByRole("heading", { level: 3, name: /納税義務者1人当たりの課税対象所得/ })).toBeVisible();
-    await expect(table.getByRole("row").nth(1)).toContainText("万円");
-
-    // 都道府県と人口規模で絞り込む。順位は絞り込んだ中で付け直す。
-    await page.getByLabel("都道府県").selectOption("16");
-    await page.getByLabel("人口規模").selectOption("10k-50k");
-    await expect(page).toHaveURL(/#view=ranking&metric=income&pref=16&size=10k-50k$/);
     const rows = table.getByRole("row");
-    await expect(rows.nth(1)).toContainText("富山県");
-    await expect(rows.nth(1).getByRole("cell").first()).toHaveText("1");
+    await expect(rows).toHaveCount(51);
+    await expect(rows.nth(1)).toContainText("横浜市");
+    const result = page.getByRole("status").filter({ hasText: "該当" });
+    await expect(result).toContainText(/該当\s*1,741\s*市区町村/);
+
+    // 全角の数字でも条件を入れられる。条件は「下限..上限」の形でURLに入る。
+    await page.getByLabel("高齢化率（%）の上限").fill("３０");
+    await page.getByLabel("課税対象所得（万円）の下限").fill("350");
+    await expect(page).toHaveURL(/#view=ranking&aging=\.\.30&income=350\.\.$/);
+    await expect(result).not.toContainText("1,741 市区町村／");
+    const matched = Number((await result.innerText()).replace(/[^0-9／]/g, "").split("／")[0]);
+    expect(matched).toBeGreaterThan(50);
+    expect(matched).toBeLessThan(600);
+
+    // 列見出しで並べ替える。同じ列をもう一度選ぶと逆順になる。
+    await table.getByRole("button", { name: /高齢化率/ }).click();
+    await expect(page).toHaveURL(/metric=aging&aging=/);
+    await expect(table.getByRole("columnheader", { name: /高齢化率/ })).toHaveAttribute("aria-sort", "descending");
+    await table.getByRole("button", { name: /高齢化率/ }).click();
+    await expect(page).toHaveURL(/metric=aging&order=asc&aging=/);
+    await expect(table.getByRole("columnheader", { name: /高齢化率/ })).toHaveAttribute("aria-sort", "ascending");
+
+    // 条件に合う行だけが残っている（高齢化率30%以下、所得350万円以上）。
+    const values = await rows.nth(1).getByRole("cell").allInnerTexts();
+    expect(Number(values[3])).toBeLessThanOrEqual(30);
+    expect(Number(values[7]?.replace(",", ""))).toBeGreaterThanOrEqual(350);
+
+    // 読めない文字は条件に反映せず、欄を離れると元に戻る。
+    const upper = page.getByLabel("高齢化率（%）の上限");
+    await upper.fill("30くらい");
+    await expect(upper).toHaveAttribute("aria-invalid", "true");
+    await expect(page).toHaveURL(/aging=\.\.30&/);
+    await upper.blur();
+    await expect(upper).toHaveValue("30");
 
     await expectNoHorizontalOverflow(page);
     await expectAccessible(page);
+
+    // 都道府県と人口規模で絞り込む。順位は絞り込んだ中で付け直す。
+    await page.getByRole("button", { name: "条件をすべて外す" }).click();
+    await expect(page).toHaveURL(/#view=ranking&metric=aging&order=asc$/);
+    await page.getByLabel("都道府県").selectOption("16");
+    await page.getByLabel("人口規模").selectOption("10k-50k");
+    await expect(page).toHaveURL(/#view=ranking&metric=aging&order=asc&pref=16&size=10k-50k$/);
+    await expect(rows.nth(1)).toContainText("富山県");
+    await expect(rows.nth(1).getByRole("cell").first()).toHaveText("1");
 
     // 行から市区町村を開く。
     const first = rows.nth(1).getByRole("button");
@@ -223,43 +255,101 @@ test.describe("全国ランキング", () => {
     expect(externalRequests).toEqual([]);
   });
 
-  test("続きを表示でき、共有されたURLから同じ条件を開ける", async ({ page }) => {
+  test("条件に合う市区町村がないときは、その旨を表示する", async ({ page }) => {
+    await page.goto("./#view=ranking&aging=..5");
+    await expect(page.getByText("条件に合う市区町村がありません")).toBeVisible();
+    await expect(page.getByRole("button", { name: "CSVで保存" })).toBeDisabled();
+    await page.getByRole("button", { name: "条件をすべて外す" }).click();
+    await expect(page.getByRole("table").getByRole("row")).toHaveCount(51);
+  });
+
+  test("並べる値が欠損の市区町村も、順位を付けずに末尾に残す", async ({ page }) => {
+    // 東京都の特別区は財政力指数が収録されていない。
+    await page.goto("./#view=ranking&metric=fiscal&pref=13");
+    await expect(page.getByRole("status").filter({ hasText: "該当" })).toContainText(/該当\s*62\s*市区町村/);
+
+    await page.getByRole("button", { name: /さらに\d+件を表示/ }).click();
+    const rows = page.getByRole("table").getByRole("row");
+    await expect(rows).toHaveCount(63);
+    const last = rows.nth(62);
+    await expect(last.getByRole("cell").first()).toHaveText("—");
+    await expect(last).toContainText("区");
+  });
+
+  test("結果をCSVで保存できる", async ({ page }) => {
+    await page.goto("./#view=ranking&pref=16");
+    await expect(page.getByRole("table").getByRole("row")).toHaveCount(16);
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "CSVで保存" }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^local-signal-\d{4}-\d{2}-\d{2}\.csv$/);
+
+    const csv = await readFile(await download.path(), "utf8");
+    // Excel で文字化けしないよう、先頭に BOM がある。
+    expect(csv.charCodeAt(0)).toBe(0xfeff);
+    const lines = csv.slice(1).trimEnd().split("\r\n");
+    expect(lines[0]).toMatch(/^順位,市区町村コード,都道府県,市区町村,区分,人口/);
+    expect(lines[1]).toMatch(/^1,16201,富山県,富山市,市,\d+/);
+    // 見出し1行 + 15市町村 + 空行 + 出典・注記・取得日
+    expect(lines).toHaveLength(20);
+    expect(csv).toContain("統計ダッシュボード（https://dashboard.e-stat.go.jp/）のデータを加工して作成");
+    expect(csv).toContain(CREDIT);
+  });
+
+  test("続きを表示でき、市区町村を開いて戻っても続きから見られる", async ({ page }) => {
     await page.goto("./#view=ranking&metric=aging&order=asc&size=over-200k");
 
     await expect(page.getByLabel("並べる値")).toHaveValue("aging");
     await expect(page.getByLabel("並び順")).toHaveValue("asc");
     await expect(page.getByLabel("人口規模")).toHaveValue("over-200k");
 
-    const table = page.getByRole("table");
-    await expect(table.getByRole("row")).toHaveCount(51);
+    const rows = page.getByRole("table").getByRole("row");
+    await expect(rows).toHaveCount(51);
     await page.getByRole("button", { name: /さらに\d+件を表示/ }).click();
-    await expect(table.getByRole("row")).toHaveCount(101);
+    await expect(rows).toHaveCount(101);
+
+    await rows.nth(60).getByRole("button").click();
+    await expect(page.getByRole("tab", { name: "概要" })).toBeVisible();
+    await page.goBack();
+    await expect(rows).toHaveCount(101);
   });
 
-  test("市区町村の画面の都道府県名から、その都道府県のランキングを開ける", async ({ page }) => {
+  test("市区町村の画面の都道府県名から、その都道府県の一覧を開ける", async ({ page }) => {
     await page.goto("./#area=16210");
     await page.getByRole("link", { name: "富山県" }).click();
     await expect(page).toHaveURL(/#view=ranking&pref=16$/);
     await expect(page.getByLabel("都道府県")).toHaveValue("16");
+    // 押したリンクは消えるので、フォーカスは本文へ移る。
+    await expect(page.locator("main")).toBeFocused();
   });
 });
 
 test.describe("市区町村の画面", () => {
-  test("概要: 総合補助スコアと、規則で書き出したシグナルを表示する", async ({ page }) => {
+  test("概要: 指標値・全国順位・補助スコアと、読み取り時の注意を表示する", async ({ page }) => {
     const { errors, externalRequests } = watch(page);
     await page.goto("./#area=13101");
 
     await expect(page.getByRole("heading", { level: 2, name: "千代田区" })).toBeVisible();
     await expect(page.getByText("市区町村コード 13101")).toBeVisible();
     await expect(page.getByRole("tab", { name: "概要" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: "補助スコアが上位の指標" })).toBeVisible();
-    // 指標サマリー: 水準・5年前比・全国順位が1行にまとまっている。
+    // 指標サマリー: 順位と位置は、同じ行の指標値（人口なら増減率）についてのもの。
     const summary = page.getByRole("table").filter({ hasText: "全国順位" });
     await expect(summary.getByRole("row")).toHaveCount(8);
-    const populationRow = summary.getByRole("row", { name: /人口/ }).first();
-    await expect(populationRow).toContainText("5年前比");
+    const populationRow = summary.getByRole("row", { name: /人口増減率/ });
+    await expect(populationRow).toContainText(/[+−]\d+\.\d%/);
     await expect(populationRow).toContainText(/\d+位/);
-    await expect(populationRow).toContainText("/ 1,741");
+    await expect(populationRow).toContainText("/1,741");
+    await expect(populationRow.getByRole("img", { name: /全国での位置/ })).toBeVisible();
+    // 高齢化率は差をポイントで示す。
+    await expect(summary.getByRole("row", { name: /高齢化率/ })).toContainText(/[+−]\d+\.\dポイント/);
+
+    // 補助スコアは指標ごとの内訳と、その平均を並べる。
+    const scores = page.getByRole("table").filter({ hasText: "総合" });
+    await expect(scores.getByRole("row")).toHaveCount(9);
+    await expect(scores.getByRole("row", { name: /財政力指数/ })).toContainText("欠損");
+    await expect(scores.getByRole("row", { name: /総合/ })).toContainText("6指標の平均");
+    await expect(page.getByRole("heading", { name: "読み取り時の注意" })).toBeVisible();
     // 特別区は財政力指数が出典に収録されていない。欠損として明示されること。
     await expect(page.getByText("財政: 出典（統計ダッシュボード）に特別区の値が収録されていません。")).toBeVisible();
     await expect(page.getByText("地域の良し悪しや将来を断定するものではありません")).toBeVisible();
@@ -288,15 +378,17 @@ test.describe("市区町村の画面", () => {
 
     const population = page.getByRole("article", { name: "人口" });
     await expect(population.getByText("5年間の人口増減率")).toBeVisible();
-    await expect(population.getByText(/出典（取得日 \d{4}-\d{2}-\d{2}）/)).toBeVisible();
+    await expect(population.getByText(/資料（\d{4}年\d{1,2}月\d{1,2}日取得）/)).toBeVisible();
     await expect(population.getByRole("link", { name: /住民基本台帳人口（総数）/ })).toHaveAttribute(
       "href",
       "https://dashboard.e-stat.go.jp/api/1.0/Json/getData?Lang=JP&IndicatorCode=0201200000000010010&RegionCode=13101"
     );
 
     // 全国の分布と順位。
-    await expect(population.getByText(/1,741団体（値が大きい順）/)).toBeVisible();
-    await expect(population.getByRole("img", { name: /全国1,741団体の分布。値が大きい順で\d+位/ })).toBeVisible();
+    await expect(population.getByText("/ 1,741（値が大きい順）")).toBeVisible();
+    await expect(
+      population.getByRole("img", { name: /全国1,741市区町村の分布。値が大きい順で[\d,]+位/ })
+    ).toBeVisible();
 
     const fiscal = page.getByRole("article", { name: "財政" });
     await expect(fiscal.getByText("欠損").first()).toBeVisible();
@@ -338,7 +430,7 @@ test.describe("市区町村の画面", () => {
     await page.goto("./#area=16210&tab=comparison");
 
     await expect(page.getByRole("heading", { name: "富山県内での比較" })).toBeVisible();
-    const ranking = page.getByRole("table", { name: /総合補助スコアの大きい順/ });
+    const ranking = page.getByRole("table", { name: /人口（\d{4}年）の大きい順/ });
     await expect(ranking.getByRole("row")).toHaveCount(11);
     await expect(ranking.getByRole("row", { name: /南砺市/ })).toContainText("表示中");
 
@@ -429,7 +521,9 @@ test.describe("市区町村の画面", () => {
 
   test("戻る操作でトップページに戻れる", async ({ page }) => {
     await page.goto("./");
-    await page.getByRole("button", { name: "東京都 千代田区" }).click();
+    const search = page.getByRole("combobox", { name: /市区町村をさがす/ });
+    await search.fill("千代田区");
+    await search.press("Enter");
     await expect(page.getByRole("heading", { level: 2, name: "千代田区" })).toBeVisible();
 
     await page.goBack();

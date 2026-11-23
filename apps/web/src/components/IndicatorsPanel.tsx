@@ -1,15 +1,14 @@
-import { ExternalLink } from "lucide-react";
 import {
-  formatDate,
+  formatDateLong,
   formatMetric,
   formatNumber,
+  SCORE_BAND_LABELS,
   type AreaView,
   type IndicatorView,
   type Manifest
 } from "@local-signal-japan/core";
 import { Histogram } from "./Histogram";
 import { LineChart, SeriesTable } from "./LineChart";
-import { ScoreBadge } from "./ScoreBadge";
 
 type IndicatorPanelProps = {
   indicator: IndicatorView;
@@ -24,20 +23,33 @@ function IndicatorPanel({ indicator, manifest, retrievedAt, isWard }: IndicatorP
   const headingId = `indicator-${indicator.key}`;
   const chartTitle = chart ? `${chart.series.label}の推移` : "";
   const signed = indicator.key === "migration";
+  // 大きく出している指標値と同じ内容の行は、繰り返さない。
+  const headlineText = indicator.value === null ? null : formatMetric(definition, indicator.value);
+  const facts = indicator.facts.filter((fact) => fact.value !== headlineText);
 
   return (
-    <article className="card indicator" aria-labelledby={headingId}>
+    <article className="block indicator" aria-labelledby={headingId}>
       <header className="indicator__head">
-        <div>
-          <h3 id={headingId}>{definition.label}</h3>
-          <p>{definition.summary}</p>
-        </div>
-        <ScoreBadge score={indicator.score} />
+        <h3 id={headingId}>{definition.label}</h3>
+        <p className="indicator__score">
+          補助スコア
+          {indicator.score === null ? (
+            <strong>欠損</strong>
+          ) : (
+            <>
+              <strong>{indicator.score}</strong>
+              <span>
+                {SCORE_BAND_LABELS[indicator.band]}
+                {definition.orientation === "lower" && "（値が小さいほど高い向き）"}
+              </span>
+            </>
+          )}
+        </p>
       </header>
 
       <div className="indicator__body">
         <section className="indicator__metric" aria-label="指標値">
-          <p className="eyebrow">
+          <p className="label">
             {definition.metricLabel}
             <span className="is-mono">{indicator.periodText}</span>
           </p>
@@ -54,14 +66,13 @@ function IndicatorPanel({ indicator, manifest, retrievedAt, isWard }: IndicatorP
           {indicator.available && indicator.direction !== "unknown" && (
             <p className="indicator__direction">
               直近の動き <strong>{indicator.directionText}</strong>
-              <span>{definition.directionBasis}</span>
             </p>
           )}
           {indicator.missingText && <p className="notice">{indicator.missingText}</p>}
 
-          {indicator.facts.length > 0 && (
+          {facts.length > 0 && (
             <dl className="fact-list">
-              {indicator.facts.map((fact) => (
+              {facts.map((fact) => (
                 <div key={`${fact.label}-${fact.period}`}>
                   <dt>
                     {fact.label}
@@ -76,8 +87,9 @@ function IndicatorPanel({ indicator, manifest, retrievedAt, isWard }: IndicatorP
 
         {chart && (
           <figure className="indicator__chart">
-            <figcaption className="eyebrow">
+            <figcaption className="label">
               {chartTitle}
+              {chart.series.unit !== "" && `（単位：${chart.series.unit}）`}
               {chart.breakAfterYear !== undefined && (
                 <span>{chart.breakAfterYear}年以前とそれより後は調査方法が異なるため、線をつないでいません</span>
               )}
@@ -105,13 +117,13 @@ function IndicatorPanel({ indicator, manifest, retrievedAt, isWard }: IndicatorP
 
         {indicator.value !== null && (
           <section className="indicator__position" aria-label="全国の中での位置">
-            <p className="eyebrow">全国の分布とこの市区町村</p>
+            <p className="label">全国の分布の中での位置</p>
             <p className="indicator__rank">
               {indicator.rank !== null ? (
                 <>
                   <strong>{formatNumber(indicator.rank)}</strong>
                   <small>位</small>
-                  <span>/ {formatNumber(indicator.rankTotal)}団体（値が大きい順）</span>
+                  <span>/ {formatNumber(indicator.rankTotal)}（値が大きい順）</span>
                 </>
               ) : (
                 <span>
@@ -128,8 +140,8 @@ function IndicatorPanel({ indicator, manifest, retrievedAt, isWard }: IndicatorP
               format={(value) => formatMetric(definition, value)}
               label={
                 indicator.rank !== null
-                  ? `全国${formatNumber(indicator.rankTotal)}団体の分布。値が大きい順で${formatNumber(indicator.rank)}位。全国の中央値は${indicator.medianText}。`
-                  : `全国${formatNumber(indicator.rankTotal)}団体の分布。全国の中央値は${indicator.medianText}。`
+                  ? `全国${formatNumber(indicator.rankTotal)}市区町村の分布。値が大きい順で${formatNumber(indicator.rank)}位。全国の中央値は${indicator.medianText}。`
+                  : `全国${formatNumber(indicator.rankTotal)}市区町村の分布。全国の中央値は${indicator.medianText}。`
               }
             />
           </section>
@@ -140,8 +152,12 @@ function IndicatorPanel({ indicator, manifest, retrievedAt, isWard }: IndicatorP
         <details className="disclosure">
           <summary>算出方法と読み取り時の注意</summary>
           <div className="prose">
+            <p>{definition.summary}</p>
             <p>
               <strong>算出方法</strong>：{definition.method}
+            </p>
+            <p>
+              <strong>直近の動きの基準</strong>：{definition.directionBasis}
             </p>
             <ul>
               {definition.notes.map((note) => (
@@ -151,13 +167,12 @@ function IndicatorPanel({ indicator, manifest, retrievedAt, isWard }: IndicatorP
           </div>
         </details>
         <div className="source-list">
-          <h4>出典（取得日 {formatDate(retrievedAt)}）</h4>
+          <h4>資料（{formatDateLong(retrievedAt)}取得）</h4>
           <ul>
             {indicator.sources.map((source) => (
               <li key={source.code}>
                 <a href={source.url} target="_blank" rel="noreferrer">
                   {source.name}
-                  <ExternalLink size={12} aria-hidden="true" />
                   <span className="visually-hidden">（統計ダッシュボードAPIの値を新しいタブで開く）</span>
                 </a>
                 <span>

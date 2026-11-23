@@ -1,12 +1,10 @@
 import type { MouseEvent, ReactNode } from "react";
 import { hrefOf, DEFAULT_RANKING, type Route } from "../lib/route";
-import { SITE_NAME } from "../lib/site";
-import { LogoMark } from "./Logo";
 
 type TopBarProps = {
   route: Route;
   onNavigate: (route: Route) => void;
-  /** 上部バーに置く検索欄（トップページでは大きな検索欄があるので置かない）。 */
+  /** 上部に置く検索欄（トップページでは本文に検索欄があるので置かない）。 */
   search: ReactNode;
 };
 
@@ -30,16 +28,15 @@ export function TopBar({ route, onNavigate, search }: TopBarProps) {
       <div className="container topbar__inner">
         <h1 className="topbar__brand">
           <a {...link({ view: "home" })}>
-            <LogoMark />
-            <span>{SITE_NAME}</span>
+            Local <span>Signal</span> Japan
           </a>
         </h1>
         <nav className="topbar__nav" aria-label="メインメニュー">
           <a {...link({ view: "home" })} aria-current={route.view === "home" ? "page" : undefined}>
-            さがす
+            名前でさがす
           </a>
           <a {...link(DEFAULT_RANKING)} aria-current={route.view === "ranking" ? "page" : undefined}>
-            ランキング
+            条件でさがす
           </a>
         </nav>
         <div className="topbar__search">{search}</div>

@@ -27,14 +27,16 @@ describe("parseHash", () => {
       metric: "income",
       order: "asc",
       prefCode: "13",
-      size: "over-200k"
+      size: "over-200k",
+      filters: {}
     });
     expect(parseHash("#view=ranking")).toEqual({
       view: "ranking",
-      metric: "overall",
+      metric: "residents",
       order: "desc",
       prefCode: null,
-      size: "all"
+      size: "all",
+      filters: {}
     });
   });
 
@@ -45,10 +47,11 @@ describe("parseHash", () => {
     expect(parseHash("#area=131011")).toEqual({ view: "home" });
     expect(parseHash("#view=ranking&metric=bogus&pref=48&size=huge")).toEqual({
       view: "ranking",
-      metric: "overall",
+      metric: "residents",
       order: "desc",
       prefCode: null,
-      size: "all"
+      size: "all",
+      filters: {}
     });
   });
 });
@@ -57,9 +60,9 @@ describe("formatHash", () => {
   it("既定の値は省略して短くする", () => {
     expect(formatHash({ view: "area", areaCode: "13101", tab: "overview", compare: [] })).toBe("#area=13101");
     expect(formatHash({ view: "area", areaCode: "13101", tab: "report", compare: [] })).toBe("#area=13101&tab=report");
-    expect(formatHash({ view: "ranking", metric: "overall", order: "desc", prefCode: null, size: "all" })).toBe(
-      "#view=ranking"
-    );
+    expect(
+      formatHash({ view: "ranking", metric: "residents", order: "desc", prefCode: null, size: "all", filters: {} })
+    ).toBe("#view=ranking");
   });
 
   it("比較する市区町村をカンマ区切りで書く", () => {
@@ -75,10 +78,34 @@ describe("formatHash", () => {
   it("parseHash と往復できる", () => {
     const routes: Route[] = [
       { view: "area", areaCode: "14117", tab: "comparison", compare: ["13101", "16210"] },
-      { view: "ranking", metric: "aging", order: "asc", prefCode: "47", size: "10k-50k" }
+      { view: "ranking", metric: "aging", order: "asc", prefCode: "47", size: "10k-50k", filters: {} },
+      {
+        view: "ranking",
+        metric: "income",
+        order: "desc",
+        prefCode: null,
+        size: "all",
+        filters: { aging: { max: 30 }, income: { min: 350 }, migration: { min: -0.5, max: 0.25 } }
+      }
     ];
     for (const route of routes) {
       expect(parseHash(formatHash(route))).toEqual(route);
     }
+  });
+});
+
+describe("指標値の条件", () => {
+  it("「下限..上限」の形で読み書きする", () => {
+    const hash = "#view=ranking&metric=income&aging=..30&migration=-0.5..0.25&income=350..";
+    const route = parseHash(hash);
+    expect(route).toMatchObject({
+      view: "ranking",
+      filters: { aging: { max: 30 }, income: { min: 350 }, migration: { min: -0.5, max: 0.25 } }
+    });
+    expect(formatHash(route)).toBe(hash);
+  });
+
+  it("読めない指定は条件として扱わない", () => {
+    expect(parseHash("#view=ranking&aging=abc&income=..&fiscal=1e9..&population=5")).toMatchObject({ filters: {} });
   });
 });

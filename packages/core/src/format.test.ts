@@ -10,7 +10,7 @@ describe("formatNumber", () => {
 
   it("signed のときは 0 以外に符号を付ける", () => {
     expect(formatNumber(4.4, 1, true)).toBe("+4.4");
-    expect(formatNumber(-0.14, 2, true)).toBe("-0.14");
+    expect(formatNumber(-0.14, 2, true)).toBe("−0.14");
     expect(formatNumber(0, 1, true)).toBe("0.0");
   });
 });

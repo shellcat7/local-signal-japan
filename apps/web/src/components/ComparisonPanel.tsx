@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   areaLocalName,
   findSimilarAreas,
@@ -14,6 +13,7 @@ import {
   rowValue,
   selectPeers,
   toNationalRow,
+  valuePosition,
   type AreaIndex,
   type AreaRecord,
   type IndicatorKey,
@@ -28,7 +28,7 @@ import { RangeBar } from "./RangeBar";
 import { ScrollRegion } from "./ScrollRegion";
 import { SearchBox } from "./SearchBox";
 
-type MetricId = "overall" | IndicatorKey;
+type MetricId = "residents" | "overall" | IndicatorKey;
 type Scope = "peers" | "all";
 
 type ComparisonPanelProps = {
@@ -48,11 +48,13 @@ const PEER_COUNT = 9;
 const SUGGESTION_COUNT = 5;
 
 function metricValue(area: AreaRecord, metric: MetricId): number | null {
+  if (metric === "residents") return area.population;
   return metric === "overall" ? overallScore(area) : area.indicators[metric].value;
 }
 
 function metricText(metric: MetricId, value: number | null): string {
   if (value === null) return "欠損";
+  if (metric === "residents") return `${formatNumber(value)}人`;
   return metric === "overall" ? `${value}` : formatMetric(INDICATORS[metric], value);
 }
 
@@ -77,8 +79,8 @@ function Suggestions({ title, note, rows, prefNames, disabled, onAdd }: Suggesti
       <ul>
         {rows.map((row) => (
           <li key={row.code}>
-            <button type="button" className="chip-button" disabled={disabled} onClick={() => onAdd(row.code)}>
-              <Plus size={14} aria-hidden="true" />
+            <button type="button" className="add-button" disabled={disabled} onClick={() => onAdd(row.code)}>
+              <span aria-hidden="true">＋</span>
               <span className="visually-hidden">比較に追加: </span>
               {areaLocalName(row)}
               <small>{prefNames.get(row.prefCode)}</small>
@@ -99,7 +101,7 @@ export function ComparisonPanel({
   onCompareChange,
   onSelect
 }: ComparisonPanelProps) {
-  const [metric, setMetric] = useState<MetricId>("overall");
+  const [metric, setMetric] = useState<MetricId>("residents");
   const [scope, setScope] = useState<Scope>("peers");
   const loadRows = useCallback(() => loadNational(manifest), [manifest]);
   const [national, retry] = useAsync(loadRows);
@@ -117,10 +119,28 @@ export function ComparisonPanel({
   const columns = [target, ...compared];
   const taken = [area.code, ...others];
   const full = others.length >= MAX_COMPARE;
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const refocusRef = useRef(false);
+  const comparedKey = others.join(",");
+
+  // 追加・削除で押したボタンが消えるので、フォーカスを追加欄（上限に達したら見出し）へ移す。
+  useEffect(() => {
+    if (!refocusRef.current) return;
+    refocusRef.current = false;
+    const input = pickerRef.current?.querySelector<HTMLInputElement>("input:not(:disabled)");
+    (input ?? headingRef.current)?.focus();
+  }, [comparedKey]);
+
   const add = (code: string) => {
-    if (!full && !taken.includes(code)) onCompareChange([...others, code]);
+    if (full || taken.includes(code)) return;
+    refocusRef.current = true;
+    onCompareChange([...others, code]);
   };
-  const remove = (code: string) => onCompareChange(others.filter((candidate) => candidate !== code));
+  const remove = (code: string) => {
+    refocusRef.current = true;
+    onCompareChange(others.filter((candidate) => candidate !== code));
+  };
 
   const similar = useMemo(
     () =>
@@ -155,20 +175,25 @@ export function ComparisonPanel({
   const span = domainMax - domainMin || 1;
   const zero = ((0 - domainMin) / span) * 100;
 
-  const metricName = metric === "overall" ? "総合補助スコア" : INDICATORS[metric].metricLabel;
-  const metricPeriod = metric === "overall" ? null : metricPeriodText(metric, manifest.indicators[metric].year);
+  const metricName =
+    metric === "residents" ? "人口" : metric === "overall" ? "総合補助スコア" : INDICATORS[metric].metricLabel;
+  const metricPeriod =
+    metric === "residents"
+      ? `${manifest.indicators.population.year}年`
+      : metric === "overall"
+        ? null
+        : metricPeriodText(metric, manifest.indicators[metric].year);
 
   return (
     <div className="comparison">
-      <section className="card" aria-labelledby="compare-title">
-        <header className="card__head">
-          <div>
-            <h3 id="compare-title">並べて比べる</h3>
-            <p>
-              全国のどの市区町村とも比べられます（{MAX_COMPARE}
-              つまで）。選んだ組み合わせは、このページのURLで共有できます。
-            </p>
-          </div>
+      <section className="block" aria-labelledby="compare-title">
+        <header className="block__head">
+          <h3 id="compare-title" ref={headingRef} tabIndex={-1}>
+            並べて比べる
+          </h3>
+          <p>
+            追加 {others.length}/{MAX_COMPARE}
+          </p>
         </header>
 
         {national.status === "error" && (
@@ -180,12 +205,17 @@ export function ComparisonPanel({
           </div>
         )}
 
-        <div className="compare-picker">
+        <div className="compare-picker" ref={pickerRef}>
           <SearchBox
             index={index}
             variant="inline"
             label="比べる市区町村を追加"
-            placeholder={full ? `${MAX_COMPARE}つまで追加できます` : "市区町村を追加（名前・よみがな・コード）"}
+            placeholder={
+              full
+                ? `${MAX_COMPARE}つまで。どれかを外すと追加できます`
+                : "全国の市区町村から追加（名前・よみがな・コード）"
+            }
+            disabled={full}
             clearOnSelect
             exclude={taken}
             onSelect={add}
@@ -231,7 +261,7 @@ export function ComparisonPanel({
                           aria-label={`${areaLocalName(row)}を比較から外す`}
                           onClick={() => remove(row.code)}
                         >
-                          <X size={14} aria-hidden="true" />
+                          <span aria-hidden="true">×</span>
                         </button>
                       </span>
                     )}
@@ -252,6 +282,38 @@ export function ComparisonPanel({
                   </td>
                 ))}
               </tr>
+              {INDICATOR_KEYS.map((key) => (
+                <tr key={key}>
+                  <th scope="row">
+                    {INDICATORS[key].columnLabel}
+                    <span className="cell-note">{metricPeriodText(key, manifest.indicators[key].year)}</span>
+                  </th>
+                  {columns.map((row) => {
+                    const value = rowValue(row, key);
+                    const position = valuePosition(key, rowScore(row, key));
+                    return (
+                      <td key={row.code} className={row.code === area.code ? "is-current" : undefined}>
+                        <strong>
+                          {value === null ? (
+                            "欠損"
+                          ) : (
+                            <>
+                              {formatNumber(value, INDICATORS[key].decimals, INDICATORS[key].signed)}
+                              {INDICATORS[key].unit !== "" && <small>{INDICATORS[key].unit}</small>}
+                            </>
+                          )}
+                        </strong>
+                        {position !== null && (
+                          <RangeBar
+                            position={position}
+                            label={`全国での位置。値が小さい側から数えて${position}%のところ。`}
+                          />
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
               <tr>
                 <th scope="row">
                   総合補助スコア
@@ -262,62 +324,38 @@ export function ComparisonPanel({
                   return (
                     <td key={row.code} className={row.code === area.code ? "is-current" : undefined}>
                       <strong>{score ?? "欠損"}</strong>
-                      {score !== null && <RangeBar position={score} variant="fill" label={`総合補助スコア ${score}`} />}
                     </td>
                   );
                 })}
               </tr>
-              {INDICATOR_KEYS.map((key) => (
-                <tr key={key}>
-                  <th scope="row">
-                    {INDICATORS[key].label}
-                    <span className="cell-note">
-                      {INDICATORS[key].metricLabel}・
-                      <span className="is-mono">{metricPeriodText(key, manifest.indicators[key].year)}</span>
-                    </span>
-                  </th>
-                  {columns.map((row) => {
-                    const value = rowValue(row, key);
-                    const score = rowScore(row, key);
-                    return (
-                      <td key={row.code} className={row.code === area.code ? "is-current" : undefined}>
-                        <strong>{value === null ? "欠損" : formatMetric(INDICATORS[key], value)}</strong>
-                        {score !== null && <RangeBar position={score} variant="fill" label={`補助スコア ${score}`} />}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
             </tbody>
           </table>
         </ScrollRegion>
-        <p className="card__note">
-          棒は補助スコア（全国の中での位置、縦の線が中央値）です。「指標の傾向が近い」は、この道具だけの目安で、総務省の「類似団体」の区分とは異なります。
-        </p>
+        <ul className="notes">
+          <li>値の下の線は全国での位置です。左端が最も値が小さい側、右端が最も大きい側、縦線が中央値です。</li>
+          <li>
+            「指標の傾向が近い」は、補助スコアの並び方と人口規模から求めた目安です。総務省の「類似団体」の区分とは異なります。
+          </li>
+          <li>並べた組み合わせは、このページのURLで共有できます。</li>
+        </ul>
       </section>
 
-      <section className="card" aria-labelledby="comparison-title">
-        <header className="card__head">
-          <div>
-            <h3 id="comparison-title">{prefecture.prefName}内での比較</h3>
-            <p>
-              {scope === "peers"
-                ? "人口規模が近い市区町村を並べています。地理的に隣り合う市区町村とは限りません。"
-                : `${prefecture.prefName}のすべての市区町村を並べています。`}
-            </p>
-          </div>
+      <section className="block" aria-labelledby="comparison-title">
+        <header className="block__head">
+          <h3 id="comparison-title">{prefecture.prefName}内での比較</h3>
         </header>
 
         <div className="filter-row">
           <label>
             <span>比べる値</span>
             <select value={metric} onChange={(event) => setMetric(event.target.value as MetricId)}>
-              <option value="overall">総合補助スコア</option>
+              <option value="residents">人口</option>
               {INDICATOR_KEYS.map((key) => (
                 <option key={key} value={key}>
-                  {INDICATORS[key].label}（{INDICATORS[key].metricLabel}）
+                  {INDICATORS[key].metricLabel}
                 </option>
               ))}
+              <option value="overall">総合補助スコア</option>
             </select>
           </label>
           <label>
@@ -382,6 +420,11 @@ export function ComparisonPanel({
             })}
           </tbody>
         </table>
+        {scope === "peers" && (
+          <ul className="notes">
+            <li>人口規模が近い市区町村を並べています。地理的に隣り合う市区町村とは限りません。</li>
+          </ul>
+        )}
       </section>
     </div>
   );

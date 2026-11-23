@@ -262,7 +262,7 @@ function buildIndicatorView(area: AreaRecord, key: IndicatorKey, meta: ManifestI
         ? null
         : {
             label: change.label,
-            text: `${formatNumber(change.value, change.decimals, true)}${change.unit}`,
+            text: `${formatNumber(change.value, change.decimals, true)}${change.unit === "pt" ? "ポイント" : change.unit}`,
             sign: Math.sign(change.value) as -1 | 0 | 1
           },
     rank: indicator.rank,

@@ -22,9 +22,19 @@ export function Histogram({ histogram, value, median, format, label }: Histogram
   // 印は階級の中央に置く。範囲の外側の値でも、端の棒の上に乗る。
   const markerLeft = ((activeBin + 0.5) / bins) * 100;
   const medianLeft = ((medianBin + 0.5) / bins) * 100;
+  // 中央値の見出しは線の位置に置く。端に寄るときは、はみ出さない側へそろえる。
+  const medianAlign = medianLeft < 30 ? "start" : medianLeft > 70 ? "end" : "center";
 
   return (
     <div className="histogram" role="img" aria-label={label}>
+      <p
+        className="histogram__median-label"
+        data-align={medianAlign}
+        style={{ left: `${medianLeft}%` }}
+        aria-hidden="true"
+      >
+        中央値 {format(median)}
+      </p>
       <div className="histogram__plot">
         {histogram.counts.map((count, index) => (
           <span
@@ -35,12 +45,10 @@ export function Histogram({ histogram, value, median, format, label }: Histogram
           />
         ))}
         <span className="histogram__median" style={{ left: `${medianLeft}%` }} />
-        <span className="histogram__guide" style={{ left: `${markerLeft}%` }} />
         <span className="histogram__marker" style={{ left: `${markerLeft}%` }} />
       </div>
       <div className="histogram__axis" aria-hidden="true">
         <span>{format(histogram.min)} 以下</span>
-        <span>中央値 {format(median)}</span>
         <span>{format(histogram.max)} 以上</span>
       </div>
     </div>

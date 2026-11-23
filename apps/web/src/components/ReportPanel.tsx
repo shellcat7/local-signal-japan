@@ -1,19 +1,10 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, Download } from "lucide-react";
+import { downloadText } from "../lib/download";
 
 type ReportPanelProps = {
   areaCode: string;
   markdown: string;
 };
-
-function downloadMarkdown(filename: string, content: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: "text/markdown;charset=utf-8" }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 export function ReportPanel({ areaCode, markdown }: ReportPanelProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
@@ -32,23 +23,18 @@ export function ReportPanel({ areaCode, markdown }: ReportPanelProps) {
   };
 
   return (
-    <section className="card" aria-labelledby="report-title">
-      <div className="card__head">
-        <div>
-          <h3 id="report-title">Markdownレポート</h3>
-          <p>画面と同じ指標値・シグナル・注意・出典を、1つのファイルにまとめたものです。</p>
-        </div>
+    <section className="block" aria-labelledby="report-title">
+      <div className="block__head">
+        <h3 id="report-title">Markdownレポート</h3>
         <div className="button-row">
           <button type="button" className="button" onClick={copy}>
-            {copyState === "copied" ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
             {copyState === "copied" ? "コピーしました" : "コピー"}
           </button>
           <button
             type="button"
             className="button button--primary"
-            onClick={() => downloadMarkdown(`local-signal-${areaCode}.md`, markdown)}
+            onClick={() => downloadText(`local-signal-${areaCode}.md`, markdown, "text/markdown")}
           >
-            <Download size={16} aria-hidden="true" />
             ダウンロード
           </button>
         </div>
@@ -63,6 +49,9 @@ export function ReportPanel({ areaCode, markdown }: ReportPanelProps) {
       <pre className="report-preview" tabIndex={0} aria-label="レポートの本文">
         {markdown}
       </pre>
+      <ul className="notes">
+        <li>画面と同じ指標値・シグナル・注意・出典を、1つのファイルにまとめたものです。</li>
+      </ul>
     </section>
   );
 }

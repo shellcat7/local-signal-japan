@@ -199,6 +199,17 @@ describe("buildDataset", () => {
     expect(dataset.manifest.context.daytimeRatio.latestYear).toBe(2020);
   });
 
+  it("廃止された市区町村の古い値があっても、出典系列の最新年は収録している市区町村で決める", () => {
+    const snapshot = makeSnapshot();
+    // 合併前の市区町村の値が、古い年にだけ大量に残っている想定。
+    for (let index = 0; index < CITY_COUNT * 2; index += 1) {
+      snapshot.series.ratio?.valuesByArea.set(`9${String(index).padStart(4, "0")}`, [[2005, 20]]);
+    }
+    const built = buildDataset(snapshot, GENERATED_AT);
+    expect(built.manifest.indicators.aging.year).toBe(2025);
+    expect(built.manifest.indicators.aging.sources[0]?.latestYear).toBe(2025);
+  });
+
   it("市区町村数が少なすぎる取得結果は拒否する", () => {
     const snapshot = makeSnapshot();
     snapshot.areas = snapshot.areas.slice(0, 100);

@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  activeFilters,
   findSimilarAreas,
+  matchesFilters,
   rankNational,
   rowMetric,
   rowOverallScore,
   rowScore,
   rowValue,
-  toNationalRow
+  toNationalRow,
+  unrankedNational,
+  valuePosition
 } from "./national";
 import type { NationalRow } from "./schema";
 import { makeArea, withMissing } from "./testing/fixtures";
@@ -137,5 +141,80 @@ describe("findSimilarAreas", () => {
 
   it("人口の値がなければ比べない", () => {
     expect(findSimilarAreas([target], { ...target, population: null })).toEqual([]);
+  });
+});
+
+describe("指標値の条件", () => {
+  // values は scores / 10。指標の順は 人口・高齢化・転入転出・事業所・雇用・所得・財政。
+  const rows = [
+    row("13201", 500_000, [90, 20, 90, 90, 90, 90, 90]),
+    row("13202", 80_000, [50, 50, 50, 50, 50, 50, 50]),
+    row("14202", 30_000, [10, 80, 10, 10, 10, 10, 10]),
+    row("14203", 20_000, [60, null, 60, 60, 60, 60, 60]),
+    row("14117", 300_000, [99, 10, 99, 99, 99, 99, 99], { kind: "ward", parentName: "横浜市" })
+  ];
+
+  it("範囲は両端を含み、すべての条件を満たす市区町村だけを残す", () => {
+    const ranked = rankNational(rows, {
+      metric: "population",
+      order: "desc",
+      filters: { population: { min: 5 }, aging: { max: 5 } }
+    });
+    expect(ranked.map((entry) => entry.row.code)).toEqual(["13201", "13202"]);
+    expect(ranked.map((entry) => entry.rank)).toEqual([1, 2]);
+  });
+
+  it("条件を付けた指標の値がない市区町村は、対象から外す", () => {
+    const ranked = rankNational(rows, { metric: "population", order: "desc", filters: { aging: { max: 100 } } });
+    expect(ranked.map((entry) => entry.row.code)).not.toContain("14203");
+  });
+
+  it("条件を付けても、政令指定都市の区は含めない", () => {
+    const ranked = rankNational(rows, { metric: "population", order: "desc", filters: { population: { min: 9 } } });
+    expect(ranked.map((entry) => entry.row.code)).toEqual(["13201"]);
+  });
+
+  it("空の指定や数値でない指定は、条件として扱わない", () => {
+    expect(activeFilters({ aging: {}, income: { min: Number.NaN }, fiscal: { max: 0.5 } })).toEqual([
+      ["fiscal", { max: 0.5 }]
+    ]);
+    expect(activeFilters(undefined)).toEqual([]);
+    expect(matchesFilters(rows[1] as NationalRow, [])).toBe(true);
+  });
+});
+
+describe("人口での並べ替えと、値の大小での位置", () => {
+  it("人口の多い順に並べられる。人口の値がない市区町村は除く", () => {
+    const rows = [row("13201", 500_000, [50]), row("13202", null, [50]), row("13203", 800_000, [50])];
+    expect(rankNational(rows, { metric: "residents", order: "desc" }).map((entry) => entry.row.code)).toEqual([
+      "13203",
+      "13201"
+    ]);
+  });
+
+  it("値が小さいほど補助スコアが高い指標は、位置を反転して値の大小にそろえる", () => {
+    expect(valuePosition("aging", 100)).toBe(0);
+    expect(valuePosition("employment", 30)).toBe(70);
+    expect(valuePosition("income", 80)).toBe(80);
+    expect(valuePosition("fiscal", null)).toBeNull();
+  });
+});
+
+describe("unrankedNational", () => {
+  const rows = [
+    row("13201", 500_000, [90, 20, 90, 90, 90, 90, 90]),
+    row("13102", 80_000, [50, 50, 50, 50, 50, 50, null]),
+    row("13101", 60_000, [60, 40, 60, 60, 60, 60, null]),
+    row("14117", 300_000, [99, 10, 99, 99, 99, 99, null], { kind: "ward", parentName: "横浜市" })
+  ];
+
+  it("条件に合うが並べる値がない市区町村を、コード順に返す", () => {
+    const options = { metric: "fiscal", filters: { aging: { max: 5 } } } as const;
+    expect(rankNational(rows, { ...options, order: "desc" }).map((entry) => entry.row.code)).toEqual(["13201"]);
+    expect(unrankedNational(rows, options).map((entry) => entry.code)).toEqual(["13101", "13102"]);
+  });
+
+  it("並べる値がすべてそろっていれば空になる", () => {
+    expect(unrankedNational(rows, { metric: "residents" })).toEqual([]);
   });
 });

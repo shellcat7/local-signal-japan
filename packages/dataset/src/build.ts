@@ -176,11 +176,17 @@ export function latestWellCoveredYear(seriesList: readonly SeriesPoint[][]): num
   return Math.max(...years);
 }
 
-function latestYear(data: UpstreamSeriesData): number {
-  return latestWellCoveredYear([...data.valuesByArea.values()]);
+/**
+ * 系列の最新年。収録している市区町村だけで数える。
+ * 上流には合併で廃止された市区町村の古い値も残っており、それを含めると古い年が「最もそろっている年」になってしまう。
+ */
+function latestYear(data: UpstreamSeriesData, areaCodes: ReadonlySet<string>): number {
+  return latestWellCoveredYear(
+    [...data.valuesByArea].filter(([code]) => areaCodes.has(code)).map(([, points]) => points)
+  );
 }
 
-function sourceOf(snapshot: UpstreamSnapshot, upstream: UpstreamSeries): SourceSeries {
+function sourceOf(snapshot: UpstreamSnapshot, upstream: UpstreamSeries, areaCodes: ReadonlySet<string>): SourceSeries {
   const data = upstreamData(snapshot, upstream.id);
   return {
     id: upstream.id,
@@ -189,7 +195,7 @@ function sourceOf(snapshot: UpstreamSnapshot, upstream: UpstreamSeries): SourceS
     statName: data.statName,
     unit: data.unit,
     cycle: upstream.cycle,
-    latestYear: latestYear(data)
+    latestYear: latestYear(data, areaCodes)
   };
 }
 
@@ -216,8 +222,9 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
     ])
   ) as Record<IndicatorKey, number>;
 
+  const memberCodes = new Set(members.map(({ area }) => area.code));
   const daytimeRatio = upstreamData(snapshot, CONTEXT_UPSTREAM.daytimeRatio.id);
-  const daytimeYear = latestYear(daytimeRatio);
+  const daytimeYear = latestYear(daytimeRatio, memberCodes);
 
   const metrics = members.map(({ area, series }) => ({
     area,
@@ -288,7 +295,7 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
       areas: records.length,
       referenceAreas: records.filter((record) => record.kind !== "ward").length
     },
-    context: { daytimeRatio: sourceOf(snapshot, CONTEXT_UPSTREAM.daytimeRatio) },
+    context: { daytimeRatio: sourceOf(snapshot, CONTEXT_UPSTREAM.daytimeRatio, memberCodes) },
     indicators: Object.fromEntries(
       INDICATOR_KEYS.map((key): [IndicatorKey, ManifestIndicator] => [
         key,
@@ -296,7 +303,7 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
           year: years[key],
           distribution: summarizeDistribution(reference[key]),
           histogram: buildHistogram(reference[key]),
-          sources: INDICATORS[key].upstream.map((upstream) => sourceOf(snapshot, upstream))
+          sources: INDICATORS[key].upstream.map((upstream) => sourceOf(snapshot, upstream, memberCodes))
         }
       ])
     ) as Record<IndicatorKey, ManifestIndicator>

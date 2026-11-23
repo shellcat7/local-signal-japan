@@ -6,18 +6,27 @@
 
 _A dashboard for Japanese municipalities that shows official public statistics together with their sources, reference periods, and missing-data notes. All data comes from the Statistics Dashboard API of the Statistics Bureau of Japan (no API key required) and ships as a static dataset, so the site runs without any backend. The UI and documentation are in Japanese._
 
-![千代田区の概要画面。濃紺の帯に総合補助スコア・人口・利用できる指標・信頼度メモが並び、その下に指標ごとの水準・5年前比・推移・全国順位・補助スコアをまとめた表がある](docs/images/overview.png)
+![千代田区の概要画面。市区町村名と人口の下に、指標ごとの指標値・全国順位・全国での位置・推移・5年前比をまとめた表と、補助スコアの内訳、読み取り時の注意が並ぶ](docs/images/overview.png)
 
 ## できること
 
 - **さがす**: 市区町村名・よみがな・5桁の市区町村コードで検索（全国約1,900団体。政令指定都市の区を含む）
-- **概要**: 7つの指標の水準・5年前比・推移・全国順位・補助スコアを1つの表で確認。そこから規則的に書き出したシグナル・注意・欠損
+- **条件でさがす**: 「高齢化率30%以下で、課税対象所得350万円以上」のような条件に合う市区町村を、全1,741市区町村からすべて表示。列見出しで並べ替え、結果は CSV で保存
+- **概要**: 7つの指標の指標値・全国順位・全国での位置・推移・5年前比を1つの表で確認。補助スコアの内訳と、読み取り時の注意・欠損
 - **指標**: 指標ごとの値、基準時点、時系列グラフ、全国の分布の中での位置、算出方法、出典の系列と取得日
 - **比較**: 全国のどの市区町村とも4つまで並べて比較（指標の傾向が近い市区町村を候補として提示）。同じ都道府県内での比較
-- **ランキング**: 総合補助スコアや指標値で全国を並べ、都道府県と人口規模で絞り込み
 - **レポート**: 同じ内容を Markdown でダウンロード・コピー
 
-開いている画面（市区町村、比較の組み合わせ、ランキングの条件）は、そのまま URL で共有できます。
+開いている画面（市区町村、比較の組み合わせ、さがす条件）は、そのまま URL で共有できます。
+
+## LLM の検索との使い分け
+
+LLM に条件を伝えて検索させると、いくつかの例は返ってきますが、条件に合う市区町村を全部は挙げられず、時点や定義の違う数字が混ざることがあります。同じ質問でも答えが変わります。
+
+このリポジトリが受け持つのは、その苦手な部分です。全国の市区町村を同じ定義・同じ時点でそろえ、全件を検算したデータセットと、その上の決まった計算だけを提供します。
+
+- 人が使う入口: 画面（条件でさがす、比較、出典の値そのものへのリンク）
+- LLM エージェントが使う入口: [`skills/local-signal-japan`](skills/local-signal-japan/SKILL.md)。同じデータを、出典と基準時点つきの JSON で返すスクリプトと、答え方の決まりをまとめたスキルです
 
 ## 設計上の約束
 
@@ -79,6 +88,36 @@ pnpm localsignal report 横浜市青葉区 --out report.md
 
 `show --json` で、画面と同じ表示用データを JSON で出力します。
 
+条件に合う市区町村をもれなく抜き出すには `screen` を使います（画面の「条件でさがす」と同じ計算です）。
+
+```bash
+pnpm localsignal screen --where "aging<=25" --where "income>=400" --pref 東京都 --sort income
+```
+
+```bash
+pnpm -s localsignal screen --where "fiscal>=1" --size 10k-50k --limit 0 --csv > result.csv
+```
+
+- `--where "<指標キー><演算子><数値>"`: 演算子は `>=` と `<=`。何度でも指定でき、同じ指標に両方を付けると範囲になります。指標キーは `population`（5年間の人口増減率）、`aging`、`migration`、`business`、`employment`、`income`、`fiscal`
+- `--sort residents|overall|<指標キー>`（既定は人口）、`--order desc|asc`、`--pref <都道府県名か2桁コード>`、`--size all|under-10k|10k-50k|50k-200k|over-200k`、`--limit N`（既定20、0で全件）、`--json`、`--csv`、`--out <ファイル>`
+- 出力には、条件、該当した市区町村の数、各指標の基準時点、出典が入ります。並べ替えに使う値が欠損の市区町村は、順位なしで末尾に残ります
+
+## エージェント用スキル
+
+[`skills/local-signal-japan`](skills/local-signal-japan/SKILL.md) は、このデータセットを LLM エージェントから引くためのスキル（SKILL.md 形式）です。フォルダごと、お使いのエージェントのスキル用フォルダにコピーします。Node.js 18 以上があれば、追加のインストールは要りません。
+
+```bash
+node skills/local-signal-japan/scripts/lsj.mjs screen --where "aging<=25" --pref 東京都 --limit 0
+```
+
+```bash
+LSJ_DATA=apps/web/public/data node skills/local-signal-japan/scripts/lsj.mjs show 東京都府中市 --text
+```
+
+コマンドは `indicators`、`search`、`show`、`screen`、`compare` です。既定の出力は JSON で、どの結果にも出典と指標ごとの基準時点が付きます。同じ名前の市区町村があるとき（府中市など）は、推測せずに候補を返します。
+
+データは既定で公開サイト（`https://local-signal-japan.pages.dev/data/`）から読みます。`--data` か環境変数 `LSJ_DATA` で、手元のフォルダや別の URL に変えられます。
+
 ## データの更新
 
 ```bash
@@ -121,6 +160,7 @@ pnpm test:e2e
 | `apps/cli`         | CLI                                                               |
 | `packages/core`    | 指標の定義、補助スコア、順位、シグナルの文章、レポート、検索      |
 | `packages/dataset` | 統計ダッシュボード API からの取得と、データセットの組み立て・検査 |
+| `skills`           | LLM エージェント用のスキル                                        |
 | `e2e`              | ブラウザでの動作確認                                              |
 
 ## ドキュメント
@@ -144,4 +184,4 @@ pnpm test:e2e
 
 ## ライセンス
 
-ソースコードは [MIT License](LICENSE) です。同梱している統計データには、上記の利用規約が適用されます。画面に同梱している書体（Geist、Geist Mono）は [SIL Open Font License 1.1](https://openfontlicense.org/) です。
+ソースコードは [MIT License](LICENSE) です。同梱している統計データには、上記の利用規約が適用されます。画面に同梱している書体（IBM Plex Sans、IBM Plex Mono）は [SIL Open Font License 1.1](https://openfontlicense.org/) です。

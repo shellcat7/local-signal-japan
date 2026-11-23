@@ -1,4 +1,4 @@
-import { formatDate, type Manifest } from "@local-signal-japan/core";
+import { formatDateLong, type Manifest } from "@local-signal-japan/core";
 import { APP_VERSION, DOCS_URL, REPOSITORY_URL, SITE_NAME } from "../lib/site";
 
 export function Footer({ manifest }: { manifest: Manifest | null }) {
@@ -11,7 +11,7 @@ export function Footer({ manifest }: { manifest: Manifest | null }) {
             <a href={manifest.source.url} target="_blank" rel="noreferrer">
               {manifest.source.name}
             </a>
-            のデータを加工して作成（データ取得日 {formatDate(manifest.generatedAt)}）。利用規約：
+            のデータを加工して作成（{formatDateLong(manifest.generatedAt)}取得）。利用規約：
             <a href={manifest.source.licenseUrl} target="_blank" rel="noreferrer">
               {manifest.source.license}
             </a>

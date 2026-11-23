@@ -54,7 +54,7 @@ describe("buildAreaView", () => {
     });
     expect(indicatorOf(view, "aging")).toMatchObject({
       headline: { label: "65歳以上人口の割合", text: "30.0%", period: "2025年" },
-      change: { label: "5年前比", text: "+2.0pt", sign: 1 }
+      change: { label: "5年前比", text: "+2.0ポイント", sign: 1 }
     });
     expect(indicatorOf(view, "fiscal").change).toEqual({ label: "5年前比", text: "+0.10", sign: 1 });
     // 比べられない指標には変化を出さない。

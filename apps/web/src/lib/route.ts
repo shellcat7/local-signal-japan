@@ -1,7 +1,9 @@
 import { useCallback, useSyncExternalStore } from "react";
 import {
+  activeFilters,
   INDICATOR_KEYS,
   POPULATION_BANDS,
+  type IndicatorFilters,
   type IndicatorKey,
   type PopulationBandId,
   type RankingMetric
@@ -21,29 +23,43 @@ export type RankingRoute = {
   order: "desc" | "asc";
   prefCode: string | null;
   size: PopulationBandId;
+  /** 指標値の条件（範囲）。 */
+  filters: IndicatorFilters;
 };
 export type Route = HomeRoute | AreaRoute | RankingRoute;
 
 export const DEFAULT_RANKING: RankingRoute = {
   view: "ranking",
-  metric: "overall",
+  metric: "residents",
   order: "desc",
   prefCode: null,
-  size: "all"
+  size: "all",
+  filters: {}
 };
 
 const isAreaCode = (value: string | null): value is string => value !== null && /^\d{5}$/.test(value);
 const isTab = (value: string | null): value is TabId => TABS.includes(value as TabId);
 const isMetric = (value: string | null): value is RankingMetric =>
-  value === "overall" || INDICATOR_KEYS.includes(value as IndicatorKey);
+  value === "residents" || value === "overall" || INDICATOR_KEYS.includes(value as IndicatorKey);
 const isBand = (value: string | null): value is PopulationBandId => POPULATION_BANDS.some((band) => band.id === value);
 const isPrefCode = (value: string | null): value is string =>
   value !== null && /^\d{2}$/.test(value) && Number(value) >= 1 && Number(value) <= 47;
 
+/** 「下限..上限」の形の範囲を読む。「..30」「350..」のように片側だけでもよい。 */
+function parseRange(text: string | null): { min?: number; max?: number } | null {
+  if (text === null || !text.includes("..")) return null;
+  const [low = "", high = ""] = text.split("..");
+  const read = (part: string) => (/^-?\d+(\.\d+)?$/.test(part) ? Number(part) : undefined);
+  const min = read(low);
+  const max = read(high);
+  if (min === undefined && max === undefined) return null;
+  return { ...(min === undefined ? {} : { min }), ...(max === undefined ? {} : { max }) };
+}
+
 /**
  * 表示状態はURLのハッシュに持たせる。
  *   #area=13101&tab=indicators&with=14117,16210
- *   #view=ranking&metric=income&pref=13
+ *   #view=ranking&metric=income&pref=13&aging=..30&income=350..
  * ハッシュはサーバーに送られないため、どの市区町村を見たかが配信元のログに残らない。
  */
 export function parseHash(hash: string): Route {
@@ -53,12 +69,18 @@ export function parseHash(hash: string): Route {
     const metric = params.get("metric");
     const size = params.get("size");
     const pref = params.get("pref");
+    const filters: IndicatorFilters = {};
+    for (const key of INDICATOR_KEYS) {
+      const range = parseRange(params.get(key));
+      if (range) filters[key] = range;
+    }
     return {
       view: "ranking",
       metric: isMetric(metric) ? metric : DEFAULT_RANKING.metric,
       order: params.get("order") === "asc" ? "asc" : "desc",
       prefCode: isPrefCode(pref) ? pref : null,
-      size: isBand(size) ? size : "all"
+      size: isBand(size) ? size : "all",
+      filters
     };
   }
 
@@ -84,6 +106,9 @@ export function formatHash(route: Route): string {
     if (route.order !== DEFAULT_RANKING.order) params.set("order", route.order);
     if (route.prefCode !== null) params.set("pref", route.prefCode);
     if (route.size !== DEFAULT_RANKING.size) params.set("size", route.size);
+    for (const [key, range] of activeFilters(route.filters)) {
+      params.set(key, `${range.min ?? ""}..${range.max ?? ""}`);
+    }
   } else {
     params.set("area", route.areaCode);
     if (route.tab !== "overview") params.set("tab", route.tab);

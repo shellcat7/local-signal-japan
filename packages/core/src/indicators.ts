@@ -32,6 +32,8 @@ export type IndicatorDefinition = {
   metricLabel: string;
   /** 一覧で水準に添える短い名前。 */
   headlineLabel: string;
+  /** 一覧表の列見出しに使う、指標値の短い名前。 */
+  columnLabel: string;
   unit: string;
   decimals: number;
   /** 指標値に符号（+/-）を付けて表示するか。 */
@@ -59,6 +61,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     label: "人口",
     metricLabel: "5年間の人口増減率",
     headlineLabel: "住民基本台帳人口",
+    columnLabel: "人口増減率",
     unit: "%",
     decimals: 1,
     signed: true,
@@ -80,6 +83,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     label: "高齢化",
     metricLabel: "高齢化率（65歳以上人口の割合）",
     headlineLabel: "65歳以上人口の割合",
+    columnLabel: "高齢化率",
     unit: "%",
     decimals: 1,
     signed: false,
@@ -101,6 +105,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     label: "転入・転出",
     metricLabel: "転入超過率（直近3年平均）",
     headlineLabel: "転入超過率・3年平均",
+    columnLabel: "転入超過率",
     unit: "%",
     decimals: 2,
     signed: true,
@@ -129,6 +134,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     label: "事業所",
     metricLabel: "人口千人当たりの民営事業所数",
     headlineLabel: "人口千人当たりの事業所数",
+    columnLabel: "千人当たり事業所数",
     unit: "事業所",
     decimals: 1,
     signed: false,
@@ -153,6 +159,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     label: "雇用",
     metricLabel: "完全失業率（国勢調査）",
     headlineLabel: "完全失業率",
+    columnLabel: "完全失業率",
     unit: "%",
     decimals: 1,
     signed: false,
@@ -174,6 +181,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     label: "所得",
     metricLabel: "納税義務者1人当たりの課税対象所得",
     headlineLabel: "納税義務者1人当たり",
+    columnLabel: "課税対象所得",
     unit: "万円",
     decimals: 1,
     signed: false,
@@ -198,6 +206,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     label: "財政",
     metricLabel: "財政力指数",
     headlineLabel: "財政力指数",
+    columnLabel: "財政力指数",
     unit: "",
     decimals: 2,
     signed: false,

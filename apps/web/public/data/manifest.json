@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-23T08:31:52.727Z",
+  "generatedAt": "2026-11-23T09:38:39.686Z",
   "source": {
     "name": "統計ダッシュボード（総務省統計局）",
     "url": "https://dashboard.e-stat.go.jp/",
@@ -138,7 +138,7 @@
           "statName": "国勢調査",
           "unit": "%",
           "cycle": "CY",
-          "latestYear": 2005
+          "latestYear": 2025
         }
       ]
     },
