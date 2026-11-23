@@ -6,15 +6,18 @@
 
 _A dashboard for Japanese municipalities that shows official public statistics together with their sources, reference periods, and missing-data notes. All data comes from the Statistics Dashboard API of the Statistics Bureau of Japan (no API key required) and ships as a static dataset, so the site runs without any backend. The UI and documentation are in Japanese._
 
-![南砺市の概要画面。総合補助スコア、人口、利用できる指標、信頼度メモと、指標ごとの補助スコアの内訳、公開統計から読み取れるシグナルが並ぶ](docs/images/overview.png)
+![千代田区の概要画面。濃紺の帯に総合補助スコア・人口・利用できる指標・信頼度メモが並び、その下に指標ごとの水準・5年前比・推移・全国順位・補助スコアをまとめた表がある](docs/images/overview.png)
 
 ## できること
 
 - **さがす**: 市区町村名・よみがな・5桁の市区町村コードで検索（全国約1,900団体。政令指定都市の区を含む）
-- **概要**: 7つの指標が全国の中でどの位置にあるかと、そこから規則的に書き出したシグナル・注意・欠損
-- **指標**: 指標ごとの値、基準時点、時系列グラフ、算出方法、出典の系列と取得日
-- **比較**: 同じ都道府県の中で、人口規模が近い市区町村との比較
+- **概要**: 7つの指標の水準・5年前比・推移・全国順位・補助スコアを1つの表で確認。そこから規則的に書き出したシグナル・注意・欠損
+- **指標**: 指標ごとの値、基準時点、時系列グラフ、全国の分布の中での位置、算出方法、出典の系列と取得日
+- **比較**: 全国のどの市区町村とも4つまで並べて比較（指標の傾向が近い市区町村を候補として提示）。同じ都道府県内での比較
+- **ランキング**: 総合補助スコアや指標値で全国を並べ、都道府県と人口規模で絞り込み
 - **レポート**: 同じ内容を Markdown でダウンロード・コピー
+
+開いている画面（市区町村、比較の組み合わせ、ランキングの条件）は、そのまま URL で共有できます。
 
 ## 設計上の約束
 
@@ -116,7 +119,7 @@ pnpm test:e2e
 | ------------------ | ----------------------------------------------------------------- |
 | `apps/web`         | 画面（React + Vite）。`public/data/` に同梱データセット           |
 | `apps/cli`         | CLI                                                               |
-| `packages/core`    | 指標の定義、補助スコア、シグナルの文章、レポート、検索            |
+| `packages/core`    | 指標の定義、補助スコア、順位、シグナルの文章、レポート、検索      |
 | `packages/dataset` | 統計ダッシュボード API からの取得と、データセットの組み立て・検査 |
 | `e2e`              | ブラウザでの動作確認                                              |
 
@@ -141,4 +144,4 @@ pnpm test:e2e
 
 ## ライセンス
 
-ソースコードは [MIT License](LICENSE) です。同梱している統計データには、上記の利用規約が適用されます。
+ソースコードは [MIT License](LICENSE) です。同梱している統計データには、上記の利用規約が適用されます。画面に同梱している書体（Geist、Geist Mono）は [SIL Open Font License 1.1](https://openfontlicense.org/) です。

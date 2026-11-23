@@ -1,16 +1,20 @@
 import {
   areaIndexSchema,
+  buildHistogram,
   computeMetric,
   CONTEXT_UPSTREAM,
   DATASET_SCHEMA_VERSION,
   INDICATOR_KEYS,
   INDICATORS,
   manifestSchema,
+  nationalFileSchema,
   percentileOf,
   prefectureFileSchema,
+  rankOf,
   roundTo,
   scoreFromPercentile,
   summarizeDistribution,
+  toNationalRow,
   valueAt,
   type AreaIndex,
   type AreaIndicator,
@@ -19,6 +23,7 @@ import {
   type IndicatorKey,
   type Manifest,
   type ManifestIndicator,
+  type NationalFile,
   type PrefectureFile,
   type SeriesPoint,
   type SourceSeries,
@@ -36,6 +41,7 @@ export type UpstreamSnapshot = {
 export type Dataset = {
   manifest: Manifest;
   index: AreaIndex;
+  national: NationalFile;
   prefectures: PrefectureFile[];
 };
 
@@ -251,10 +257,12 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
       INDICATOR_KEYS.map((key): [IndicatorKey, AreaIndicator] => {
         const result = results[key];
         if (result.value === null) {
-          return [key, { value: null, score: null, series: series[key], missing: result.missing }];
+          return [key, { value: null, score: null, rank: null, series: series[key], missing: result.missing }];
         }
         const score = scoreFromPercentile(percentileOf(reference[key], result.value), key);
-        return [key, { value: result.value, score, series: series[key] }];
+        // 順位は基準集団の中だけで付ける。区は市全体と重複するので順位を持たない。
+        const rank = area.kind === "ward" ? null : rankOf(reference[key], result.value);
+        return [key, { value: result.value, score, rank, series: series[key] }];
       })
     ) as Record<IndicatorKey, AreaIndicator>;
 
@@ -287,6 +295,7 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
         {
           year: years[key],
           distribution: summarizeDistribution(reference[key]),
+          histogram: buildHistogram(reference[key]),
           sources: INDICATORS[key].upstream.map((upstream) => sourceOf(snapshot, upstream))
         }
       ])
@@ -313,5 +322,10 @@ export function buildDataset(snapshot: UpstreamSnapshot, generatedAt: string): D
     } satisfies PrefectureFile)
   );
 
-  return { manifest, index, prefectures };
+  const national = nationalFileSchema.parse({
+    indicatorKeys: [...INDICATOR_KEYS],
+    areas: records.map(toNationalRow)
+  } satisfies NationalFile);
+
+  return { manifest, index, national, prefectures };
 }

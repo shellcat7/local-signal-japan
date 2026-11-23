@@ -4,10 +4,12 @@ import { fileURLToPath } from "node:url";
 import {
   areaIndexSchema,
   manifestSchema,
+  nationalFileSchema,
   prefectureFileSchema,
   type AreaIndex,
   type AreaRecord,
   type Manifest,
+  type NationalFile,
   type PrefectureFile
 } from "@local-signal-japan/core";
 import type { Dataset } from "./build";
@@ -17,6 +19,7 @@ export const DATASET_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.u
 
 const MANIFEST_FILE = "manifest.json";
 const INDEX_FILE = "areas.json";
+const NATIONAL_FILE = "national.json";
 const PREF_DIR = "pref";
 
 const prefFile = (prefCode: string) => path.join(PREF_DIR, `${prefCode}.json`);
@@ -45,6 +48,11 @@ export async function writeDataset(dataset: Dataset, dir = DATASET_DIR): Promise
     stringifyRows({ prefectures: dataset.index.prefectures }, "areas", dataset.index.areas)
   );
 
+  await writeFile(
+    path.join(dir, NATIONAL_FILE),
+    stringifyRows({ indicatorKeys: dataset.national.indicatorKeys }, "areas", dataset.national.areas)
+  );
+
   for (const pref of dataset.prefectures) {
     await writeFile(
       path.join(dir, prefFile(pref.prefCode)),
@@ -65,6 +73,10 @@ export async function readAreaIndex(dir = DATASET_DIR): Promise<AreaIndex> {
   return areaIndexSchema.parse(await readJson(dir, INDEX_FILE));
 }
 
+export async function readNational(dir = DATASET_DIR): Promise<NationalFile> {
+  return nationalFileSchema.parse(await readJson(dir, NATIONAL_FILE));
+}
+
 export async function readPrefecture(prefCode: string, dir = DATASET_DIR): Promise<PrefectureFile> {
   return prefectureFileSchema.parse(await readJson(dir, prefFile(prefCode)));
 }
@@ -75,7 +87,7 @@ export async function readArea(code: string, dir = DATASET_DIR): Promise<AreaRec
 }
 
 export async function readDataset(dir = DATASET_DIR): Promise<Dataset> {
-  const [manifest, index] = await Promise.all([readManifest(dir), readAreaIndex(dir)]);
+  const [manifest, index, national] = await Promise.all([readManifest(dir), readAreaIndex(dir), readNational(dir)]);
   const prefectures = await Promise.all(index.prefectures.map((pref) => readPrefecture(pref.code, dir)));
-  return { manifest, index, prefectures };
+  return { manifest, index, national, prefectures };
 }

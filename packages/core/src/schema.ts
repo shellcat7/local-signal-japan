@@ -16,9 +16,17 @@ export const areaIndicatorSchema = z
     value: z.number().nullable(),
     /** 全国の市区町村内での位置（0〜100、方向をそろえたパーセンタイル）。 */
     score: z.number().int().min(0).max(100).nullable(),
+    /**
+     * 基準集団の中で、指標値が大きい順に数えた順位（同じ値は同順位）。
+     * 指標値がない場合と、基準集団に入らない政令指定都市の区は null。
+     */
+    rank: z.number().int().positive().nullable(),
     /** 系列キー → 時系列。キーは指標定義の series[].key に対応する。 */
     series: z.record(z.string(), z.array(seriesPointSchema)),
     missing: z.enum(MISSING_REASONS).optional()
+  })
+  .refine((indicator) => indicator.value !== null || indicator.rank === null, {
+    message: "value が null のときは rank も null でなければなりません"
   })
   .refine((indicator) => (indicator.value === null) === (indicator.score === null), {
     message: "value と score は両方 null か両方数値でなければなりません"
@@ -97,11 +105,23 @@ export const distributionSchema = z.object({
 });
 export type Distribution = z.infer<typeof distributionSchema>;
 
+/**
+ * 分布の形を描くための度数分布。
+ * 極端な値で図がつぶれないよう、範囲は min〜max（基準集団の1%点〜99%点）に区切り、外側の値は両端の階級に数える。
+ */
+export const histogramSchema = z.object({
+  min: z.number(),
+  max: z.number(),
+  counts: z.array(z.number().int().nonnegative()).min(2)
+});
+export type Histogram = z.infer<typeof histogramSchema>;
+
 export const manifestIndicatorSchema = z.object({
   /** 指標値の基準年（全国で最新の年）。 */
   year: yearSchema,
   /** 基準集団（政令指定都市の区を除く市区町村）における指標値の分布。 */
   distribution: distributionSchema,
+  histogram: histogramSchema,
   sources: z.array(sourceSeriesSchema).min(1)
 });
 export type ManifestIndicator = z.infer<typeof manifestIndicatorSchema>;
@@ -129,3 +149,32 @@ export const manifestSchema = z.object({
   indicators: z.object(indicatorShape(manifestIndicatorSchema))
 });
 export type Manifest = z.infer<typeof manifestSchema>;
+
+/**
+ * 全国の市区町村を1ファイルにまとめた一覧。ランキングと、都道府県をまたぐ比較に使う。
+ * values / scores は indicatorKeys と同じ順に並ぶ。時系列は含めない。
+ */
+export const nationalRowSchema = z.object({
+  code: areaCodeSchema,
+  name: z.string().min(1),
+  parentName: z.string().min(1).optional(),
+  prefCode: prefCodeSchema,
+  kind: z.enum(AREA_KINDS),
+  population: z.number().int().nonnegative().nullable(),
+  values: z.array(z.number().nullable()).length(INDICATOR_KEYS.length),
+  scores: z.array(z.number().int().min(0).max(100).nullable()).length(INDICATOR_KEYS.length)
+});
+export type NationalRow = z.infer<typeof nationalRowSchema>;
+
+export const nationalFileSchema = z.object({
+  indicatorKeys: z
+    .array(z.enum(INDICATOR_KEYS))
+    .refine(
+      (keys) => keys.length === INDICATOR_KEYS.length && keys.every((key, index) => key === INDICATOR_KEYS[index]),
+      {
+        message: "indicatorKeys は指標定義と同じ並びでなければなりません"
+      }
+    ),
+  areas: z.array(nationalRowSchema).min(1)
+});
+export type NationalFile = z.infer<typeof nationalFileSchema>;

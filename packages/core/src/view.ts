@@ -1,6 +1,7 @@
 import { areaFullName, areaLocalName, formatNumber, formatYear } from "./format";
 import {
   COMPARISON_LAG_YEARS,
+  computeChange,
   computeDirection,
   INDICATORS,
   MIGRATION_WINDOW_YEARS,
@@ -59,6 +60,17 @@ export type IndicatorView = {
   medianText: string;
   direction: Direction;
   directionText: string;
+  /**
+   * 一覧で最初に見せる水準。多くの指標では指標値と同じだが、
+   * 人口は増減率ではなく人口そのものを見せる（増減率は change に入る）。
+   */
+  headline: { label: string; text: string; period: string } | null;
+  /** 5年前と比べた変化。比べられない指標・欠損は null。sign は増減の向き（-1・0・1）。 */
+  change: { label: string; text: string; sign: -1 | 0 | 1 } | null;
+  /** 基準集団の中で、値が大きい順の順位。政令指定都市の区と欠損は null。 */
+  rank: number | null;
+  /** 順位の母数（その指標の値がある基準集団の団体数）。 */
+  rankTotal: number;
   facts: IndicatorFact[];
   missingText: string | null;
   chart: IndicatorChart | null;
@@ -185,6 +197,23 @@ function buildFacts(area: AreaRecord, key: IndicatorKey, year: number): Indicato
   }
 }
 
+function buildHeadline(area: AreaRecord, key: IndicatorKey, year: number): IndicatorView["headline"] {
+  const definition = INDICATORS[key];
+  const { value } = area.indicators[key];
+  if (value === null) return null;
+
+  if (key === "population") {
+    const [fact] = factAt(area, definition, "residents", year, undefined, { periodSuffix: residentsAsOf(year) });
+    return fact ? { label: definition.headlineLabel, text: fact.value, period: fact.period } : null;
+  }
+
+  return {
+    label: definition.headlineLabel,
+    text: formatMetric(definition, value),
+    period: metricPeriodText(key, year)
+  };
+}
+
 function buildMissingText(area: AreaRecord, key: IndicatorKey, year: number): string | null {
   const reason = area.indicators[key].missing;
   if (!reason) return null;
@@ -207,7 +236,9 @@ function buildMissingText(area: AreaRecord, key: IndicatorKey, year: number): st
 function buildIndicatorView(area: AreaRecord, key: IndicatorKey, meta: ManifestIndicator): IndicatorView {
   const definition = INDICATORS[key];
   const indicator = area.indicators[key];
-  const direction = indicator.value === null ? "unknown" : computeDirection(key, areaSeries(area), meta.year);
+  const series = areaSeries(area);
+  const direction = indicator.value === null ? "unknown" : computeDirection(key, series, meta.year);
+  const change = computeChange(key, series, meta.year);
   const chartPoints = indicator.series[definition.chartSeriesKey] ?? [];
   const displayCycle = seriesOf(definition, definition.chartSeriesKey).cycle;
   const breakAfterYear = SERIES_BREAKS[key];
@@ -225,6 +256,17 @@ function buildIndicatorView(area: AreaRecord, key: IndicatorKey, meta: ManifestI
     medianText: formatMetric(definition, meta.distribution.p50),
     direction,
     directionText: direction === "unknown" ? "判定なし" : definition.directionLabels[direction],
+    headline: buildHeadline(area, key, meta.year),
+    change:
+      change === null || indicator.value === null
+        ? null
+        : {
+            label: change.label,
+            text: `${formatNumber(change.value, change.decimals, true)}${change.unit}`,
+            sign: Math.sign(change.value) as -1 | 0 | 1
+          },
+    rank: indicator.rank,
+    rankTotal: meta.distribution.count,
     facts: buildFacts(area, key, meta.year),
     missingText: buildMissingText(area, key, meta.year),
     chart:

@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   areaSeries,
+  buildHistogram,
   computeMetric,
   INDICATOR_KEYS,
   INDICATORS,
   percentileOf,
+  rankOf,
   scoreFromPercentile,
-  summarizeDistribution
+  summarizeDistribution,
+  toNationalRow
 } from "@local-signal-japan/core";
 import { SOURCE_INFO } from "./build";
 import { readDataset } from "./store";
@@ -17,7 +20,7 @@ import { readDataset } from "./store";
  */
 describe("同梱データセット", async () => {
   // 読み込み時にスキーマ検証も行われる。
-  const { manifest, index, prefectures } = await readDataset();
+  const { manifest, index, national, prefectures } = await readDataset();
   const areas = prefectures.flatMap((pref) => pref.areas);
 
   it("全国の市区町村を収録している", () => {
@@ -102,6 +105,30 @@ describe("同梱データセット", async () => {
         });
       }
     }
+  });
+
+  it("全国順位と分布図の度数が、基準集団から再計算した値と一致する", () => {
+    for (const key of INDICATOR_KEYS) {
+      const reference = areas
+        .filter((area) => area.kind !== "ward")
+        .map((area) => area.indicators[key].value)
+        .filter((value) => value !== null)
+        .sort((a, b) => a - b);
+
+      expect(manifest.indicators[key].histogram).toEqual(buildHistogram(reference));
+      expect(manifest.indicators[key].histogram.counts.reduce((sum, count) => sum + count, 0)).toBe(reference.length);
+
+      for (const area of areas) {
+        const { value, rank } = area.indicators[key];
+        const expected = value === null || area.kind === "ward" ? null : rankOf(reference, value);
+        expect({ code: area.code, key, rank }).toEqual({ code: area.code, key, rank: expected });
+      }
+    }
+  });
+
+  it("全国一覧が、都道府県ファイルと同じ値を指す", () => {
+    expect(national.indicatorKeys).toEqual([...INDICATOR_KEYS]);
+    expect(national.areas).toEqual(areas.map(toNationalRow));
   });
 
   it("保持している系列のキーが指標定義と一致する", () => {

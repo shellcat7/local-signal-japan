@@ -1,4 +1,10 @@
-import { DATASET_SCHEMA_VERSION, type AreaIndex, type Manifest, type PrefectureFile } from "@local-signal-japan/core";
+import {
+  DATASET_SCHEMA_VERSION,
+  type AreaIndex,
+  type Manifest,
+  type NationalFile,
+  type PrefectureFile
+} from "@local-signal-japan/core";
 
 /**
  * 同梱データセットの読み込み。
@@ -41,6 +47,20 @@ const versionOf = (manifest: Manifest) => encodeURIComponent(manifest.generatedA
 
 export function loadAreaIndex(manifest: Manifest): Promise<AreaIndex> {
   return fetchJson<AreaIndex>(`areas.json?v=${versionOf(manifest)}`);
+}
+
+let nationalCache: { key: string; pending: Promise<NationalFile> } | null = null;
+
+/** 全国の市区町村の一覧(ランキングと、都道府県をまたぐ比較に使う)。必要になったときに1度だけ読む。 */
+export function loadNational(manifest: Manifest): Promise<NationalFile> {
+  if (nationalCache?.key !== manifest.generatedAt) {
+    const pending = fetchJson<NationalFile>(`national.json?v=${versionOf(manifest)}`);
+    nationalCache = { key: manifest.generatedAt, pending };
+    pending.catch(() => {
+      if (nationalCache?.pending === pending) nationalCache = null;
+    });
+  }
+  return nationalCache.pending;
 }
 
 const prefectureCache = new Map<string, Promise<PrefectureFile>>();

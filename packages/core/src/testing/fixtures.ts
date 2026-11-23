@@ -16,7 +16,7 @@ export function makeManifest(overrides: Partial<Manifest> = {}): Manifest {
   const distribution = { count: 1741, min: 0, p10: 10, p25: 25, p50: 50, p75: 75, p90: 90, max: 100 };
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: "2026-11-23T00:00:00.000Z",
     source: {
       name: "統計ダッシュボード（総務省統計局）",
@@ -46,6 +46,7 @@ export function makeManifest(overrides: Partial<Manifest> = {}): Manifest {
         {
           year: fixtureYears[key],
           distribution,
+          histogram: { min: 0, max: 100, counts: [100, 300, 500, 441, 300, 100] },
           sources: [
             {
               id: key,
@@ -79,6 +80,7 @@ export function makeArea(overrides: Partial<AreaRecord> = {}): AreaRecord {
       population: {
         value: 5,
         score: 90,
+        rank: 175,
         series: {
           residents: [
             [2020, 100000],
@@ -93,6 +95,7 @@ export function makeArea(overrides: Partial<AreaRecord> = {}): AreaRecord {
       aging: {
         value: 30,
         score: 50,
+        rank: 870,
         series: {
           ratio: [
             [2020, 28],
@@ -103,6 +106,7 @@ export function makeArea(overrides: Partial<AreaRecord> = {}): AreaRecord {
       migration: {
         value: 0.5,
         score: 80,
+        rank: 348,
         series: {
           net: [
             [2022, 510],
@@ -124,6 +128,7 @@ export function makeArea(overrides: Partial<AreaRecord> = {}): AreaRecord {
       business: {
         value: 39.6,
         score: 40,
+        rank: 1045,
         series: {
           establishments: [
             [2016, 3900],
@@ -134,6 +139,7 @@ export function makeArea(overrides: Partial<AreaRecord> = {}): AreaRecord {
       employment: {
         value: 4.5,
         score: 20,
+        rank: 348,
         series: {
           unemployment: [
             [2015, 4],
@@ -144,6 +150,7 @@ export function makeArea(overrides: Partial<AreaRecord> = {}): AreaRecord {
       income: {
         value: 350,
         score: 60,
+        rank: 696,
         series: {
           perTaxpayer: [
             [2019, 340],
@@ -154,6 +161,7 @@ export function makeArea(overrides: Partial<AreaRecord> = {}): AreaRecord {
       fiscal: {
         value: 0.8,
         score: 85,
+        rank: 261,
         series: {
           index: [
             [2017, 0.7],
@@ -170,7 +178,7 @@ export function makeArea(overrides: Partial<AreaRecord> = {}): AreaRecord {
 export function withMissing(area: AreaRecord, keys: IndicatorKey[]): AreaRecord {
   const indicators = { ...area.indicators };
   for (const key of keys) {
-    indicators[key] = { value: null, score: null, series: {}, missing: "not-published" };
+    indicators[key] = { value: null, score: null, rank: null, series: {}, missing: "not-published" };
   }
   return { ...area, indicators };
 }

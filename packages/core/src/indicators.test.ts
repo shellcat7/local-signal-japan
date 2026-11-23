@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeDirection, computeMetric, INDICATORS, type AreaSeries } from "./indicators";
+import { computeChange, computeDirection, computeMetric, INDICATORS, type AreaSeries } from "./indicators";
 import { INDICATOR_KEYS } from "./model";
 import { fixtureYears, makeArea } from "./testing/fixtures";
 import { areaSeries } from "./view";
@@ -62,6 +62,25 @@ describe("computeMetric", () => {
     const input = series();
     input.fiscal.index = [];
     expect(computeMetric("fiscal", input, 2022)).toEqual({ value: null, missing: "not-published" });
+  });
+});
+
+describe("computeChange", () => {
+  it("5年前と比べた変化を、指標に合った単位で返す", () => {
+    const input = series();
+    expect(computeChange("population", input, 2025)).toEqual({ value: 5, unit: "%", decimals: 1, label: "5年前比" });
+    expect(computeChange("aging", input, 2025)).toMatchObject({ value: 2, unit: "pt" });
+    expect(computeChange("employment", input, 2020)).toMatchObject({ value: 0.5, unit: "pt" });
+    expect(computeChange("income", input, 2024)).toMatchObject({ value: 2.9, unit: "%" });
+    expect(computeChange("fiscal", input, 2022)).toMatchObject({ value: 0.1, unit: "", decimals: 2 });
+  });
+
+  it("比べられない指標と、過去の値がない場合は null", () => {
+    const input = series();
+    expect(computeChange("migration", input, 2024)).toBeNull();
+    expect(computeChange("business", input, 2021)).toBeNull();
+    input.fiscal.index = [[2022, 0.8]];
+    expect(computeChange("fiscal", input, 2022)).toBeNull();
   });
 });
 

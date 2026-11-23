@@ -3,7 +3,7 @@ import { APP_VERSION, DOCS_URL, REPOSITORY_URL, SITE_NAME } from "../lib/site";
 
 export function Footer({ manifest }: { manifest: Manifest | null }) {
   return (
-    <footer className="site-footer">
+    <footer className="site-footer container">
       {manifest && (
         <div className="site-footer__source">
           <p>

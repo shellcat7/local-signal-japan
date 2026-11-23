@@ -157,11 +157,33 @@ describe("buildDataset", () => {
     expect(ward.indicators.population).toMatchObject({ value: 2, score: 11 });
   });
 
+  it("基準集団の中で、値が大きい順の順位を付ける", () => {
+    // 所得は市ごとに異なる値なので、最大の市が1位、最小の市が最下位になる。
+    expect(areaOf(cityCode(CITY_COUNT - 1)).indicators.income.rank).toBe(1);
+    expect(areaOf(cityCode(0)).indicators.income.rank).toBe(CITY_COUNT);
+    // 高齢化率も値が大きい順。スコアの向き（低いほど高スコア）とは関係なく付ける。
+    expect(areaOf(cityCode(CITY_COUNT - 1)).indicators.aging.rank).toBe(1);
+    // 区は基準集団に入らないので順位を持たない。
+    expect(areaOf("01101").indicators.aging.rank).toBeNull();
+  });
+
+  it("分布図の度数と、全国一覧を組み立てる", () => {
+    const { histogram, distribution } = dataset.manifest.indicators.income;
+    expect(histogram.counts.reduce((sum, count) => sum + count, 0)).toBe(distribution.count);
+    expect(histogram.min).toBeGreaterThanOrEqual(distribution.min);
+    expect(histogram.max).toBeLessThanOrEqual(distribution.max);
+
+    expect(dataset.national.areas).toHaveLength(areas.length);
+    const row = dataset.national.areas.find((candidate) => candidate.code === cityCode(100));
+    expect(row?.values[dataset.national.indicatorKeys.indexOf("income")]).toBe(310);
+  });
+
   it("公表されていない指標は理由つきの欠損にする", () => {
     const ward = areaOf("01101");
     expect(ward.indicators.income).toEqual({
       value: null,
       score: null,
+      rank: null,
       series: { perTaxpayer: [] },
       missing: "not-published"
     });

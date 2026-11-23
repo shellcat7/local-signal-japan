@@ -13,6 +13,7 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self'",
   "style-src-attr 'unsafe-inline'",
   "img-src 'self' data:",
+  "font-src 'self'",
   "connect-src 'self'",
   "base-uri 'none'",
   "form-action 'none'"

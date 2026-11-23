@@ -43,6 +43,30 @@ describe("buildAreaView", () => {
     expect(indicatorOf(view, "employment").position).toBe(80);
   });
 
+  it("一覧用に、水準・5年前比・全国順位をまとめる", () => {
+    const view = viewOf();
+    // 人口は増減率ではなく人口そのものを水準として見せ、増減率は変化として見せる。
+    expect(indicatorOf(view, "population")).toMatchObject({
+      headline: { label: "住民基本台帳人口", text: "105,000人", period: "2025年1月1日" },
+      change: { label: "5年前比", text: "+5.0%", sign: 1 },
+      rank: 175,
+      rankTotal: 1741
+    });
+    expect(indicatorOf(view, "aging")).toMatchObject({
+      headline: { label: "65歳以上人口の割合", text: "30.0%", period: "2025年" },
+      change: { label: "5年前比", text: "+2.0pt", sign: 1 }
+    });
+    expect(indicatorOf(view, "fiscal").change).toEqual({ label: "5年前比", text: "+0.10", sign: 1 });
+    // 比べられない指標には変化を出さない。
+    expect(indicatorOf(view, "migration").change).toBeNull();
+    expect(indicatorOf(view, "business").change).toBeNull();
+  });
+
+  it("欠損した指標には、水準・変化・順位を出さない", () => {
+    const view = viewOf(withMissing(makeArea(), ["fiscal"]));
+    expect(indicatorOf(view, "fiscal")).toMatchObject({ headline: null, change: null, rank: null });
+  });
+
   it("関連する値に基準時点を添える", () => {
     const facts = indicatorOf(viewOf(), "population").facts;
     expect(facts).toEqual([

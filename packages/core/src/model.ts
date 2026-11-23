@@ -4,7 +4,7 @@
  */
 
 /** データセットの形式バージョン。互換性のない変更をしたら上げる。 */
-export const DATASET_SCHEMA_VERSION = 1;
+export const DATASET_SCHEMA_VERSION = 2;
 
 export const INDICATOR_KEYS = [
   "population",

@@ -1,34 +1,84 @@
 import { describe, expect, it } from "vitest";
-import { formatHash, parseHash } from "./route";
+import { formatHash, parseHash, type Route } from "./route";
 
 describe("parseHash", () => {
   it("市区町村コードとタブを読む", () => {
-    expect(parseHash("#area=13101&tab=indicators")).toEqual({ areaCode: "13101", tab: "indicators" });
+    expect(parseHash("#area=13101&tab=indicators")).toEqual({
+      view: "area",
+      areaCode: "13101",
+      tab: "indicators",
+      compare: []
+    });
   });
 
   it("タブの指定がなければ概要にする", () => {
-    expect(parseHash("#area=16210")).toEqual({ areaCode: "16210", tab: "overview" });
+    expect(parseHash("#area=16210")).toMatchObject({ areaCode: "16210", tab: "overview" });
+  });
+
+  it("比較する市区町村は、重複と自分自身を除いて4つまで読む", () => {
+    expect(parseHash("#area=13101&tab=comparison&with=14117,13101,14117,16210,abc,01100,27100,40130")).toMatchObject({
+      compare: ["14117", "16210", "01100", "27100"]
+    });
+  });
+
+  it("ランキングの条件を読む", () => {
+    expect(parseHash("#view=ranking&metric=income&order=asc&pref=13&size=over-200k")).toEqual({
+      view: "ranking",
+      metric: "income",
+      order: "asc",
+      prefCode: "13",
+      size: "over-200k"
+    });
+    expect(parseHash("#view=ranking")).toEqual({
+      view: "ranking",
+      metric: "overall",
+      order: "desc",
+      prefCode: null,
+      size: "all"
+    });
   });
 
   it("不正な値は無視する", () => {
-    expect(parseHash("")).toEqual({ areaCode: null, tab: "overview" });
-    expect(parseHash("#area=abc&tab=unknown")).toEqual({ areaCode: null, tab: "overview" });
-    expect(parseHash("#area=131011")).toEqual({ areaCode: null, tab: "overview" });
+    expect(parseHash("")).toEqual({ view: "home" });
+    expect(parseHash("#main")).toEqual({ view: "home" });
+    expect(parseHash("#area=abc&tab=unknown")).toEqual({ view: "home" });
+    expect(parseHash("#area=131011")).toEqual({ view: "home" });
+    expect(parseHash("#view=ranking&metric=bogus&pref=48&size=huge")).toEqual({
+      view: "ranking",
+      metric: "overall",
+      order: "desc",
+      prefCode: null,
+      size: "all"
+    });
   });
 });
 
 describe("formatHash", () => {
-  it("概要タブは省略して短くする", () => {
-    expect(formatHash({ areaCode: "13101", tab: "overview" })).toBe("#area=13101");
-    expect(formatHash({ areaCode: "13101", tab: "report" })).toBe("#area=13101&tab=report");
+  it("既定の値は省略して短くする", () => {
+    expect(formatHash({ view: "area", areaCode: "13101", tab: "overview", compare: [] })).toBe("#area=13101");
+    expect(formatHash({ view: "area", areaCode: "13101", tab: "report", compare: [] })).toBe("#area=13101&tab=report");
+    expect(formatHash({ view: "ranking", metric: "overall", order: "desc", prefCode: null, size: "all" })).toBe(
+      "#view=ranking"
+    );
   });
 
-  it("市区町村が未選択ならハッシュを付けない", () => {
-    expect(formatHash({ areaCode: null, tab: "comparison" })).toBe("");
+  it("比較する市区町村をカンマ区切りで書く", () => {
+    expect(formatHash({ view: "area", areaCode: "13101", tab: "comparison", compare: ["14117", "16210"] })).toBe(
+      "#area=13101&tab=comparison&with=14117,16210"
+    );
+  });
+
+  it("トップページにはハッシュを付けない", () => {
+    expect(formatHash({ view: "home" })).toBe("");
   });
 
   it("parseHash と往復できる", () => {
-    const route = { areaCode: "14117", tab: "comparison" } as const;
-    expect(parseHash(formatHash(route))).toEqual(route);
+    const routes: Route[] = [
+      { view: "area", areaCode: "14117", tab: "comparison", compare: ["13101", "16210"] },
+      { view: "ranking", metric: "aging", order: "asc", prefCode: "47", size: "10k-50k" }
+    ];
+    for (const route of routes) {
+      expect(parseHash(formatHash(route))).toEqual(route);
+    }
   });
 });

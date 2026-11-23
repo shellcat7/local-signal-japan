@@ -1,6 +1,6 @@
 import { INDICATORS } from "./indicators";
 import { INDICATOR_KEYS, type IndicatorKey } from "./model";
-import type { AreaRecord, Distribution } from "./schema";
+import type { AreaRecord, Distribution, Histogram } from "./schema";
 
 export type ScoreBand = "upper" | "middle" | "lower" | "missing";
 
@@ -82,6 +82,43 @@ export function summarizeDistribution(sortedValues: readonly number[]): Distribu
   };
 }
 
+/** 降順の順位（同じ値は同順位）。昇順に並んだ基準集団の中で、value より大きい値の数 + 1。 */
+export function rankOf(sortedReference: readonly number[], value: number): number {
+  let greater = 0;
+  for (let index = sortedReference.length - 1; index >= 0; index -= 1) {
+    if ((sortedReference[index] as number) > value) greater += 1;
+    else break;
+  }
+  return greater + 1;
+}
+
+/** 分布図の階級数。 */
+export const HISTOGRAM_BINS = 28;
+
+/** 昇順に並んだ値から度数分布を作る。範囲は1%点〜99%点で、外側の値は両端の階級に入れる。 */
+export function buildHistogram(sortedValues: readonly number[], bins = HISTOGRAM_BINS): Histogram {
+  if (sortedValues.length === 0) {
+    throw new Error("分布を作る値がありません");
+  }
+
+  const min = quantile(sortedValues, 0.01);
+  const max = quantile(sortedValues, 0.99);
+  const histogram: Histogram = { min, max, counts: Array.from({ length: bins }, () => 0) };
+  for (const value of sortedValues) {
+    const bin = histogramBinOf(histogram, value);
+    histogram.counts[bin] = (histogram.counts[bin] as number) + 1;
+  }
+  return histogram;
+}
+
+/** value が入る階級の番号。範囲の外側は両端の階級になる。 */
+export function histogramBinOf(histogram: Histogram, value: number): number {
+  const bins = histogram.counts.length;
+  const span = histogram.max - histogram.min;
+  if (span <= 0) return 0;
+  return Math.max(0, Math.min(bins - 1, Math.floor(((value - histogram.min) / span) * bins)));
+}
+
 export type Coverage = { available: number; total: number };
 
 export function coverage(area: Pick<AreaRecord, "indicators">): Coverage {
@@ -89,15 +126,20 @@ export function coverage(area: Pick<AreaRecord, "indicators">): Coverage {
   return { available, total: INDICATOR_KEYS.length };
 }
 
-/** 利用できる指標の補助スコアの単純平均。指標が少なすぎる場合は null。 */
-export function overallScore(area: Pick<AreaRecord, "indicators">): number | null {
-  const scores = INDICATOR_KEYS.map((key) => area.indicators[key].score).filter((score) => score !== null);
+/** 補助スコアの単純平均。欠損(null)は除き、残りが少なすぎる場合は null。 */
+export function averageScore(scores: ReadonlyArray<number | null>): number | null {
+  const available = scores.filter((score) => score !== null);
 
-  if (scores.length < MIN_INDICATORS_FOR_OVERALL) {
+  if (available.length < MIN_INDICATORS_FOR_OVERALL) {
     return null;
   }
 
-  return Math.round(scores.reduce((total, score) => total + score, 0) / scores.length);
+  return Math.round(available.reduce((total, score) => total + score, 0) / available.length);
+}
+
+/** 総合補助スコア。利用できる指標の補助スコアの単純平均。 */
+export function overallScore(area: Pick<AreaRecord, "indicators">): number | null {
+  return averageScore(INDICATOR_KEYS.map((key) => area.indicators[key].score));
 }
 
 export type Confidence = "high" | "medium" | "low";

@@ -32,8 +32,8 @@ export function ReportPanel({ areaCode, markdown }: ReportPanelProps) {
   };
 
   return (
-    <section className="panel" aria-labelledby="report-title">
-      <div className="panel__head panel__head--actions">
+    <section className="card" aria-labelledby="report-title">
+      <div className="card__head">
         <div>
           <h3 id="report-title">Markdownレポート</h3>
           <p>画面と同じ指標値・シグナル・注意・出典を、1つのファイルにまとめたものです。</p>

@@ -1,15 +1,16 @@
 import { Database, Scale, ShieldCheck } from "lucide-react";
 import {
-  areaLocalName,
-  findAreaEntry,
   INDICATOR_KEYS,
   INDICATORS,
   metricPeriodText,
   type AreaIndex,
-  type Manifest
+  type Manifest,
+  type NationalFile
 } from "@local-signal-japan/core";
-import { EXAMPLE_AREA_CODES } from "../lib/site";
+import type { AsyncState } from "../lib/useAsync";
+import type { RankingRoute } from "../lib/route";
 import { HowToRead } from "./HowToRead";
+import { Leaderboard } from "./Leaderboard";
 import { ScrollRegion } from "./ScrollRegion";
 
 const PRINCIPLES = [
@@ -33,74 +34,121 @@ const PRINCIPLES = [
 type LandingProps = {
   manifest: Manifest;
   index: AreaIndex;
-  onSelect: (areaCode: string) => void;
+  national: AsyncState<NationalFile>;
+  onOpenArea: (areaCode: string) => void;
+  onOpenRanking: (route: RankingRoute) => void;
 };
 
-export function Landing({ manifest, index, onSelect }: LandingProps) {
-  const examples = EXAMPLE_AREA_CODES.map((code) => findAreaEntry(index, code)).filter((entry) => entry !== undefined);
+/** トップページの、検索欄より下の部分。 */
+export function Landing({ manifest, index, national, onOpenArea, onOpenRanking }: LandingProps) {
+  const prefNames = new Map(index.prefectures.map((pref) => [pref.code, pref.name]));
 
   return (
     <div className="landing">
-      {examples.length > 0 && (
-        <p className="examples">
-          <span className="examples__label">例から見る</span>
-          {examples.map((example) => (
-            <button type="button" className="chip-button" key={example.code} onClick={() => onSelect(example.code)}>
-              {example.prefName} {areaLocalName(example)}
-            </button>
-          ))}
-        </p>
+      {national.status === "ready" && (
+        <section className="section" aria-labelledby="leaderboards-title">
+          <header className="section__head">
+            <h2 id="leaderboards-title">いまのデータから</h2>
+            <p>人口20万人以上の市・特別区を、指標値の順に並べた抜粋です。条件を変えた一覧はランキングで見られます。</p>
+          </header>
+          <div className="leaderboards">
+            <Leaderboard
+              rows={national.value.areas}
+              prefNames={prefNames}
+              metric="population"
+              order="desc"
+              size="over-200k"
+              title="人口の増減率が大きい"
+              onOpenArea={onOpenArea}
+              onOpenRanking={onOpenRanking}
+            />
+            <Leaderboard
+              rows={national.value.areas}
+              prefNames={prefNames}
+              metric="migration"
+              order="desc"
+              size="over-200k"
+              title="転入超過率が大きい"
+              onOpenArea={onOpenArea}
+              onOpenRanking={onOpenRanking}
+            />
+            <Leaderboard
+              rows={national.value.areas}
+              prefNames={prefNames}
+              metric="aging"
+              order="asc"
+              size="over-200k"
+              title="高齢化率が小さい"
+              onOpenArea={onOpenArea}
+              onOpenRanking={onOpenRanking}
+            />
+          </div>
+        </section>
       )}
 
-      <ul className="principles">
-        {PRINCIPLES.map(({ icon: Icon, title, body }) => (
-          <li className="principle" key={title}>
-            <Icon size={20} aria-hidden="true" />
-            <div>
-              <h2>{title}</h2>
+      <section className="section" aria-labelledby="principles-title">
+        <header className="section__head">
+          <h2 id="principles-title">この道具の約束</h2>
+        </header>
+        <ul className="principles">
+          {PRINCIPLES.map(({ icon: Icon, title, body }) => (
+            <li className="principle" key={title}>
+              <span className="principle__icon">
+                <Icon size={18} aria-hidden="true" />
+              </span>
+              <h3>{title}</h3>
               <p>{body}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      <section className="panel" aria-labelledby="indicator-list-title">
-        <h2 id="indicator-list-title">収録している指標</h2>
-        <ScrollRegion label="収録している指標の表">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">指標</th>
-                <th scope="col">見ているもの</th>
-                <th scope="col">基準時点</th>
-                <th scope="col">出典の統計</th>
-              </tr>
-            </thead>
-            <tbody>
-              {INDICATOR_KEYS.map((key) => {
-                const definition = INDICATORS[key];
-                const meta = manifest.indicators[key];
-                const statNames = [...new Set(meta.sources.map((source) => source.statName))].join("、");
-                return (
-                  <tr key={key}>
-                    <th scope="row">{definition.label}</th>
-                    <td>
-                      {definition.metricLabel}
-                      <span className="cell-note">{definition.summary}</span>
-                    </td>
-                    <td className="is-nowrap">{metricPeriodText(key, meta.year)}</td>
-                    <td>{statNames}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </ScrollRegion>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <section className="panel" aria-labelledby="how-to-read-title">
-        <h2 id="how-to-read-title">補助スコアの読み方</h2>
-        <HowToRead manifest={manifest} />
+      <section className="section" aria-labelledby="indicator-list-title">
+        <header className="section__head">
+          <h2 id="indicator-list-title">収録している指標</h2>
+          <p>すべて総務省統計局「統計ダッシュボード」の API から取得した公的統計です。</p>
+        </header>
+        <div className="card card--flush">
+          <ScrollRegion label="収録している指標の表">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">指標</th>
+                  <th scope="col">見ているもの</th>
+                  <th scope="col">基準時点</th>
+                  <th scope="col">出典の統計</th>
+                </tr>
+              </thead>
+              <tbody>
+                {INDICATOR_KEYS.map((key) => {
+                  const definition = INDICATORS[key];
+                  const meta = manifest.indicators[key];
+                  const statNames = [...new Set(meta.sources.map((source) => source.statName))].join("、");
+                  return (
+                    <tr key={key}>
+                      <th scope="row">{definition.label}</th>
+                      <td>
+                        {definition.metricLabel}
+                        <span className="cell-note">{definition.summary}</span>
+                      </td>
+                      <td className="is-nowrap is-mono">{metricPeriodText(key, meta.year)}</td>
+                      <td>{statNames}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </ScrollRegion>
+        </div>
+      </section>
+
+      <section className="section" aria-labelledby="how-to-read-title">
+        <header className="section__head">
+          <h2 id="how-to-read-title">補助スコアの読み方</h2>
+        </header>
+        <div className="card">
+          <HowToRead manifest={manifest} />
+        </div>
       </section>
     </div>
   );

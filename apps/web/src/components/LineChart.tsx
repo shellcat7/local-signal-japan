@@ -51,6 +51,9 @@ export function LineChart({
     marginLeft + (lastYear === firstYear ? plotWidth / 2 : ((year - firstYear) / (lastYear - firstYear)) * plotWidth);
   const y = (value: number) => MARGIN.top + (1 - (value - axis.min) / (axis.max - axis.min)) * plotHeight;
 
+  // 面の塗りは、正負をまたぐ系列では 0 の線から、それ以外では下端から伸ばす。
+  const baseY = axis.min < 0 && axis.max > 0 ? y(0) : MARGIN.top + plotHeight;
+
   const formatValue = (value: number) => `${formatNumber(value, decimals, signed)}${unit}`;
   const segments =
     breakAfterYear === undefined
@@ -127,11 +130,18 @@ export function LineChart({
 
         {segments.map((segment) =>
           segment.length > 1 ? (
-            <polyline
-              className="chart-line"
-              key={segment[0]?.[0]}
-              points={segment.map(([year, value]) => `${x(year)},${y(value)}`).join(" ")}
-            />
+            <g key={segment[0]?.[0]}>
+              <polygon
+                className="chart-area"
+                points={`${x((segment[0] as SeriesPoint)[0])},${baseY} ${segment
+                  .map(([year, value]) => `${x(year)},${y(value)}`)
+                  .join(" ")} ${x((segment.at(-1) as SeriesPoint)[0])},${baseY}`}
+              />
+              <polyline
+                className="chart-line"
+                points={segment.map(([year, value]) => `${x(year)},${y(value)}`).join(" ")}
+              />
+            </g>
           ) : null
         )}
 

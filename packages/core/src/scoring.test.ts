@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildHistogram,
   confidence,
   coverage,
+  histogramBinOf,
   overallScore,
   percentileOf,
+  rankOf,
   positionFromScore,
   scoreBand,
   scoreFromPercentile,
@@ -71,6 +74,41 @@ describe("summarizeDistribution", () => {
       p90: 4.6,
       max: 5
     });
+  });
+});
+
+describe("rankOf", () => {
+  const reference = [10, 20, 20, 30, 40];
+
+  it("値が大きい順に数え、同じ値は同順位にする", () => {
+    expect(rankOf(reference, 40)).toBe(1);
+    expect(rankOf(reference, 30)).toBe(2);
+    expect(rankOf(reference, 20)).toBe(3);
+    expect(rankOf(reference, 10)).toBe(5);
+  });
+});
+
+describe("buildHistogram", () => {
+  const values = Array.from({ length: 1000 }, (_, index) => index);
+
+  it("1%点〜99%点を等分し、すべての値をどこかの階級に数える", () => {
+    const histogram = buildHistogram(values, 10);
+    expect(histogram.min).toBeCloseTo(9.99);
+    expect(histogram.max).toBeCloseTo(989.01);
+    expect(histogram.counts).toHaveLength(10);
+    expect(histogram.counts.reduce((sum, count) => sum + count, 0)).toBe(1000);
+  });
+
+  it("範囲の外側の値は両端の階級に入れる", () => {
+    const histogram = buildHistogram(values, 10);
+    expect(histogramBinOf(histogram, -500)).toBe(0);
+    expect(histogramBinOf(histogram, 99999)).toBe(9);
+    expect(histogramBinOf(histogram, 500)).toBe(5);
+  });
+
+  it("値がすべて同じでも壊れない", () => {
+    const histogram = buildHistogram([5, 5, 5], 4);
+    expect(histogram.counts).toEqual([3, 0, 0, 0]);
   });
 });
 

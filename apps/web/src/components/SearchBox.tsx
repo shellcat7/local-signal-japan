@@ -1,10 +1,20 @@
-import { useId, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Search } from "lucide-react";
 import { AREA_KIND_LABELS, areaLocalName, searchAreas, type AreaIndex } from "@local-signal-japan/core";
 
 type SearchBoxProps = {
   index: AreaIndex;
   onSelect: (areaCode: string) => void;
+  /** hero = トップページの大きな検索欄、bar = 上部バーの検索欄、inline = 比較に追加する欄。 */
+  variant?: "hero" | "bar" | "inline";
+  label?: string;
+  placeholder?: string;
+  /** 選んだあと入力欄を空に戻す（続けて追加する欄で使う）。 */
+  clearOnSelect?: boolean;
+  /** 「/」キーでこの欄にフォーカスを移す。 */
+  shortcut?: boolean;
+  /** 候補から除く市区町村コード。 */
+  exclude?: readonly string[];
 };
 
 const MAX_RESULTS = 8;
@@ -12,23 +22,50 @@ const MAX_RESULTS = 8;
 /**
  * 市区町村の検索欄。候補の絞り込みはブラウザ内で完結し、入力した文字はどこにも送信・保存しない。
  */
-export function SearchBox({ index, onSelect }: SearchBoxProps) {
+export function SearchBox({
+  index,
+  onSelect,
+  variant = "hero",
+  label = "市区町村をさがす",
+  placeholder = "例: 千代田区、なんと、14117",
+  clearOnSelect = false,
+  shortcut = false,
+  exclude
+}: SearchBoxProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   const inputId = useId();
 
-  const results = useMemo(() => searchAreas(index, query, MAX_RESULTS), [index, query]);
+  const results = useMemo(() => {
+    const found = searchAreas(index, query, MAX_RESULTS + (exclude?.length ?? 0));
+    return (exclude ? found.filter((area) => !exclude.includes(area.code)) : found).slice(0, MAX_RESULTS);
+  }, [index, query, exclude]);
   const showList = open && query.trim() !== "";
   // 候補が減っても、選択位置が範囲の外を指さないようにする。
   const activePosition = Math.min(activeIndex, Math.max(results.length - 1, 0));
   const optionId = (position: number) => `${listId}-option-${position}`;
 
+  useEffect(() => {
+    if (!shortcut) return;
+    const focusOnSlash = (event: globalThis.KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing = target?.matches("input, textarea, select, [contenteditable='true']") ?? false;
+      if (event.key === "/" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", focusOnSlash);
+    return () => window.removeEventListener("keydown", focusOnSlash);
+  }, [shortcut]);
+
   const choose = (position: number) => {
     const result = results[position];
     if (!result) return;
-    setQuery(areaLocalName(result));
+    setQuery(clearOnSelect ? "" : areaLocalName(result));
     setActiveIndex(0);
     setOpen(false);
     onSelect(result.code);
@@ -63,14 +100,14 @@ export function SearchBox({ index, onSelect }: SearchBoxProps) {
   };
 
   return (
-    <div className="search">
-      <label className="search__label" htmlFor={inputId}>
-        市区町村をさがす
-        <span>名前・よみがな・5桁の市区町村コード</span>
+    <div className="search" data-variant={variant}>
+      <label className={variant === "hero" ? "search__label" : "visually-hidden"} htmlFor={inputId}>
+        {label}
       </label>
       <div className="search__field">
-        <Search className="search__icon" size={20} aria-hidden="true" />
+        <Search className="search__icon" size={variant === "hero" ? 20 : 16} aria-hidden="true" />
         <input
+          ref={inputRef}
           id={inputId}
           className="search__input"
           type="text"
@@ -82,7 +119,7 @@ export function SearchBox({ index, onSelect }: SearchBoxProps) {
           autoComplete="off"
           spellCheck={false}
           enterKeyHint="search"
-          placeholder="例: 千代田区、なんと、14117"
+          placeholder={placeholder}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -93,6 +130,11 @@ export function SearchBox({ index, onSelect }: SearchBoxProps) {
           onBlur={() => setOpen(false)}
           onKeyDown={handleKeyDown}
         />
+        {shortcut && (
+          <kbd className="search__kbd" aria-hidden="true">
+            /
+          </kbd>
+        )}
       </div>
 
       <ul className="search__list" id={listId} role="listbox" aria-label="市区町村の候補" hidden={!showList}>
@@ -111,7 +153,8 @@ export function SearchBox({ index, onSelect }: SearchBoxProps) {
           >
             <span className="search__option-name">{areaLocalName(result)}</span>
             <span className="search__option-meta">
-              {result.prefName}・{AREA_KIND_LABELS[result.kind]}・{result.code}
+              {result.prefName}・{AREA_KIND_LABELS[result.kind]}
+              <code>{result.code}</code>
             </span>
           </li>
         ))}

@@ -30,6 +30,8 @@ export type IndicatorDefinition = {
   label: string;
   /** スコア対象の指標値の名前。 */
   metricLabel: string;
+  /** 一覧で水準に添える短い名前。 */
+  headlineLabel: string;
   unit: string;
   decimals: number;
   /** 指標値に符号（+/-）を付けて表示するか。 */
@@ -56,6 +58,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     key: "population",
     label: "人口",
     metricLabel: "5年間の人口増減率",
+    headlineLabel: "住民基本台帳人口",
     unit: "%",
     decimals: 1,
     signed: true,
@@ -76,6 +79,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     key: "aging",
     label: "高齢化",
     metricLabel: "高齢化率（65歳以上人口の割合）",
+    headlineLabel: "65歳以上人口の割合",
     unit: "%",
     decimals: 1,
     signed: false,
@@ -96,6 +100,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     key: "migration",
     label: "転入・転出",
     metricLabel: "転入超過率（直近3年平均）",
+    headlineLabel: "転入超過率・3年平均",
     unit: "%",
     decimals: 2,
     signed: true,
@@ -123,6 +128,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     key: "business",
     label: "事業所",
     metricLabel: "人口千人当たりの民営事業所数",
+    headlineLabel: "人口千人当たりの事業所数",
     unit: "事業所",
     decimals: 1,
     signed: false,
@@ -146,6 +152,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     key: "employment",
     label: "雇用",
     metricLabel: "完全失業率（国勢調査）",
+    headlineLabel: "完全失業率",
     unit: "%",
     decimals: 1,
     signed: false,
@@ -166,6 +173,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     key: "income",
     label: "所得",
     metricLabel: "納税義務者1人当たりの課税対象所得",
+    headlineLabel: "納税義務者1人当たり",
     unit: "万円",
     decimals: 1,
     signed: false,
@@ -189,6 +197,7 @@ export const INDICATORS: Record<IndicatorKey, IndicatorDefinition> = {
     key: "fiscal",
     label: "財政",
     metricLabel: "財政力指数",
+    headlineLabel: "財政力指数",
     unit: "",
     decimals: 2,
     signed: false,
@@ -307,22 +316,52 @@ function changeRate(points: SeriesPoint[] | undefined, year: number, lag: number
   return current === null || past === null || past <= 0 ? null : roundTo((current / past - 1) * 100, 1);
 }
 
-/** 直近の動き。判定基準は各指標の directionBasis を参照。 */
-export function computeDirection(key: IndicatorKey, series: AreaSeries, year: number): Direction {
+/** 過去の時点と比べた変化。pt は割合どうしの差(パーセントポイント)。 */
+export type Change = { value: number; unit: "%" | "pt" | ""; decimals: number; label: string };
+
+const CHANGE_LABEL = `${COMPARISON_LAG_YEARS}年前比`;
+
+/**
+ * 5年前（国勢調査の指標は前回調査）と比べた変化。比べられない指標は null。
+ * - 転入・転出: 指標値そのものが3年平均の流れなので、過去との差は出さない
+ * - 事業所: 2021年に調査方法が変わったため、比べない
+ */
+export function computeChange(key: IndicatorKey, series: AreaSeries, year: number): Change | null {
+  const of = (value: number | null, unit: Change["unit"], decimals: number): Change | null =>
+    value === null ? null : { value, unit, decimals, label: CHANGE_LABEL };
+
   switch (key) {
     case "population":
-      return compare(changeRate(series.population.residents, year, COMPARISON_LAG_YEARS), 1);
+      return of(changeRate(series.population.residents, year, COMPARISON_LAG_YEARS), "%", 1);
     case "aging":
-      return compare(difference(series.aging.ratio, year, 5, 1), 0.5);
-    case "migration":
-      return compare(computeMetric("migration", series, year).value, 0.1);
-    case "business":
-      return "unknown";
+      return of(difference(series.aging.ratio, year, COMPARISON_LAG_YEARS, 1), "pt", 1);
     case "employment":
-      return compare(difference(series.employment.unemployment, year, 5, 1), 0.3);
+      return of(difference(series.employment.unemployment, year, COMPARISON_LAG_YEARS, 1), "pt", 1);
     case "income":
-      return compare(changeRate(series.income.perTaxpayer, year, COMPARISON_LAG_YEARS), 2);
+      return of(changeRate(series.income.perTaxpayer, year, COMPARISON_LAG_YEARS), "%", 1);
     case "fiscal":
-      return compare(difference(series.fiscal.index, year, COMPARISON_LAG_YEARS, 2), 0.02);
+      return of(difference(series.fiscal.index, year, COMPARISON_LAG_YEARS, 2), "", 2);
+    case "migration":
+    case "business":
+      return null;
   }
+}
+
+/** 「直近の動き」とみなす変化の大きさ（これを超えたら動きあり）。 */
+const DIRECTION_THRESHOLDS: Record<Exclude<IndicatorKey, "business">, number> = {
+  population: 1,
+  aging: 0.5,
+  migration: 0.1,
+  employment: 0.3,
+  income: 2,
+  fiscal: 0.02
+};
+
+/** 直近の動き。判定基準は各指標の directionBasis を参照。 */
+export function computeDirection(key: IndicatorKey, series: AreaSeries, year: number): Direction {
+  if (key === "business") return "unknown";
+  // 転入・転出は、3年平均の転入超過率そのものの符号で見る。
+  const value =
+    key === "migration" ? computeMetric(key, series, year).value : (computeChange(key, series, year)?.value ?? null);
+  return compare(value, DIRECTION_THRESHOLDS[key]);
 }
