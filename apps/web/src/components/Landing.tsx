@@ -63,7 +63,7 @@ export function Landing({
   return (
     <div className="landing">
       <section className="home-start" aria-labelledby="home-start-title">
-        <h2 id="home-start-title">全国{formatNumber(manifest.counts.referenceAreas)}のまちを、公的統計で</h2>
+        <h2 id="home-start-title">全国{formatNumber(manifest.counts.referenceAreas)}のまちをさがそう</h2>
         <div className="home-start__buttons">
           <button type="button" className="home-button home-button--kuji" onClick={onDrawKuji}>
             まちくじを引く

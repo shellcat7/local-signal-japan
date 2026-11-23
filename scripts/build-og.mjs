@@ -53,7 +53,7 @@ p { margin-top: 34px; font-size: 38px; line-height: 1.4; }
 .map { position: absolute; right: 40px; top: 30px; width: 480px; }
 </style></head><body><div class="wrap">
 <h1>まちのものさし</h1><div class="rule">${ticks}</div>
-<p>全国1,741のまちを、公的統計で<br>くらべて、あそぶ。</p>
+<p>全国1,741のまちをさがそう</p>
 <div class="pills">
 <span class="pill" style="background:#f5dbe1;border-color:#e0a3b2;box-shadow:0 6px 0 #e0a3b2">まちくじ</span>
 <span class="pill" style="background:#e3ebcd;border-color:#b0c486;box-shadow:0 6px 0 #b0c486">まちクイズ</span>
