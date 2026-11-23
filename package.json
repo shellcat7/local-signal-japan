@@ -24,7 +24,8 @@
     "data:refresh": "tsx packages/dataset/src/refresh.ts",
     "data:map": "node scripts/build-map.mjs",
     "localsignal": "tsx apps/cli/src/index.ts",
-    "og": "node scripts/build-og.mjs"
+    "og": "node scripts/build-og.mjs",
+    "promo": "tsx scripts/build-promo.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
